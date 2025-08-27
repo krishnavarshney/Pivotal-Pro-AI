@@ -1,0 +1,41 @@
+{
+  "name": "pivotal-pro-ai",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react-dom": "^19.1.0",
+    "react": "^19.1.0",
+    "@google/genai": "^1.9.0",
+    "react-grid-layout": "^1.5.2",
+    "papaparse": "^5.5.3",
+    "react-dnd-html5-backend": "^16.0.1",
+    "react-dnd": "^16.0.1",
+    "lodash": "^4.17.21",
+    "xlsx": "0.18.5",
+    "framer-motion": "^11.1.1",
+    "clsx": "^2.1.0",
+    "tailwind-merge": "^2.2.2",
+    "rc-slider": "^10.6.2",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.1",
+    "react-apexcharts": "^1.4.1",
+    "apexcharts": "^3.45.1",
+    "echarts-for-react": "^3.0.2",
+    "echarts": "^5.4.3",
+    "recharts": "^2.12.7",
+    "lottie-react": "^2.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.0",
+    "typescript": "~5.7.2",
+    "vite": "^6.2.0",
+    "@types/recharts": "^1.8.29",
+    "@vitejs/plugin-react": "^4.3.1"
+  }
+}
