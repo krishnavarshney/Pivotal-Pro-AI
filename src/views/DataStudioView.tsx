@@ -139,7 +139,7 @@ const DataSourceManagerPanel: React.FC<{
                         key={source.id}
                         onClick={() => onSelectSource(source.id)}
                         className={cn(
-                            "w-full text-left p-3 flex items-center justify-between gap-2 rounded-lg border transition-colors group",
+                            "w-full text-left p-3 flex items-center justify-between gap-2 rounded-lg border-border transition-colors group",
                             activeSourceId === source.id
                                 ? "bg-primary/10 border-primary text-primary"
                                 : "bg-card hover:bg-accent hover:border-border"

@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect, useRef, useCallback, useLayoutEffect, CSSProperties, MouseEvent as ReactMouseEvent, Fragment, FC } from 'react';
 import _ from 'lodash';
 import { useDashboard } from '../../contexts/DashboardProvider';
@@ -114,7 +115,7 @@ const DrilldownBreadcrumb: FC<{ widget: WidgetState; onDrillUp: (level: number) 
     if (drillPath.length === 0) return null;
 
     return (
-        <div className="flex items-center gap-1 text-sm text-muted-foreground py-2 px-4 border-b flex-shrink-0 bg-muted/50">
+        <div className="glass-panel rounded-b-none rounded-t-xl flex items-center gap-1 text-sm text-muted-foreground py-2 px-4 border-b flex-shrink-0">
             <button onClick={() => onDrillUp(-1)} className="p-1.5 rounded-md hover:bg-accent text-primary" title="Drill up to top level">
                 <span className="icon-hover-anim inline-block"><Home size={14} /></span>
             </button>

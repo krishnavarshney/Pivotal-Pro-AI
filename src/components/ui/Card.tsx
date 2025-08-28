@@ -1,8 +1,9 @@
+
 import React, { FC, ReactNode } from 'react';
 import { cn } from './utils';
 
 export const Card: FC<{ children: ReactNode, className?: string, onClick?: () => void }> = ({ children, className, onClick }) => (
-    <div className={cn("rounded-xl border border-border dark:border-card bg-card text-card-foreground shadow-sm", className)} onClick={onClick}>{children}</div>
+    <div className={cn("rounded-xl text-card-foreground glass-panel", className)} onClick={onClick}>{children}</div>
 );
 export const CardHeader: FC<{ children: ReactNode, className?: string }> = ({ children, className }) => (
     <div className={cn("flex flex-col space-y-1.5 p-6", className)}>{children}</div>

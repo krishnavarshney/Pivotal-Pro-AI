@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useDashboard } from '../../contexts/DashboardProvider';
 import { Dialog, DialogContent, DialogOverlay } from '../ui/Dialog';
@@ -22,9 +23,9 @@ export const FocusWidgetModal: React.FC = () => {
             >
                 <MotionDiv
                     layoutId={`widget-container-${widget.id}`}
-                    className="bg-card rounded-xl border border-border shadow-2xl flex flex-col h-full w-full overflow-hidden"
+                    className="glass-panel rounded-xl flex flex-col h-full w-full overflow-hidden"
                 >
-                    <header className="flex items-center p-4 h-[60px] border-b border-border flex-shrink-0 drag-handle cursor-move active:cursor-grabbing">
+                    <header className="flex items-center p-4 h-[60px] border-b border-border/50 flex-shrink-0 drag-handle cursor-move active:cursor-grabbing">
                         <h3 className="font-semibold text-foreground text-lg">{widget.title}</h3>
                     </header>
                     <div className="flex-grow min-h-0 w-full">

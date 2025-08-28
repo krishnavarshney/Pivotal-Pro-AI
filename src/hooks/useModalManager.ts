@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Pill, ValueFormat, Field, TransformationType, Template, DashboardPage, AdvancedAnalysisResult, DashboardComment, WidgetState, FieldType, AggregationType, Connector } from '../utils/types';
 import _ from 'lodash';

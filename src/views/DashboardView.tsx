@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect, useRef, FC, ReactElement, MouseEvent, KeyboardEvent, useCallback } from 'react';
 import { Responsive, WidthProvider } from 'react-grid-layout';
 import { 
@@ -105,8 +106,43 @@ const UserMenu: FC = () => {
     );
 };
 
+const NlpFilterBar: FC = () => {
+    const { handleNlpFilterQuery } = useDashboard();
+    const [query, setQuery] = useState('');
+    const [isFocused, setIsFocused] = useState(false);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (query.trim()) {
+            handleNlpFilterQuery(query.trim());
+            setQuery('');
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="flex-1 max-w-lg relative">
+            <Sparkles size={18} className={cn("absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors", isFocused ? "text-primary" : "text-muted-foreground")} />
+            <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                placeholder="Filter with AI... (e.g., 'show corporate segment in the east region')"
+                className={cn(
+                    inputClasses,
+                    "pl-10 h-9 w-full transition-all duration-300",
+                    isFocused && "animate-border-glow shadow-lg shadow-primary/10"
+                )}
+                style={{'--glow-color': 'hsl(var(--primary-values))'} as React.CSSProperties}
+            />
+        </form>
+    );
+};
+
+
 const GlobalFilterShelf: FC = () => {
-    const { activePage, setGlobalFilters, openPageFiltersModal, crossFilter, setCrossFilter, openFilterConfigModal } = useDashboard();
+    const { activePage, setGlobalFilters, openPageFiltersModal, crossFilter, setCrossFilter, openFilterConfigModal, newlyAddedPillId } = useDashboard();
     
     const globalFilters = activePage?.globalFilters || [];
 
@@ -127,7 +163,7 @@ const GlobalFilterShelf: FC = () => {
 
     return (
         <div className="glass-panel rounded-lg px-3 py-2 border border-border">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
                 <div className="flex items-center gap-2 flex-shrink-0">
                      <Button variant="outline" size="sm" onClick={openPageFiltersModal} title="Add or edit filters that affect all widgets on this page.">
                         <span className="icon-hover-anim"><Filter size={14} /></span> Page Filters
@@ -137,7 +173,13 @@ const GlobalFilterShelf: FC = () => {
                 <div className="flex-grow flex items-center gap-2 flex-wrap min-h-[32px]">
                      <AnimatePresence>
                     {globalFilters.map((pill, index) => (
-                         <motion.div key={pill.id} initial={{opacity:0, scale:0.5}} animate={{opacity:1, scale:1}} exit={{opacity:0, scale:0.5}}>
+                         <motion.div 
+                            key={pill.id} 
+                            layout
+                            initial={{opacity:0, scale:0.5}} 
+                            animate={{opacity:1, scale:1}} 
+                            exit={{opacity:0, scale:0.5}}
+                         >
                             <ShelfPill
                                 pill={pill}
                                 index={index}
@@ -146,6 +188,7 @@ const GlobalFilterShelf: FC = () => {
                                 onClick={() => handlePillClick(pill, index)}
                                 onMovePill={() => {}}
                                 onContextMenu={() => {}}
+                                isNew={pill.id === newlyAddedPillId}
                             />
                          </motion.div>
                     ))}
@@ -169,6 +212,7 @@ const GlobalFilterShelf: FC = () => {
                      )}
                      </AnimatePresence>
                 </div>
+                <NlpFilterBar />
             </div>
         </div>
     );
@@ -762,19 +806,19 @@ const DashboardHeader: FC = () => {
             
             {/* Right: Actions */}
             <div className="flex items-center justify-end gap-2">
-                 <div className="hidden md:flex items-center gap-1 p-1 border rounded-lg bg-card">
+                 <div className="hidden md:flex items-center gap-1 p-1 border border-border rounded-lg bg-card">
                     <Tooltip content="Undo"><Button variant="ghost" size="icon" onClick={undo} disabled={!canUndo} aria-label="Undo" className="h-7 w-7"><Undo2 size={16}/></Button></Tooltip>
                     <Tooltip content="Redo"><Button variant="ghost" size="icon" onClick={redo} disabled={!canRedo} aria-label="Redo" className="h-7 w-7"><Redo2 size={16}/></Button></Tooltip>
                 </div>
 
-                <div className="hidden md:flex items-center gap-1 p-1 border rounded-lg bg-card">
+                <div className="hidden md:flex items-center gap-1 p-1 border border-border rounded-lg bg-card">
                     <Tooltip content="Comment Mode"><Button variant={dashboardMode === 'comment' ? 'outline' : 'ghost'} size="icon" onClick={() => setDashboardMode(m => m === 'comment' ? 'view' : 'comment')} aria-label="Toggle Comment Mode" className="h-7 w-7"><MessageSquare size={16} /></Button></Tooltip>
                     <Tooltip content="Help Mode"><Button variant={isHelpModeActive ? 'outline' : 'ghost'} size="icon" onClick={toggleHelpMode} aria-label="Toggle Help Mode" className="h-7 w-7"><Info size={16} /></Button></Tooltip>
                     <BookmarkMenu />
                     <ActionsPopover />
                 </div>
                 
-                <div className="p-1 border rounded-lg bg-card">
+                <div className="p-1 border border-border rounded-lg bg-card">
                     <ThemeSwitcher />
                 </div>
                 

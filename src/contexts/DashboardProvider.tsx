@@ -8,7 +8,7 @@ import {
     Relationship, DataModelerLayout, Transformation, AIConfig, AiChatMessage, ThemeConfig, 
     ChartLibrary, DashboardDefaults, ContextMenuItem, ToastNotification, ExplorerState, User, 
     AdvancedAnalysisResult, AiInsight, TransformationType, ChartType, ValueFormat, DashboardComment, StoryPage, DashboardCommentMessage, WhatIfResult, StoryTone, AggregationType, AiDashboardSuggestion,
-    ChatContext, ProactiveInsight, PredictiveModelResult, Connector, DataStudioCanvasLayout, ControlFilterState
+    ChatContext, ProactiveInsight, PredictiveModelResult, Connector, DataStudioCanvasLayout, ControlFilterState, FilterCondition
 } from '../utils/types';
 import { SAMPLE_DATA_SALES, SAMPLE_DATA_IRIS, DASHBOARD_TEMPLATES } from '../utils/constants';
 import { blendData } from '../utils/dataProcessing/blending';
@@ -174,6 +174,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     const globalFilters = useMemo(() => activePage?.globalFilters || [], [activePage]);
     const collapsedRows = useMemo(() => activePage?.collapsedRows || [], [activePage]);
     const importInputRef = useRef<HTMLInputElement>(null);
+    const [newlyAddedPillId, setNewlyAddedPillId] = useState<string | null>(null);
     
     // --- UI Callbacks ---
     const showToast = useCallback((options: Omit<ToastNotification, 'id'>) => {
@@ -245,6 +246,13 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
 
     const setGlobalFilters = (updater: SetStateAction<Pill[]>) => {
         if(activePageId) updatePage(activePageId, p => ({ ...p, globalFilters: typeof updater === 'function' ? updater(p.globalFilters) : updater }));
+    };
+
+    const addGlobalFilter = (pill: Omit<Pill, 'id'>) => {
+        const newPillWithId: Pill = { ...pill, id: _.uniqueId('globalfilter_') };
+        setGlobalFilters(current => [...current, newPillWithId]);
+        setNewlyAddedPillId(newPillWithId.id);
+        setTimeout(() => setNewlyAddedPillId(null), 3000);
     };
 
     const setLayouts = (layouts: { [breakpoint: string]: WidgetLayout[] }) => {
@@ -517,6 +525,57 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                 const errorMessage: AiChatMessage = { id: _.uniqueId('msg_'), role: 'assistant', content: `Error: ${(e as Error).message}` };
                 setAiChatHistory(prev => prev.filter(m => m.id !== thinkingMessage.id).concat(errorMessage));
             }
+        }
+    };
+
+    const handleNlpFilterQuery = async (query: string) => {
+        if (!aiConfig) {
+            showToast({ message: 'AI is not configured.', type: 'error' });
+            return;
+        }
+        setLoadingState({ isLoading: true, message: 'Parsing your request with AI...' });
+        try {
+            const allFields = [...blendedFields.dimensions, ...blendedFields.measures];
+            const result = await aiService.getNlpFilter(aiConfig, query, allFields);
+
+            if (result.type === 'UNAMBIGUOUS' && result.unambiguousResult) {
+                const { fieldName, condition, values } = result.unambiguousResult;
+                const field = allFields.find(f => f.simpleName === fieldName);
+                if (field) {
+                    addGlobalFilter({
+                        name: field.name,
+                        simpleName: field.simpleName,
+                        type: field.type,
+                        aggregation: field.type === FieldType.MEASURE ? AggregationType.SUM : AggregationType.COUNT,
+                        filter: { condition, values },
+                    });
+                    showToast({ type: 'success', message: `Filter added for "${field.simpleName}".` });
+                }
+            } else if (result.type === 'AMBIGUOUS' && result.ambiguousResult) {
+                modalManager.openNlpDisambiguationModal(result.ambiguousResult.term, result.ambiguousResult.possibleFields);
+            } else {
+                showToast({ type: 'info', message: "Couldn't find a filter in your request. Try something like 'show sales in the east region'." });
+            }
+        } catch (error) {
+            showToast({ type: 'error', message: `AI filter parsing failed: ${(error as Error).message}` });
+        } finally {
+            setLoadingState({ isLoading: false, message: '' });
+        }
+    };
+
+    const resolveNlpAmbiguity = (term: string, fieldSimpleName: string) => {
+        modalManager.closeNlpDisambiguationModal();
+        const allFields = [...blendedFields.dimensions, ...blendedFields.measures];
+        const field = allFields.find(f => f.simpleName === fieldSimpleName);
+        if (field) {
+            addGlobalFilter({
+                name: field.name,
+                simpleName: field.simpleName,
+                type: field.type,
+                aggregation: field.type === FieldType.MEASURE ? AggregationType.SUM : AggregationType.COUNT,
+                filter: { condition: FilterCondition.IS_ONE_OF, values: [term] },
+            });
+            showToast({ type: 'success', message: `Filter added for "${field.simpleName}".` });
         }
     };
 
@@ -1159,6 +1218,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         isDataStudioOnboardingNeeded, notifications, loadingState, scrollToWidgetId, dashboardMode, isHelpModeActive,
         workspaces, activePageId, activePage, widgets, layouts, globalFilters, parameters, stories, editingStory,
         userTemplates, crossFilter, controlFilters, canUndo, canRedo, refetchCounter, predictiveModels, dataStudioCanvasLayout,
+        newlyAddedPillId,
 
         // Callbacks & Setters
         addDataSourceFromFile,
@@ -1176,7 +1236,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         showToast, removeToast,
         setScrollToWidgetId, setDashboardMode, toggleHelpMode: () => setIsHelpModeActive(p => !p),
         setWorkspaces, setActivePageId, addPage, removePage, updatePage,
-        setLayouts, setGlobalFilters, removeWidget, saveWidget, duplicateWidget, duplicatePage,
+        setLayouts, setGlobalFilters, addGlobalFilter, removeWidget, saveWidget, duplicateWidget, duplicatePage,
         setCrossFilter, setControlFilter, addParameter: p => setParameters(prev => [...prev, { ...p, id: _.uniqueId('param_') }]),
         updateParameter: (id, updates) => setParameters(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p)),
         removeParameter: (id: string) => setParameters(prev => prev.filter(p => p.id !== id)),
@@ -1235,6 +1295,9 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         saveEditingWidget,
         populateEditorFromAI,
         openEditorWithAIPrompt,
+        resolveNlpAmbiguity,
+        handleNlpFilterQuery,
+        setNewlyAddedPillId,
     };
 
     return <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>;

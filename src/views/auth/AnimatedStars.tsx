@@ -1,6 +1,6 @@
 import React, { useState, useEffect, FC } from 'react';
 
-export const AnimatedStars: FC = () => {
+export const AnimatedStars: FC<{isAuth?: boolean}> = ({isAuth = false}) => {
     const [stars, setStars] = useState<Array<{ top: string; left: string; size: string; delay: string }>>([]);
 
     useEffect(() => {
@@ -18,7 +18,7 @@ export const AnimatedStars: FC = () => {
             {stars.map((star, i) => (
                 <div
                     key={i}
-                    className="star"
+                    className={isAuth ? 'auth-star' : 'star'}
                     style={{
                         top: star.top,
                         left: star.left,
