@@ -255,7 +255,7 @@ A **Modular Monolith** architecture is the optimal choice. It provides clear sep
 
 **Modules:** `Auth`, `Users`, `Workspaces`, `DataSources`, `AI`, `Billing` (Future).
 
-### 3.1. API Specification (OpenAPI v3.1 Snippet)
+### 3.1. API Specification (OpenAPI v3.1 Expanded Snippet)
 
 ```yaml
 openapi: 3.1.0
@@ -268,121 +268,158 @@ paths:
   /auth/login:
     post:
       summary: User Login
+      # ... (as before)
+  
+  /workspaces/{workspaceId}/pages/{pageId}:
+    get:
+      summary: Get a single dashboard page with all its widgets
+      # ... (as before)
+    put:
+      summary: Update page details (e.g., name, layouts)
+      security: [BearerAuth: []]
       requestBody:
-        required: true
         content:
           application/json:
             schema:
               type: object
               properties:
-                email: { type: string, format: email }
-                password: { type: string }
+                name: { type: string }
+                layouts: { type: object } # JSONB
       responses:
         '200':
-          description: Successful login
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  token: { type: string }
-                  user: { $ref: '#/components/schemas/User' }
-        '401':
-          description: Unauthorized
-  
-  /workspaces/{workspaceId}/pages/{pageId}:
-    get:
-      summary: Get a single dashboard page
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: workspaceId
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-        - name: pageId
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
-      responses:
-        '200':
-          description: Page details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DashboardPage'
-    
-  /widgets/{widgetId}:
-    put:
-      summary: Update a widget
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: widgetId
-          in: path
-          required: true
-          schema: { type: string, format: uuid }
+          description: Updated page object
+
+  /pages/{pageId}/widgets:
+    post:
+      summary: Create a new widget on a page
+      security: [BearerAuth: []]
       requestBody:
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/Widget'
       responses:
-        '200':
-          description: Updated widget
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Widget'
-
-  /ai/generate-content:
+        '201':
+          description: The newly created widget
+    
+  /widgets/{widgetId}:
+    put:
+      summary: Update a widget's configuration
+      # ... (as before)
+    delete:
+      summary: Delete a widget
+      security: [BearerAuth: []]
+      responses:
+        '204':
+          description: No Content
+          
+  /workspaces/{workspaceId}/datasources/upload-url:
     post:
-      summary: Proxy request to Gemini API
-      description: Securely forwards requests to the configured AI provider.
-      security:
-        - BearerAuth: []
+      summary: Get a pre-signed URL for file upload
+      security: [BearerAuth: []]
       requestBody:
         content:
           application/json:
             schema:
-              # Schema matches the @google/genai generateContent request
-              type: object 
+              type: object
+              properties:
+                fileName: { type: string }
+                fileType: { type: string }
       responses:
         '200':
-          description: AI response
-          # Response schema matches @google/genai response
+          description: Pre-signed URL and data source ID
+          
+  /datasources/{dataSourceId}/transformations:
+    put:
+      summary: Set the full transformation pipeline for a data source
+      security: [BearerAuth: []]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Transformation'
+      responses:
+        '200':
+          description: The updated data source object
+
+  /widgets/{widgetId}/data:
+    post:
+      summary: Get processed data for a widget
+      description: This is the core data processing endpoint.
+      security: [BearerAuth: []]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                globalFilters: { type: array }
+                crossFilter: { type: object }
+                # ... other context
+      responses:
+        '200':
+          description: Processed widget data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProcessedData'
+
+  /ai/generate-content:
+    post:
+      summary: Proxy request to Gemini API
+      # ... (as before)
 
 components:
   securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
+    BearerAuth: { type: http, scheme: bearer }
   schemas:
-    User:
-      type: object
-      properties:
-        id: { type: string, format: uuid }
-        name: { type: string }
-        email: { type: string, format: email }
-        role: { type: string, enum: [USER, ADMIN] }
-    DashboardPage:
-      # ... full schema definition for a page
-    Widget:
-      # ... full schema definition for a widget
+    User: { #... }
+    DashboardPage: { #... }
+    Widget: { #... }
+    Transformation: { #... }
+    ProcessedData: { #... }
 ```
 
 ## 4. Business Logic & Workflows
 
-*   **Data Processing Pipeline:** This is the most critical workflow.
-    1.  Request for widget data arrives.
-    2.  The service fetches all required `data_sources` for the widget's page.
-    3.  Raw data is retrieved (from DB cache or blob storage/API).
-    4.  The service fetches and applies all `transformations` in order.
-    5.  The service applies `relationships` to blend the data.
-    6.  Page-level, cross-filter, and widget-level filters are applied.
-    7.  The final dataset is aggregated according to the widget's shelf configuration.
-    8.  The result is returned to the client.
-    *   **Optimization:** For large datasets, this pipeline should be executed asynchronously in a worker queue (e.g., BullMQ, RabbitMQ). The client would poll for the result or receive it via WebSocket.
+### 4.1. Data Processing Pipeline
+This is the most critical workflow.
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API
+    participant WorkerQueue as Queue
+    participant DataProcessor as Worker
+    participant Database
+    participant Cache
+
+    Client->>+API: POST /widgets/{id}/data (with filters)
+    API->>Cache: Check for cached result
+    alt Cache Hit
+        Cache-->>-API: Return cached data
+        API-->>Client: 200 OK (Processed Data)
+    else Cache Miss
+        API->>+WorkerQueue: Enqueue Job(widgetId, filters)
+        API-->>-Client: 202 Accepted (jobId)
+        Client->>API: Poll GET /jobs/{jobId}/status
+        WorkerQueue->>+Worker: Dequeue Job
+        Worker->>+Database: Get Widget Config
+        Worker->>Database: Get Source Data, Transformations, Joins
+        Database-->>-Worker: Raw Data & Config
+        Worker->>Worker: Apply Transformations
+        Worker->>Worker: Apply Joins (Blend)
+        Worker->>Worker: Apply Filters
+        Worker->>Worker: Aggregate Data
+        Worker->>+Cache: Store result with TTL
+        Worker->>Database: Mark job as complete
+        Cache-->>-Worker: OK
+        Database-->>-Worker: OK
+        Worker-->>-WorkerQueue: Acknowledge Job
+        API-->>Client: 200 OK (Processed Data)
+    end
+```
 
 ## 5. Security, Privacy & Compliance
 
@@ -396,7 +433,7 @@ components:
 
 *   **Database:** Use read replicas for PostgreSQL to serve dashboard read traffic. Use `pgBouncer` for connection pooling. All foreign keys and frequently queried columns will be indexed.
 *   **Application:** The backend service will be stateless and packaged in a Docker container, ready for horizontal scaling via Kubernetes or a service like AWS Fargate.
-*   **Asynchronous Processing:** As mentioned, a queue system is essential for handling long-running data transformations and AI analysis without blocking the main API.
+*   **Asynchronous Processing:** As shown in the diagram, a queue system (e.g., BullMQ, RabbitMQ) is essential for handling long-running data transformations and AI analysis without blocking the main API.
 
 ## 7. Observability & Operations
 
@@ -416,11 +453,20 @@ components:
     3.  Promote to `production` via a manual approval step using a blue-green deployment strategy.
     4.  Database migrations (using a tool like `node-pg-migrate`) run as a separate, gated step before application deployment.
 
+## 9. Future Enhancements
+
+*   **Real-time Collaboration:** Implement WebSocket-based features for real-time dashboard editing and live comment updates, similar to Google Docs.
+*   **Scheduled Refreshes & Alerting:** Allow users to schedule automatic data source refreshes and set up alerts based on data thresholds (e.g., "Alert me when sales drop below $1000").
+*   **Row-Level Security (RLS):** Implement RLS in PostgreSQL to enforce data access policies at the database level, allowing different users to see different slices of the same data source.
+*   **Expanded Connector Library:** Add native connectors for popular data warehouses like Snowflake, BigQuery, and Databricks.
+*   **Public API:** Expose a secure, rate-limited public API for programmatic dashboard creation, data source management, and embedding.
+*   **Versioning & Rollbacks:** Implement a versioning system for dashboards and data transformations, allowing users to view history and revert to previous states.
+
 ## 10. Technology Choices
 
 *   **Runtime/Framework:** **Node.js with NestJS**. It provides excellent structure, dependency injection, and uses TypeScript, aligning perfectly with the frontend stack for shared types and developer ergonomics.
 *   **Database:** **PostgreSQL**. Its maturity, support for relational data, and powerful JSONB features make it the best fit. Row-Level Security (RLS) can provide an additional layer of tenancy enforcement.
-*   **Cache:** **Redis**. For its speed and versatility in handling both simple caching and queueing.
+*   **Cache/Queue:** **Redis**. For its speed and versatility in handling both simple caching and queueing.
 *   **Infrastructure:** **Docker + Kubernetes on AWS/GCP**. Provides the most flexible and scalable foundation for a growing SaaS application.
 
 ## 11. Backward-Compatible Refactor Plan

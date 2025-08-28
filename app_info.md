@@ -1,4 +1,3 @@
-
 # Pivotal Pro AI - Application Documentation
 
 ## 1. Application Overview
@@ -77,8 +76,9 @@ The application is built around a comprehensive set of features that cover the e
 - **Language**: TypeScript
 - **Build Tool**: Vite with @vitejs/plugin-react
 - **Styling**: Tailwind CSS with a custom theme system managed via CSS variables.
-- **State Management**: React Context API (primarily `DashboardProvider`).
 - **UI Components**: Radix UI primitives for accessibility, augmented with custom components (`Dialog`, `Popover`, `Sheet`).
+- **State Management**: React Context API (primarily `DashboardProvider`).
+- **UI Components**: Radix UI primitives for accessibility, augmented with custom components, with a focus on Framer Motion for animations.
 - **Data Visualization**: ECharts (primary), with ApexCharts and Recharts available as alternative rendering engines.
 - **Drag & Drop**: React DnD with React DnD HTML5 Backend.
 - **Grid System**: `react-grid-layout`.
@@ -88,8 +88,8 @@ The application is built around a comprehensive set of features that cover the e
 ### 3.2. AI Integration
 - **Primary API**: Google Gemini API via the `@google/genai` SDK.
 - **Models Used**:
-    - `gemini-2.5-flash`: For all chat, analysis, and structured JSON generation tasks due to its speed and strong reasoning capabilities.
-- **Interaction Method**: All Gemini API calls are proxied through a secure backend endpoint (currently mocked in `vite.config.ts`) to protect the API key. The frontend uses `responseSchema` with the Gemini API to reliably receive structured JSON for chart configurations, analyses, and other AI features.
+    - `gemini-2.5-flash`: For all chat, analysis, and structured JSON generation tasks due to its excellent balance of speed, cost, and strong reasoning capabilities.
+- **Interaction Method**: All Gemini API calls are proxied through a secure backend endpoint (currently mocked in `vite.config.ts`) to protect the API key. The frontend makes heavy use of the `responseSchema` feature within the Gemini API configuration. This forces the model to return valid, structured JSON, which eliminates the need for fragile string parsing and ensures predictable data structures for features like AI-generated widgets, dashboards, and advanced analyses.
 
 ### 3.3. Backend (Planned Architecture)
 The application is designed to transition from a local-storage-based mock setup to a full-fledged backend service.
@@ -106,14 +106,17 @@ The application is designed to transition from a local-storage-based mock setup 
 ### 4.1. Frontend Architecture
 The frontend follows a modern, modular React architecture.
 
-- **State Management**: The core of the application's state is managed in `src/contexts/DashboardProvider.tsx`. This provider centralizes all data, UI state, and business logic, making it available to the entire component tree via the `useDashboard` hook. A separate `AuthProvider` handles user authentication state. A custom hook, `useHistoryState`, provides undo/redo functionality for key parts of the dashboard state.
-- **Component Structure**:
-    - `src/views`: Contains top-level components for each major screen/view of the app (e.g., `DashboardView`, `DataStudioView`).
-    - `src/components`: Contains reusable components, categorized into `ui` (design system), `modals`, `charts`, `common`, etc.
-    - `src/services`: Handles communication with external APIs (currently mocked, planned for backend integration).
-    - `src/hooks`: Contains reusable logic hooks.
-    - `src/utils`: Contains type definitions, constants, and data processing logic.
-- **Vite Dev Server**: The `vite.config.ts` file sets up a development server that includes a custom middleware proxy. This proxy securely handles requests from the client to the Google Gemini API, abstracting away the API key from the frontend code.
+-   **State Management**: The core of the application's state is managed in `src/contexts/DashboardProvider.tsx`. This provider centralizes all data, UI state, and business logic, making it available to the entire component tree via the `useDashboard` hook.
+    -   A separate `AuthProvider` handles user authentication state.
+    -   A custom hook, `useHistoryState`, provides a robust history buffer for the core `workspaces` and `transformations` state, enabling reliable undo/redo functionality for most major user actions.
+    -   A custom hook, `useModalManager`, centralizes the state and open/close logic for all modals, simplifying component logic and preventing state clutter in the main provider.
+-   **Component Structure**:
+    -   `src/views`: Contains top-level components for each major screen/view of the app (e.g., `DashboardView`, `DataStudioView`).
+    -   `src/components`: Contains reusable components, categorized into `ui` (design system), `modals`, `charts`, `common`, etc.
+    -   `src/services`: Handles communication with external APIs (currently mocked, planned for backend integration).
+    -   `src/hooks`: Contains reusable logic hooks like `useCopyToClipboard`, `useMediaQuery`, and the state management hooks.
+    -   `src/utils`: Contains type definitions, constants, and the data processing logic pipeline (blending, filtering, aggregation).
+-   **Vite Dev Server**: The `vite.config.ts` file sets up a development server that includes a custom middleware proxy. This proxy securely handles requests from the client to the Google Gemini API, abstracting away the API key from the frontend code.
 
 ### 4.2. Backend Architecture (Planned)
 The backend is designed as a **Modular Monolith** using NestJS. This provides clear separation of concerns (Auth, Workspaces, DataSources, AI) without the initial complexity of microservices. The architecture is designed to be stateless and scalable.
@@ -189,5 +192,4 @@ The `DashboardProvider` is the "brain" of the application.
 - **Action Dispatchers**: It exposes a comprehensive set of functions to mutate the state (e.g., `saveWidget`, `addTransformation`, `setRelationships`). This keeps state logic co-located and predictable.
 - **Undo/Redo**: It leverages the `useHistoryState` custom hook to provide a history of the `workspaces` and `transformations` state, enabling undo/redo functionality for most major user actions.
 - **Persistence**: In the current implementation, it uses `useEffect` and `localStorage` to persist the application state between sessions. This is designed to be replaced by API calls to the real backend.
-- **Modal Management**: It utilizes the `useModalManager` hook to centralize the open/close state and associated logic for all modals in the application.
-
+- **Modal Management**: It utilizes the `useModalManager` hook to centralize the open/close state and associated logic for all modals in the application, which keeps the main provider clean and focused on core business logic.
