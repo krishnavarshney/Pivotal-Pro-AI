@@ -497,7 +497,7 @@ export const DataProcessor: FC<{ widget: WidgetState }> = ({ widget }) => {
     };
 
     const renderContent = () => {
-        if (!processedData) {
+        if (isLoading || !processedData) {
             return <WidgetSkeleton />;
         }
 
@@ -752,18 +752,6 @@ export const DataProcessor: FC<{ widget: WidgetState }> = ({ widget }) => {
             <div className="flex-grow min-h-0">
                 {renderContent()}
             </div>
-            <AnimatePresence>
-                {isLoading && processedData && (
-                    <motion.div 
-                        initial={{ opacity: 0 }} 
-                        animate={{ opacity: 1 }} 
-                        exit={{ opacity: 0 }} 
-                        className="absolute inset-0 bg-card/70 backdrop-blur-sm flex items-center justify-center z-40"
-                    >
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
         </div>
     );
 };
