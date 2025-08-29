@@ -335,4 +335,4 @@ export const DropdownMenuShortcut = ({
     />
   )
 }
-DropdownMenuShortcut.displayName = "DropdownMenuShortcut"
+DropdownMenuShortcut.displayName = "DropdownMenuShortcut"}

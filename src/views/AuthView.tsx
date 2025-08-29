@@ -8,7 +8,6 @@ import { AnimatedLineChart } from './auth/AnimatedLineChart';
 import { AnimatedBarChart } from './auth/AnimatedBarChart';
 import { AnimatedAreaChart } from './auth/AnimatedAreaChart';
 import { AnimatedStars } from './auth/AnimatedStars';
-import { ThemeSwitcher } from '../components/dashboard/ThemeSwitcher';
 
 const PasswordStrengthMeter: FC<{ score: number }> = ({ score }) => {
     const levels = [
@@ -212,9 +211,6 @@ export const AuthView: FC = () => {
     
     return (
         <div className="auth-container min-h-screen flex items-center justify-center p-4">
-			<div className="absolute top-4 right-4">
-				<ThemeSwitcher />
-			</div>
             <AnimatedStars isAuth={true} />
             <div className="content-wrapper w-full max-w-7xl grid lg:grid-cols-2 gap-16 items-center">
                  <div className="hidden lg:block p-8 space-y-8 relative">
