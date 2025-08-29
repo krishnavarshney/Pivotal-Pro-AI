@@ -305,12 +305,14 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
 
     const saveWidget = (widget: WidgetState, layoutOverride?: Partial<Omit<WidgetLayout, 'i'>>) => {
         if (!activePageId) return;
+        let isNew = false;
         updatePage(activePageId, (currentPage) => {
             const newWidgets = [...currentPage.widgets];
             const index = newWidgets.findIndex(w => w.id === widget.id);
             if (index > -1) {
                 newWidgets[index] = widget;
             } else {
+                isNew = true;
                 const newWidget = { ...widget, id: _.uniqueId('widget_') };
                 newWidgets.push(newWidget);
                 const newLayouts = _.cloneDeep(currentPage.layouts);
@@ -325,6 +327,11 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                 return { ...currentPage, widgets: newWidgets, layouts: newLayouts };
             }
             return { ...currentPage, widgets: newWidgets };
+        });
+
+        showToast({
+            type: 'success',
+            message: isNew ? `Widget "${widget.title}" created.` : `Widget "${widget.title}" updated.`
         });
     };
 
@@ -398,6 +405,18 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
 
     // --- Data Management Callbacks ---
     const addDataSourceFromFile = async (file: File) => {
+        const MAX_FILE_SIZE_MB = 25;
+        const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
+        if (file.size > MAX_FILE_SIZE_BYTES) {
+            showToast({
+                type: 'error',
+                message: `File is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Please upload a file smaller than ${MAX_FILE_SIZE_MB}MB.`,
+                duration: 8000,
+            });
+            return;
+        }
+
         setLoadingState({ isLoading: true, message: `Loading ${file.name}...` });
         try {
             const extension = file.name.split('.').pop()?.toLowerCase();
