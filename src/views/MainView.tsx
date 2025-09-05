@@ -51,7 +51,8 @@ export const MainView: FC = () => {
     
     const showEmptyState = dataSources.size === 0;
     const allPages = workspaces.flatMap(ws => ws.pages || []);
-    const showGettingStarted = !showEmptyState && currentView === 'dashboard' && allPages.length === 1 && allPages[0].widgets.length === 0;
+    // FIX: The Getting Started view should only show when a specific page is active, not when navigating to the home view.
+    const showGettingStarted = !showEmptyState && currentView === 'dashboard' && activePage && allPages.length === 1 && activePage.widgets.length === 0;
 
     const isBuilderMode = dashboardMode === 'edit' && currentView === 'dashboard' && !!activePage;
 

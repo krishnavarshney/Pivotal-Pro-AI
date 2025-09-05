@@ -5,13 +5,13 @@ import {
     Undo2, Redo2, AlertCircle, MoreVertical, RotateCw, Pencil, 
     Users, Aperture, Search, Puzzle, Share2, LogOut, BarChart, Timer, 
     GripVertical, ShieldCheck, Bookmark, MessageSquare, ChevronDown, LineChart, AreaChart,
-    PieChart, AppWindow, Grid, Construction, BarChartHorizontal, Box, Dot,
-    Layout as LayoutIcon, Info, SlidersHorizontal
+    PieChart, AppWindow, Grid, Construction, BarChartHorizontal, Box, Dot, Eye, Info, Plus,
+    SlidersHorizontal, FileText
 } from 'lucide-react';
 import { useDashboard } from '../contexts/DashboardProvider';
 import { WidgetState, WidgetLayout, ChartType, Pill, FilterCondition, AggregationType, DND_ITEM_TYPE, FieldType, Bookmark as BookmarkType, ContextMenuItem, Field } from '../utils/types';
 import { Button } from '../components/ui/Button';
-import { Popover } from '../components/ui/Popover';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, Popover } from '../components/ui/Popover';
 import { ShelfPill } from '../components/ui/Pill';
 import { inputClasses, cn } from '../components/ui/utils';
 import { Checkbox } from '../components/ui/Checkbox';
@@ -786,8 +786,68 @@ const ActionsPopover: FC = () => {
     );
 };
 
+const DashboardModeSwitcher: FC = () => {
+    const { dashboardMode, setDashboardMode, isHelpModeActive, toggleHelpMode } = useDashboard();
+    const [isOpen, setIsOpen] = useState(false);
+
+    const modes = [
+        { id: 'view', label: 'View Mode', icon: <Eye size={16}/>, description: "Interact with the dashboard." },
+        { id: 'edit', label: 'Edit Mode', icon: <Pencil size={16}/>, description: "Add, move, and resize widgets." },
+        { id: 'comment', label: 'Comment Mode', icon: <MessageSquare size={16}/>, description: "Leave comments on widgets." },
+    ];
+
+    const activeMode = modes.find(m => m.id === dashboardMode) || modes[0];
+    const isSpecialModeActive = dashboardMode !== 'view' || isHelpModeActive;
+
+    return (
+        <Popover
+            isOpen={isOpen}
+            onClose={() => setIsOpen(false)}
+            trigger={
+                <Tooltip content="Dashboard Mode" placement="bottom">
+                    <Button variant="ghost" size="icon" onClick={() => setIsOpen(true)} className="h-9 w-9 p-0" aria-label="Change dashboard mode">
+                        <span className="relative">
+                            <span className="icon-hover-anim">{activeMode.icon}</span>
+                            {isSpecialModeActive && <span className="absolute -top-1 -right-1 block h-2 w-2 rounded-full bg-primary ring-2 ring-background" />}
+                        </span>
+                    </Button>
+                </Tooltip>
+            }
+            contentClassName="w-64 p-2"
+            align="end"
+        >
+            {({ close }) => (
+                <div className="flex flex-col gap-1">
+                    <p className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Modes</p>
+                    {modes.map(mode => (
+                        <button key={mode.id} onClick={() => { setDashboardMode(mode.id as any); close(); }} className={cn("w-full text-left p-2 rounded text-sm hover:bg-accent flex items-start gap-3", dashboardMode === mode.id && "bg-accent")}>
+                            <div className="mt-0.5">{mode.icon}</div>
+                            <div>
+                                <p className="font-medium">{mode.label}</p>
+                                <p className="text-xs text-muted-foreground">{mode.description}</p>
+                            </div>
+                        </button>
+                    ))}
+                    <div className="h-px bg-border my-1" />
+                    <label className="w-full text-left p-2 rounded text-sm hover:bg-accent flex items-center justify-between cursor-pointer">
+                        <div className="flex items-start gap-3">
+                            <div className="mt-0.5"><Info size={16}/></div>
+                            <div>
+                                <p className="font-medium">Help Mode</p>
+                                <p className="text-xs text-muted-foreground">Display helpful tooltips.</p>
+                            </div>
+                        </div>
+                        <Checkbox checked={isHelpModeActive} onCheckedChange={toggleHelpMode} />
+                    </label>
+                </div>
+            )}
+        </Popover>
+    );
+};
+
+
 const DashboardHeader: FC = () => {
-    const { activePage, openCommandPalette, undo, redo, canUndo, canRedo, dashboardMode, setDashboardMode, isHelpModeActive, toggleHelpMode } = useDashboard();
+    const { activePage, openCommandPalette, undo, redo, canUndo, canRedo } = useDashboard();
     const { isMobile } = useSidebar();
     
     return (
@@ -819,9 +879,8 @@ const DashboardHeader: FC = () => {
                     <Tooltip content="Redo"><Button variant="ghost" size="icon" onClick={redo} disabled={!canRedo} aria-label="Redo" className="h-7 w-7"><Redo2 size={16}/></Button></Tooltip>
                 </div>
 
-                <div className="hidden md:flex items-center gap-1 p-1 border border-border rounded-lg bg-card">
-                    <Tooltip content="Comment Mode"><Button variant={dashboardMode === 'comment' ? 'outline' : 'ghost'} size="icon" onClick={() => setDashboardMode(m => m === 'comment' ? 'view' : 'comment')} aria-label="Toggle Comment Mode" className="h-7 w-7"><MessageSquare size={16} /></Button></Tooltip>
-                    <Tooltip content="Help Mode"><Button variant={isHelpModeActive ? 'outline' : 'ghost'} size="icon" onClick={toggleHelpMode} aria-label="Toggle Help Mode" className="h-7 w-7"><Info size={16} /></Button></Tooltip>
+                <div className="flex items-center gap-1 p-1 border border-border rounded-lg bg-card">
+                    <DashboardModeSwitcher />
                     <BookmarkMenu />
                     <ActionsPopover />
                 </div>
@@ -836,6 +895,88 @@ const DashboardHeader: FC = () => {
     );
 };
 
+const FloatingActionButton: FC = () => {
+    const { openWidgetEditorModal, dashboardMode, activePage } = useDashboard();
+    const shouldShow = activePage && activePage.widgets.length > 0 && dashboardMode !== 'edit';
+
+    return (
+        <AnimatePresence>
+            {shouldShow && (
+                <motion.div
+                    initial={{ scale: 0, y: 50, opacity: 0 }}
+                    animate={{ scale: 1, y: 0, opacity: 1 }}
+                    exit={{ scale: 0, y: 50, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+                    className="fixed bottom-6 right-6 z-40"
+                >
+                    <Tooltip content="Create New Widget" placement="left">
+                        <Button
+                            onClick={() => openWidgetEditorModal()}
+                            className="h-14 w-14 rounded-full shadow-lg"
+                        >
+                            <Plus size={24} />
+                        </Button>
+                    </Tooltip>
+                </motion.div>
+            )}
+        </AnimatePresence>
+    );
+};
+
+const BulkActionsBar: FC = () => {
+    const { 
+        selectedWidgetIds,
+        deselectAllWidgets,
+        duplicateSelectedWidgets,
+        deleteSelectedWidgets,
+        exportSelectedWidgets,
+        discussSelectedWithAI,
+        addSelectedToStory
+    } = useDashboard();
+    
+    const count = selectedWidgetIds.length;
+
+    return (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40">
+            <motion.div
+                initial={{ y: 100, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 100, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+            >
+                <div className="glass-panel rounded-xl p-2 flex items-center gap-2 shadow-lg border border-border">
+                    <div className="px-3">
+                        <span className="font-bold text-foreground">{count}</span>
+                        <span className="text-muted-foreground"> item{count > 1 ? 's' : ''} selected</span>
+                    </div>
+                    
+                    <Button variant="ghost" size="sm" onClick={duplicateSelectedWidgets}><Copy size={16} /> Duplicate</Button>
+                    
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm"><FileText size={16} /> Export</Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                            <DropdownMenuItem onClick={() => exportSelectedWidgets('PDF')}><>PDF</></DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportSelectedWidgets('CSV')}><>CSV</></DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportSelectedWidgets('XLSX')}><>Excel (XLSX)</></DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <Button variant="ghost" size="sm" onClick={discussSelectedWithAI}><MessageSquare size={16} /> Discuss with AI</Button>
+                    <Button variant="ghost" size="sm" onClick={addSelectedToStory}><BookOpen size={16} /> Add to Story</Button>
+
+                    <div className="w-px h-6 bg-border mx-2" />
+
+                    <Button variant="destructive" size="sm" onClick={deleteSelectedWidgets}><Trash2 size={16} /> Delete</Button>
+                    
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={deselectAllWidgets}><X size={16} /></Button>
+                </div>
+            </motion.div>
+        </div>
+    );
+};
+
 export const DashboardView: FC = () => {
     const {
         activePage,
@@ -844,7 +985,9 @@ export const DashboardView: FC = () => {
         setLayouts,
         scrollToWidgetId,
         setScrollToWidgetId,
-        dashboardMode
+        dashboardMode,
+        selectedWidgetIds,
+        toggleWidgetSelection,
     } = useDashboard();
     const MotionDiv = motion.div as any;
 
@@ -894,7 +1037,11 @@ export const DashboardView: FC = () => {
             <div className="flex-grow flex flex-col gap-4 min-w-0">
                 <DashboardHeader />
                 <GlobalFilterShelf />
-                <div id="dashboard-grid" className={cn("flex-grow overflow-auto bg-grid rounded-xl", dashboardMode === 'comment' && 'cursor-crosshair')}>
+                <div id="dashboard-grid" className={cn(
+                    "flex-grow overflow-auto rounded-xl",
+                    dashboardMode === 'comment' && 'cursor-crosshair',
+                    dashboardMode === 'edit' && "bg-grid border-2 border-dashed border-border/50 p-2"
+                )}>
                     <ResponsiveGridLayout
                         layouts={layouts}
                         onLayoutChange={onLayoutChange}
@@ -905,19 +1052,41 @@ export const DashboardView: FC = () => {
                         draggableCancel=".nodrag"
                         isBounded={true}
                         resizeHandles={['sw', 'nw', 'se', 'ne']}
-                        isDraggable={true}
-                        isResizable={true}
+                        isDraggable={dashboardMode === 'edit'}
+                        isResizable={dashboardMode === 'edit'}
                         className="layout"
                         useCSSTransforms={true}
                     >
-                        {widgets.map(widget => (
-                            <div key={widget.id} id={`widget-wrapper-${widget.id}`} className="flex flex-col h-full">
-                                <Widget widget={widget} />
-                            </div>
-                        ))}
+                        {widgets.map(widget => {
+                             const isSelected = selectedWidgetIds.includes(widget.id);
+                             return (
+                                 <div key={widget.id} id={`widget-wrapper-${widget.id}`} className={cn(
+                                     "flex flex-col h-full relative group/widgetwrapper",
+                                     dashboardMode === 'edit' && 'transition-all duration-200',
+                                     dashboardMode === 'edit' && isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background rounded-xl z-10",
+                                     dashboardMode === 'edit' && selectedWidgetIds.length > 0 && !isSelected && "opacity-70 hover:opacity-100"
+                                 )}>
+                                     {dashboardMode === 'edit' && (
+                                         <div className="absolute -top-2 -left-2 z-20">
+                                             <Checkbox
+                                                 checked={isSelected}
+                                                 onCheckedChange={() => toggleWidgetSelection(widget.id)}
+                                                 className="h-5 w-5 bg-background border-2"
+                                                 aria-label={`Select widget ${widget.title}`}
+                                             />
+                                         </div>
+                                     )}
+                                     <Widget widget={widget} />
+                                 </div>
+                             )
+                        })}
                     </ResponsiveGridLayout>
                 </div>
             </div>
+            <FloatingActionButton />
+            <AnimatePresence>
+                {dashboardMode === 'edit' && selectedWidgetIds.length > 0 && <BulkActionsBar />}
+            </AnimatePresence>
         </div>
     );
 };

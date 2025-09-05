@@ -1,5 +1,6 @@
 
 
+
 import React, { FC } from 'react';
 import { useDashboard } from '../contexts/DashboardProvider';
 import { FilterConfigModal } from './modals/FilterConfigModal';
@@ -41,7 +42,8 @@ export const ModalsContainer: FC = () => {
         closeFilterConfigModal,
         isPageFiltersModalOpen,
         closePageFiltersModal,
-        selectFieldModalOpen,
+        // FIX: Replaced `selectFieldModalOpen` with `selectFieldModalState` to align with the updated context provider.
+        selectFieldModalState,
         closeSelectFieldModal,
         isInsightHubOpen,
         closeInsightHub,
@@ -108,7 +110,7 @@ export const ModalsContainer: FC = () => {
                  onBack={filterConfigModalState.onBack}
             />
             <PageFiltersModal isOpen={isPageFiltersModalOpen} onClose={closePageFiltersModal} />
-            <SelectFieldForFilterModal isOpen={selectFieldModalOpen} onClose={closeSelectFieldModal} />
+            <SelectFieldForFilterModal isOpen={selectFieldModalState.isOpen} onClose={closeSelectFieldModal} />
             <AiAssistantModal isOpen={isInsightHubOpen} onClose={closeInsightHub} />
             <ChatModal isOpen={isChatModalOpen} onClose={closeChatModal} />
             <AddFieldModal 

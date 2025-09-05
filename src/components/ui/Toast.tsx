@@ -14,7 +14,7 @@ const icons = {
 
 const Toast: FC<{ notification: ToastNotification }> = ({ notification }) => {
     const { removeToast } = useDashboard();
-    const MotionDiv = motion.div as any;
+    const MotionDiv = motion.div;
 
     return (
         <MotionDiv
@@ -28,7 +28,6 @@ const Toast: FC<{ notification: ToastNotification }> = ({ notification }) => {
             <div className="flex-shrink-0 mt-0.5">{icons[notification.type]}</div>
             <div className="flex-grow">
                 <p className="font-semibold text-sm">{notification.message}</p>
-                {/* FIX: Display the optional description in toast notifications for more detailed messages. */}
                 {notification.description && <p className="text-sm text-muted-foreground mt-1">{notification.description}</p>}
                 {notification.action && (
                     <Button

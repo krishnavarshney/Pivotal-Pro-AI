@@ -1,4 +1,4 @@
-import React, { forwardRef, useRef, useImperativeHandle } from 'react';
+import React from 'react';
 import { cn } from './utils';
 
 const buttonVariants = {
@@ -23,11 +23,11 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
     size?: keyof typeof buttonVariants.size;
 }
 
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ({ className, variant = 'default', size = 'default', ...props }, ref) => {
         const { onClick, children, ...rest } = props;
-        const internalRef = useRef<HTMLButtonElement>(null);
-        useImperativeHandle(ref, () => internalRef.current!, []);
+        const internalRef = React.useRef<HTMLButtonElement>(null);
+        React.useImperativeHandle(ref, () => internalRef.current!, []);
 
         const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
             if (variant !== 'link') {
@@ -67,7 +67,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             onClick?.(e);
         };
 
-        const baseClasses = 'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 gap-2';
+        const baseClasses = 'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 gap-2 flex-shrink-0';
         const variantClasses = buttonVariants.variant[variant];
         const sizeClasses = buttonVariants.size[size];
 

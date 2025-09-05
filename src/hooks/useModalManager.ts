@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Pill, ValueFormat, Field, TransformationType, Template, DashboardPage, AdvancedAnalysisResult, DashboardComment, WidgetState, FieldType, AggregationType, Connector } from '../utils/types';
 import _ from 'lodash';
@@ -10,7 +11,8 @@ export const useModalManager = () => {
     const [widgetEditorAIPrompt, setWidgetEditorAIPrompt] = useState<string | null>(null);
     const [filterConfigModalState, setFilterConfigModalState] = useState<{ isOpen: boolean; pill: Pill | null; onSave: ((p: Pill) => void) | null, onBack?: () => void }>({ isOpen: false, pill: null, onSave: null });
     const [isPageFiltersModalOpen, setPageFiltersModalOpen] = useState(false);
-    const [selectFieldModalOpen, setSelectFieldModalOpen] = useState(false);
+    // FIX: Changed `selectFieldModalOpen` to `selectFieldModalState` to match the required type in `DashboardContextProps`.
+    const [selectFieldModalState, setSelectFieldModalState] = useState<{ isOpen: boolean; onSave?: (pill: Pill) => void }>({ isOpen: false });
     const [isInsightHubOpen, setInsightHubOpen] = useState(false);
     const [isChatModalOpen, setChatModalOpen] = useState(false);
     const [addFieldModalState, setAddFieldModalState] = useState<{ isOpen: boolean; sourceId: string | null; initialStep?: 'formula' | 'grouping' }>({ isOpen: false, sourceId: null });
@@ -97,7 +99,7 @@ export const useModalManager = () => {
         widgetEditorAIPrompt,
         filterConfigModalState,
         isPageFiltersModalOpen,
-        selectFieldModalOpen,
+        selectFieldModalState,
         isInsightHubOpen,
         isChatModalOpen,
         addFieldModalState,
@@ -138,8 +140,8 @@ export const useModalManager = () => {
         openPageFiltersModal: () => setPageFiltersModalOpen(true),
         closePageFiltersModal: () => setPageFiltersModalOpen(false),
         
-        openSelectFieldModal: () => setSelectFieldModalOpen(true),
-        closeSelectFieldModal: () => setSelectFieldModalOpen(false),
+        openSelectFieldModal: (onSave?: (pill: Pill) => void) => setSelectFieldModalState({ isOpen: true, onSave }),
+        closeSelectFieldModal: () => setSelectFieldModalState({ isOpen: false, onSave: undefined }),
         
         openInsightHub: () => setInsightHubOpen(true),
         closeInsightHub: () => setInsightHubOpen(false),

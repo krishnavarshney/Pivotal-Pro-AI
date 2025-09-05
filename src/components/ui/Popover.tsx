@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useLayoutEffect, CSSProperties, FC, ReactNode } from 'react';
+import React from 'react';
 import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './utils';
@@ -6,23 +6,23 @@ import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
 import { Check, ChevronRight } from "lucide-react"
 
 
-export const Popover: FC<{
+export const Popover: React.FC<{
     isOpen: boolean;
     onClose: () => void;
-    trigger: ReactNode;
-    children: ReactNode | ((props: { close: () => void }) => ReactNode);
+    trigger: React.ReactNode;
+    children: React.ReactNode | ((props: { close: () => void }) => React.ReactNode);
     contentClassName?: string;
     align?: 'left' | 'right' | 'center' | 'start' | 'end';
     placement?: 'auto' | 'top' | 'bottom' | 'left' | 'right';
     offset?: number;
-    contentStyle?: CSSProperties;
+    contentStyle?: React.CSSProperties;
 }> = ({ isOpen, onClose, trigger, children, contentClassName = 'w-64', align = 'center', placement = 'auto', offset = 8, contentStyle }) => {
-    const triggerRef = useRef<HTMLDivElement>(null);
-    const popoverContentRef = useRef<HTMLDivElement>(null);
-    const [style, setStyle] = useState<CSSProperties>({ visibility: 'hidden', position: 'fixed' });
+    const triggerRef = React.useRef<HTMLDivElement>(null);
+    const popoverContentRef = React.useRef<HTMLDivElement>(null);
+    const [style, setStyle] = React.useState<React.CSSProperties>({ visibility: 'hidden', position: 'fixed' });
     const MotionDiv = motion.div as any;
 
-    const updatePosition = useCallback(() => {
+    const updatePosition = React.useCallback(() => {
         if (!triggerRef.current || !popoverContentRef.current) return;
         const triggerRect = triggerRef.current.getBoundingClientRect();
         const contentRect = popoverContentRef.current.getBoundingClientRect();
@@ -118,14 +118,14 @@ export const Popover: FC<{
         });
     }, [align, placement, offset, contentStyle]);
 
-    useLayoutEffect(() => {
+    React.useLayoutEffect(() => {
         if (isOpen) {
             setStyle({ position: 'fixed', top: '-9999px', left: '-9999px', visibility: 'hidden' });
             requestAnimationFrame(() => updatePosition());
         }
     }, [isOpen, updatePosition]);
 
-    useEffect(() => {
+    React.useEffect(() => {
         if (!isOpen) return;
         const handleClickOutside = (event: MouseEvent) => {
             if (popoverContentRef.current && !popoverContentRef.current.contains(event.target as Node) && triggerRef.current && !triggerRef.current.contains(event.target as Node)) {
@@ -180,9 +180,10 @@ export const DropdownMenuPortal = DropdownMenuPrimitive.Portal
 export const DropdownMenuSub = DropdownMenuPrimitive.Sub
 export const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup
 
+// FIX: Changed props type from DropdownMenuPrimitive.DropdownMenuSubTriggerProps to React.ComponentPropsWithoutRef to correctly include className and children.
 export const DropdownMenuSubTrigger = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.SubTrigger>,
-  DropdownMenuPrimitive.DropdownMenuSubTriggerProps & {
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubTrigger> & {
     inset?: boolean
   }
 >(({ className, inset, children, ...props }, ref) => (
@@ -201,9 +202,10 @@ export const DropdownMenuSubTrigger = React.forwardRef<
 ))
 DropdownMenuSubTrigger.displayName = DropdownMenuPrimitive.SubTrigger.displayName
 
+// FIX: Changed props type from DropdownMenuPrimitive.DropdownMenuSubContentProps to React.ComponentPropsWithoutRef to correctly include className.
 export const DropdownMenuSubContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.SubContent>,
-  DropdownMenuPrimitive.DropdownMenuSubContentProps
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>
 >(({ className, ...props }, ref) => (
   <DropdownMenuPrimitive.SubContent
     ref={ref}
@@ -216,9 +218,10 @@ export const DropdownMenuSubContent = React.forwardRef<
 ))
 DropdownMenuSubContent.displayName = DropdownMenuPrimitive.SubContent.displayName
 
+// FIX: Changed props type from DropdownMenuPrimitive.DropdownMenuContentProps to React.ComponentPropsWithoutRef to correctly include className.
 export const DropdownMenuContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Content>,
-  DropdownMenuPrimitive.DropdownMenuContentProps
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
 >(({ className, sideOffset = 4, ...props }, ref) => (
   <DropdownMenuPrimitive.Portal>
     <DropdownMenuPrimitive.Content
@@ -235,9 +238,10 @@ export const DropdownMenuContent = React.forwardRef<
 ))
 DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName
 
+// FIX: Changed props type from DropdownMenuPrimitive.DropdownMenuItemProps to React.ComponentPropsWithoutRef to correctly include className and children.
 export const DropdownMenuItem = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Item>,
-  DropdownMenuPrimitive.DropdownMenuItemProps & {
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
     inset?: boolean
   }
 >(({ className, inset, ...props }, ref) => (
@@ -253,9 +257,10 @@ export const DropdownMenuItem = React.forwardRef<
 ))
 DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName
 
+// FIX: Changed props type from DropdownMenuPrimitive.DropdownMenuCheckboxItemProps to React.ComponentPropsWithoutRef to correctly include className and children.
 export const DropdownMenuCheckboxItem = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.CheckboxItem>,
-  DropdownMenuPrimitive.DropdownMenuCheckboxItemProps
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem>
 >(({ className, children, checked, ...props }, ref) => (
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
@@ -276,9 +281,10 @@ export const DropdownMenuCheckboxItem = React.forwardRef<
 ))
 DropdownMenuCheckboxItem.displayName = DropdownMenuPrimitive.CheckboxItem.displayName
 
+// FIX: Changed props type from DropdownMenuPrimitive.DropdownMenuRadioItemProps to React.ComponentPropsWithoutRef to correctly include className and children.
 export const DropdownMenuRadioItem = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.RadioItem>,
-  DropdownMenuPrimitive.DropdownMenuRadioItemProps
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioItem>
 >(({ className, children, ...props }, ref) => (
   <DropdownMenuPrimitive.RadioItem
     ref={ref}
@@ -298,9 +304,10 @@ export const DropdownMenuRadioItem = React.forwardRef<
 ))
 DropdownMenuRadioItem.displayName = DropdownMenuPrimitive.RadioItem.displayName
 
+// FIX: Changed props type from DropdownMenuPrimitive.DropdownMenuLabelProps to React.ComponentPropsWithoutRef to correctly include className.
 export const DropdownMenuLabel = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Label>,
-  DropdownMenuPrimitive.DropdownMenuLabelProps & {
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Label> & {
     inset?: boolean
   }
 >(({ className, inset, ...props }, ref) => (
@@ -312,9 +319,10 @@ export const DropdownMenuLabel = React.forwardRef<
 ))
 DropdownMenuLabel.displayName = DropdownMenuPrimitive.Label.displayName
 
+// FIX: Changed props type from DropdownMenuPrimitive.DropdownMenuSeparatorProps to React.ComponentPropsWithoutRef to correctly include className.
 export const DropdownMenuSeparator = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Separator>,
-  DropdownMenuPrimitive.DropdownMenuSeparatorProps
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Separator>
 >(({ className, ...props }, ref) => (
   <DropdownMenuPrimitive.Separator
     ref={ref}
@@ -335,4 +343,4 @@ export const DropdownMenuShortcut = ({
     />
   )
 }
-DropdownMenuShortcut.displayName = "DropdownMenuShortcut"}
+DropdownMenuShortcut.displayName = "DropdownMenuShortcut"

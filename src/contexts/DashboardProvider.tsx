@@ -2,13 +2,17 @@ import React, { useState, useEffect, useCallback, useMemo, useRef, useContext, R
 import _ from 'lodash';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import { 
     WidgetState, WidgetLayout, Parameter, Story, CrossFilterState, Template, Bookmark, Workspace, 
     DashboardPage, Pill, DashboardContext, DashboardContextProps, DataSource, Field, FieldType, 
     Relationship, DataModelerLayout, Transformation, AIConfig, AiChatMessage, ThemeConfig, 
     ChartLibrary, DashboardDefaults, ContextMenuItem, ToastNotification, ExplorerState, User, 
     AdvancedAnalysisResult, AiInsight, TransformationType, ChartType, ValueFormat, DashboardComment, StoryPage, DashboardCommentMessage, WhatIfResult, StoryTone, AggregationType, AiDashboardSuggestion,
-    ChatContext, ProactiveInsight, PredictiveModelResult, Connector, DataStudioCanvasLayout, ControlFilterState, FilterCondition, DashboardMode
+    ChatContext, ProactiveInsight, PredictiveModelResult, Connector, DataStudioCanvasLayout, ControlFilterState, DashboardMode,
+    // FIX: Imported FilterCondition to resolve reference error.
+    FilterCondition
 } from '../utils/types';
 import { SAMPLE_DATA_SALES, SAMPLE_DATA_IRIS, DASHBOARD_TEMPLATES } from '../utils/constants';
 import { blendData } from '../utils/dataProcessing/blending';
@@ -144,8 +148,9 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     const [crossFilter, setCrossFilter] = useState<CrossFilterState>(null);
     const [controlFilters, setControlFilters] = useState<ControlFilterState>(new Map());
     const [predictiveModels, setPredictiveModels] = useState<PredictiveModelResult[]>([]);
+    const [selectedWidgetIds, setSelectedWidgetIds] = useState<string[]>([]);
     
-    // --- Derived State & Refs ---
+    // Derived State & Refs ---
     const transformations = useMemo(() => new Map(transformationsArray), [transformationsArray]);
     
     const transformedDataSources = useMemo(() => {
@@ -169,9 +174,6 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
 
     const { blendedData, blendedFields } = useMemo(() => blendData(transformedDataSources, relationships), [transformedDataSources, relationships]);
 
-    // FIX: This effect ensures that an invalid activePageId (e.g., from a deleted page)
-    // is reset, but it correctly leaves a null activePageId alone, which is the
-    // required state for viewing the dashboard home page.
     useEffect(() => {
         const allPages = workspaces.flatMap(ws => ws.pages || []);
         const activePageExists = allPages.some(p => p.id === activePageId);
@@ -190,6 +192,10 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     const collapsedRows = useMemo(() => activePage?.collapsedRows || [], [activePage]);
     const importInputRef = useRef<HTMLInputElement>(null);
     const [newlyAddedPillId, setNewlyAddedPillId] = useState<string | null>(null);
+
+    useEffect(() => {
+        setSelectedWidgetIds([]);
+    }, [activePageId, dashboardMode]);
     
     // --- UI Callbacks ---
     const showToast = useCallback((options: Omit<ToastNotification, 'id'>) => {
@@ -413,6 +419,203 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         }
     };
 
+    const toggleWidgetSelection = (widgetId: string) => {
+        setSelectedWidgetIds(prev =>
+            prev.includes(widgetId)
+                ? prev.filter(id => id !== widgetId)
+                : [...prev, widgetId]
+        );
+    };
+
+    const deselectAllWidgets = () => {
+        setSelectedWidgetIds([]);
+    };
+
+    const deleteSelectedWidgets = () => {
+        if (!activePageId || selectedWidgetIds.length === 0) return;
+        modalManager.openConfirmationModal({
+            title: `Delete ${selectedWidgetIds.length} Widgets?`,
+            message: 'Are you sure you want to permanently delete the selected widgets? This action cannot be undone.',
+            onConfirm: () => {
+                updatePage(activePageId, (p) => ({
+                    ...p,
+                    widgets: p.widgets.filter(w => !selectedWidgetIds.includes(w.id)),
+                    layouts: _.mapValues(p.layouts, l => l.filter(item => !selectedWidgetIds.includes(item.i))),
+                }));
+                const count = selectedWidgetIds.length;
+                setSelectedWidgetIds([]);
+                notificationService.success(`${count} widget${count > 1 ? 's' : ''} deleted.`);
+            }
+        });
+    };
+
+    const duplicateSelectedWidgets = () => {
+        if (!activePageId || selectedWidgetIds.length === 0) return;
+        const widgetsToCopy = widgets.filter(w => selectedWidgetIds.includes(w.id));
+        if (widgetsToCopy.length > 0) {
+            updatePage(activePageId, (currentPage) => {
+                const newWidgets: WidgetState[] = [];
+                const newLayoutItemsByBreakpoint: { [breakpoint: string]: WidgetLayout[] } = _.mapValues(currentPage.layouts, () => []);
+
+                widgetsToCopy.forEach(widgetToCopy => {
+                    const newWidget = { ..._.cloneDeep(widgetToCopy), id: _.uniqueId('widget_'), title: `${widgetToCopy.title} (Copy)` };
+                    newWidgets.push(newWidget);
+                    
+                    const layoutToCopy = _.mapValues(currentPage.layouts, l => l.find(item => item.i === widgetToCopy.id));
+                    Object.keys(newLayoutItemsByBreakpoint).forEach(key => {
+                        if (layoutToCopy[key]) {
+                            newLayoutItemsByBreakpoint[key].push({ ...layoutToCopy[key]!, i: newWidget.id, y: Infinity });
+                        }
+                    });
+                });
+
+                const updatedLayouts = _.mapValues(currentPage.layouts, (layout, bp) => [
+                    ...layout,
+                    ...(newLayoutItemsByBreakpoint[bp] || []),
+                ]);
+
+                return {
+                    ...currentPage,
+                    widgets: [...currentPage.widgets, ...newWidgets],
+                    layouts: updatedLayouts,
+                };
+            });
+            notificationService.success(`${widgetsToCopy.length} widget${widgetsToCopy.length > 1 ? 's' : ''} duplicated.`);
+            setSelectedWidgetIds([]);
+        }
+    };
+
+    const exportSelectedWidgets = async (format: 'PDF' | 'CSV' | 'XLSX') => {
+        if (!activePage || selectedWidgetIds.length === 0) return;
+        const widgetsToExport = activePage.widgets.filter(w => selectedWidgetIds.includes(w.id));
+        setLoadingState({ isLoading: true, message: `Exporting ${widgetsToExport.length} widgets as ${format}...` });
+        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate processing
+
+        try {
+            if (format === 'CSV' || format === 'XLSX') {
+                let combinedData: any[] = [];
+                for (const widget of widgetsToExport) {
+                    const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, parameters, controlFilters);
+                    if (data.type === 'table') {
+                        data.rows.forEach(row => {
+                            if (row.type === 'data') {
+                                // A proper implementation would de-normalize the pivoted keys here
+                                combinedData.push({ widget_title: widget.title, ...row.values });
+                            }
+                        });
+                    } else if (data.type === 'chart') {
+                        data.labels.forEach((label, index) => {
+                            const row: { [key: string]: any } = { widget_title: widget.title, category: label };
+                            data.datasets.forEach(ds => {
+                                row[ds.label] = ds.data[index];
+                            });
+                            combinedData.push(row);
+                        });
+                    }
+                }
+
+                if (format === 'CSV') {
+                    const csv = Papa.unparse(combinedData);
+                    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.setAttribute('download', 'dashboard_export.csv');
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } else { // XLSX
+                    const worksheet = XLSX.utils.json_to_sheet(combinedData);
+                    const workbook = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(workbook, worksheet, "Exported Data");
+                    XLSX.writeFile(workbook, "dashboard_export.xlsx");
+                }
+            } else if (format === 'PDF') {
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                let yPos = 15;
+                const pageHeight = pdf.internal.pageSize.getHeight();
+                const pageWidth = pdf.internal.pageSize.getWidth();
+                pdf.setFontSize(18);
+                pdf.text(activePage.name, pageWidth / 2, 10, { align: 'center' });
+
+                for (const widgetId of selectedWidgetIds) {
+                    const element = document.getElementById(`widget-wrapper-${widgetId}`)?.querySelector('.glass-panel') as HTMLElement;
+                    if (element) {
+                        const canvas = await html2canvas(element, { scale: 2 });
+                        const imgData = canvas.toDataURL('image/png');
+                        const imgProps = pdf.getImageProperties(imgData);
+                        const pdfWidth = pageWidth - 20;
+                        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+
+                        if (yPos + pdfHeight > pageHeight - 15) {
+                            pdf.addPage();
+                            yPos = 15;
+                        }
+                        pdf.addImage(imgData, 'PNG', 10, yPos, pdfWidth, pdfHeight);
+                        yPos += pdfHeight + 10;
+                    }
+                }
+                pdf.save(`${activePage.name}_export.pdf`);
+            }
+            notificationService.success(`${widgetsToExport.length} widgets exported as ${format}.`);
+        } catch (error) {
+            notificationService.error(`Export failed: ${(error as Error).message}`);
+        } finally {
+            setLoadingState({ isLoading: false, message: '' });
+            deselectAllWidgets();
+        }
+    };
+    
+    const discussSelectedWithAI = async () => {
+        if (!activePage || selectedWidgetIds.length === 0) return;
+        const widgetsToDiscuss = activePage.widgets.filter(w => selectedWidgetIds.includes(w.id));
+        
+        let prompt = `I have selected ${widgetsToDiscuss.length} widgets from my dashboard. Please provide a combined analysis and find any interesting correlations or insights between them.\n\nHere are the summaries:\n\n`;
+        
+        for (const widget of widgetsToDiscuss) {
+            const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, parameters, controlFilters);
+            let dataSummary = 'Data not available for summary.';
+            if (data.type === 'chart') {
+                dataSummary = JSON.stringify({ labels: data.labels.slice(0, 5), datasets: data.datasets.map(d => ({ label: d.label, data: d.data.slice(0, 5) })) }).substring(0, 500);
+            } else if (data.type === 'table') {
+                dataSummary = JSON.stringify(data.rows.slice(0, 5).map(r => r.values)).substring(0, 500);
+            }
+            prompt += `--- Widget: "${widget.title}" (${widget.chartType}) ---\nData Sample: ${dataSummary}...\n\n`;
+        }
+    
+        sendAiChatMessage(prompt);
+        modalManager.openChatModal();
+        deselectAllWidgets();
+    };
+    
+    const addSelectedToStory = () => {
+        if (!activePage || selectedWidgetIds.length === 0) return;
+        const widgetsToAdd = activePage.widgets.filter(w => selectedWidgetIds.includes(w.id));
+    
+        const now = new Date().toISOString();
+        const newStory: Story = {
+            id: _.uniqueId('story_'),
+            title: `Story from ${activePage.name}`,
+            description: `A story created from ${widgetsToAdd.length} selected widgets.`,
+            author: currentUser?.name || 'User',
+            createdAt: now,
+            updatedAt: now,
+            pages: widgetsToAdd.map(widget => ({
+                id: _.uniqueId('spage_'),
+                type: 'insight',
+                title: `Insight from ${widget.title}`,
+                widgetId: widget.id,
+                annotation: `*Analysis for ${widget.title}...*`,
+                presenterNotes: ''
+            }))
+        };
+        setStories(s => [...s, newStory]);
+        setEditingStory({ story: newStory });
+        setView('stories');
+        deselectAllWidgets();
+        notificationService.success(`New story created with ${widgetsToAdd.length} widgets.`);
+    };
+
+
     // --- Data Management Callbacks ---
     const addDataSourceFromFile = async (file: File) => {
         setLoadingState({ isLoading: true, message: `Loading ${file.name}...` });
@@ -508,6 +711,10 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         if(sampleKey === 'sales' || sampleKey === 'both') processSample('sample_sales', 'Sample - Superstore Sales', SAMPLE_DATA_SALES);
         if(sampleKey === 'iris' || sampleKey === 'both') processSample('sample_iris', 'Sample - Iris Dataset', SAMPLE_DATA_IRIS);
         notificationService.success('Sample data loaded!');
+        // FIX: Set the active page after loading sample data to navigate the user.
+        if (!activePageId && workspaces[0]?.pages?.[0]) {
+            setActivePageId(workspaces[0].pages[0].id);
+        }
     };
 
     const removeDataSource = (id: string) => {
@@ -1389,7 +1596,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         isDataStudioOnboardingNeeded, notifications, loadingState, scrollToWidgetId, dashboardMode, isHelpModeActive,
         workspaces, activePageId, activePage, widgets, layouts, globalFilters, parameters, stories, editingStory,
         userTemplates, crossFilter, controlFilters, canUndo, canRedo, refetchCounter, predictiveModels, dataStudioCanvasLayout,
-        newlyAddedPillId,
+        newlyAddedPillId, selectedWidgetIds,
 
         // Callbacks & Setters
         addDataSourceFromFile,
@@ -1457,6 +1664,13 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         resolveNlpAmbiguity,
         handleNlpFilterQuery,
         setNewlyAddedPillId,
+        toggleWidgetSelection,
+        deleteSelectedWidgets,
+        duplicateSelectedWidgets,
+        deselectAllWidgets,
+        exportSelectedWidgets,
+        discussSelectedWithAI,
+        addSelectedToStory,
     };
 
     return <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>;

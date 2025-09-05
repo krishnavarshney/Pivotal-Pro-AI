@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useRef, useCallback, createContext, useContext, FC, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useRef, useCallback, useEffect, FC, ReactNode, RefObject, CSSProperties } from 'react';
 import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './utils';
 
 interface HoverCardContextProps {
     isOpen: boolean;
-    triggerRef: React.RefObject<HTMLDivElement>;
-    contentRef: React.RefObject<HTMLDivElement>;
+    triggerRef: RefObject<HTMLDivElement>;
+    contentRef: RefObject<HTMLDivElement>;
     handleOpen: () => void;
     handleClose: () => void;
 }
@@ -79,7 +79,7 @@ export const HoverCardContent: FC<{
     offset?: number;
 }> = ({ children, className = 'w-64', align = 'center', placement = 'auto', offset = 8 }) => {
     const { isOpen, triggerRef, contentRef, handleOpen, handleClose } = useHoverCard();
-    const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden', position: 'fixed' });
+    const [style, setStyle] = useState<CSSProperties>({ visibility: 'hidden', position: 'fixed' });
     const MotionDiv = motion.div as any;
 
     const updatePosition = useCallback(() => {

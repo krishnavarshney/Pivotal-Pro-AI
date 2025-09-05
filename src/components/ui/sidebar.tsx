@@ -1,5 +1,4 @@
-
-import { createContext, useContext, useState, useEffect, forwardRef, HTMLAttributes, ReactNode, FC, ButtonHTMLAttributes } from "react"
+import { createContext, useContext, useState, useEffect, forwardRef, SetStateAction, ReactNode, HTMLAttributes, ButtonHTMLAttributes } from "react";
 import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "./utils"
 import { useMediaQuery } from "../../hooks/useMediaQuery"
@@ -11,7 +10,7 @@ type SidebarContextProps = {
   setCollapsed: (collapsed: boolean) => void
   isMobile: boolean
   isMobileOpen: boolean
-  setMobileOpen: React.Dispatch<React.SetStateAction<boolean>>
+  setMobileOpen: React.Dispatch<SetStateAction<boolean>>
 }
 
 const SidebarContext = createContext<SidebarContextProps | null>(null)

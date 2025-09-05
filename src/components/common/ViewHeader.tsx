@@ -1,5 +1,3 @@
-
-
 import React, { FC, ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useDashboard } from '../../contexts/DashboardProvider';

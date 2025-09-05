@@ -558,7 +558,6 @@ export interface ExplorerState {
 export interface ToastNotification {
     id: string;
     message: string;
-    // FIX: Added optional description to allow for more detailed toast notifications.
     description?: string;
     type: 'success' | 'error' | 'info' | 'warning';
     duration?: number;
@@ -770,6 +769,7 @@ export interface DashboardContextProps {
     predictiveModels: PredictiveModelResult[];
     dataStudioCanvasLayout: DataStudioCanvasLayout;
     newlyAddedPillId: string | null;
+    selectedWidgetIds: string[];
 
     // Callbacks & Setters
     addDataSourceFromFile: (file: File) => Promise<void>;
@@ -874,6 +874,14 @@ export interface DashboardContextProps {
     resolveNlpAmbiguity: (term: string, fieldSimpleName: string) => void;
     handleNlpFilterQuery: (query: string) => Promise<void>;
     setNewlyAddedPillId: Dispatch<SetStateAction<string | null>>;
+    // FIX: Added missing properties to the DashboardContextProps interface.
+    toggleWidgetSelection: (widgetId: string) => void;
+    deleteSelectedWidgets: () => void;
+    duplicateSelectedWidgets: () => void;
+    deselectAllWidgets: () => void;
+    exportSelectedWidgets: (format: 'PDF' | 'CSV' | 'XLSX') => Promise<void>;
+    discussSelectedWithAI: () => Promise<void>;
+    addSelectedToStory: () => void;
 
     // Modal Manager props
     isWidgetEditorModalOpen: boolean;
@@ -881,7 +889,7 @@ export interface DashboardContextProps {
     widgetEditorAIPrompt: string | null;
     filterConfigModalState: { isOpen: boolean; pill: Pill | null; onSave: ((p: Pill) => void) | null; onBack?: () => void };
     isPageFiltersModalOpen: boolean;
-    selectFieldModalOpen: boolean;
+    selectFieldModalState: { isOpen: boolean, onSave?: (pill: Pill) => void };
     isInsightHubOpen: boolean;
     isChatModalOpen: boolean;
     addFieldModalState: { isOpen: boolean; sourceId: string | null; initialStep?: 'formula' | 'grouping' };
@@ -917,7 +925,7 @@ export interface DashboardContextProps {
     closeFilterConfigModal: () => void;
     openPageFiltersModal: () => void;
     closePageFiltersModal: () => void;
-    openSelectFieldModal: () => void;
+    openSelectFieldModal: (onSave?: (pill: Pill) => void) => void;
     closeSelectFieldModal: () => void;
     openInsightHub: () => void;
     closeInsightHub: () => void;

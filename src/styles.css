@@ -1036,3 +1036,10 @@ button:active:not(:disabled) {
   filter: drop-shadow(0 0 5px hsl(var(--primary-values) / 0.8));
   animation: rise 20s infinite ease-in-out;
 }
+
+.presenter-background {
+    background-color: var(--background);
+    background-image:
+        radial-gradient(circle at 1px 1px, hsl(var(--border-values)) 1px, transparent 0);
+    background-size: 24px 24px;
+}

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { FC, useMemo } from 'react';
 import _ from 'lodash';
 import { useDashboard } from '../contexts/DashboardProvider';
 import { ViewHeader } from '../components/common/ViewHeader';
@@ -14,7 +14,7 @@ const MotionDiv = motion.div as any;
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
-const MiniatureLayout: React.FC<{ widgets: WidgetState[], layouts: { [key: string]: WidgetLayout[] } }> = ({ widgets, layouts }) => {
+const MiniatureLayout: FC<{ widgets: WidgetState[], layouts: { [key: string]: WidgetLayout[] } }> = ({ widgets, layouts }) => {
     if (!widgets || widgets.length === 0) {
         return (
             <div className="w-full h-full flex items-center justify-center text-muted-foreground/50 text-xs">
@@ -45,7 +45,7 @@ const MiniatureLayout: React.FC<{ widgets: WidgetState[], layouts: { [key: strin
     );
 };
 
-const DashboardCard: React.FC<{
+const DashboardCard: FC<{
     page: DashboardPage;
     workspace: Workspace;
 }> = ({ page, workspace }) => {
@@ -89,9 +89,12 @@ const DashboardCard: React.FC<{
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={handleRename}><Edit size={14} className="mr-2" /> Rename</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => duplicatePage(page.id)}><Copy size={14} className="mr-2" /> Duplicate</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive" onClick={handleDelete}><Trash2 size={14} className="mr-2" /> Delete</DropdownMenuItem>
+{/* FIX: Wrapped children in a fragment to satisfy the updated component props. */}
+                        <DropdownMenuItem onClick={handleRename}><><Edit size={14} className="mr-2" /> Rename</></DropdownMenuItem>
+{/* FIX: Wrapped children in a fragment to satisfy the updated component props. */}
+                        <DropdownMenuItem onClick={() => duplicatePage(page.id)}><><Copy size={14} className="mr-2" /> Duplicate</></DropdownMenuItem>
+{/* FIX: Wrapped children in a fragment to satisfy the updated component props. */}
+                        <DropdownMenuItem className="text-destructive" onClick={handleDelete}><><Trash2 size={14} className="mr-2" /> Delete</></DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
@@ -120,7 +123,7 @@ const DashboardCard: React.FC<{
     );
 };
 
-export const DashboardHomeView: React.FC = () => {
+export const DashboardHomeView: FC = () => {
     const { workspaces, setView, setActivePageId } = useDashboard();
     
     const allPagesWithWorkspaces = useMemo(() => {
