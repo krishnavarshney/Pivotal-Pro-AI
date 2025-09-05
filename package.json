@@ -25,16 +25,11 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.1",
     "react-apexcharts": "^1.4.1",
-    "apexcharts": "^4.0.0",
+    "apexcharts": "^3.45.1",
     "echarts-for-react": "^3.0.2",
     "echarts": "^5.4.3",
     "recharts": "^2.12.7",
-    "lottie-react": "^2.4.0",
-    "lucide-react": "^0.417.0",
-    "phosphor-react": "^1.4.1",
-    "@tanstack/react-table": "^8.19.3",
-    "@radix-ui/react-dropdown-menu": "^2.1.1",
-    "@radix-ui/react-select": "^2.1.1"
+    "lottie-react": "^2.4.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

@@ -109,7 +109,7 @@ export const PageMenuItem: FC<{ page: DashboardPage; onNavigate?: () => void }> 
                         <Popover
                             isOpen={isMenuOpen}
                             onClose={() => setIsMenuOpen(false)}
-                            trigger={<div onClick={(e) => { e.stopPropagation(); setIsMenuOpen(true); }} className="ml-auto p-1 rounded opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground cursor-pointer"><MoreVertical size={16} /></div>}
+                            trigger={<button onClick={(e) => { e.stopPropagation(); setIsMenuOpen(true); }} className="ml-auto p-1 rounded opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-foreground"><MoreVertical size={16} /></button>}
                             placement="right"
                             align="start"
                             contentClassName="w-40 p-1"
