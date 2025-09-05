@@ -3,13 +3,17 @@ import { useDashboard } from '../../../contexts/DashboardProvider';
 import { Field, FieldType, AiChatMessage, DND_ITEM_TYPE, FieldDragItem } from '../../../utils/types';
 import * as aiService from '../../../services/aiService';
 import { Sparkle, Search, RefreshCw, Type, Hash, Clock } from 'lucide-react';
-import { Button, FieldInfoPopover, textareaClasses, inputClasses, cn, Checkbox } from '../../ui';
+import { Button } from '../../ui/Button';
+import { FieldInfoPopover } from '../../ui/FieldInfoPopover';
+import { textareaClasses, inputClasses, cn } from '../../ui/utils';
+import { Checkbox } from '../../ui/Checkbox';
 import { useDrag } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import _ from 'lodash';
+import { notificationService } from '../../../services/notificationService';
 
 const SelectableFieldRow: FC<{ field: Field }> = ({ field }) => {
-    const { editingWidgetState, toggleFieldInEditorShelves } = useDashboard();
+    const { editingWidgetState, toggleFieldInEditorShelves, blendedData } = useDashboard();
     
     const isChecked = useMemo(() => {
         if (!editingWidgetState) return false;
@@ -52,7 +56,7 @@ const SelectableFieldRow: FC<{ field: Field }> = ({ field }) => {
             />
             <div ref={drag as any} className="flex-grow flex items-center gap-2 cursor-grab truncate">
                 {getIcon()}
-                <FieldInfoPopover field={field} isDragging={isDragging}>
+                <FieldInfoPopover field={field} isDragging={isDragging} blendedData={blendedData}>
                     <span className="font-medium text-sm text-foreground truncate cursor-help">{field.simpleName}</span>
                 </FieldInfoPopover>
             </div>
@@ -65,7 +69,6 @@ export const FieldsPanel: FC = () => {
     const { 
         blendedFields, 
         aiConfig, 
-        showToast, 
         populateEditorFromAI, 
         widgetEditorAIPrompt, 
         setWidgetEditorAIPrompt,
@@ -85,7 +88,7 @@ export const FieldsPanel: FC = () => {
 
     const handleGenerateClick = useCallback(async (prompt: string) => {
         if (!aiConfig) {
-            showToast({ message: "AI is not configured. Please set it up in Settings.", type: "error" });
+            notificationService.error("AI is not configured.");
             return;
         }
         if (!prompt.trim()) return;
@@ -95,19 +98,18 @@ export const FieldsPanel: FC = () => {
             const explicitPrompt = `Generate a visualization for: ${prompt}`;
             const chatHistory: AiChatMessage[] = [{ id: '1', role: 'user', content: explicitPrompt }];
             const { chartSuggestion } = await aiService.getChatResponse(aiConfig, chatHistory, allFields, blendedData.slice(0, 5));
-
             if (chartSuggestion) {
                 populateEditorFromAI(chartSuggestion);
-                showToast({ message: "AI suggestion has been applied.", type: "success" });
+                notificationService.success("AI suggestion applied.");
             } else {
-                showToast({ message: "AI could not generate a chart from that prompt. Please try rephrasing.", type: "info" });
+                notificationService.info("AI could not generate a chart from the prompt.");
             }
         } catch (e) {
-            showToast({ message: `AI failed to generate a suggestion: ${(e as Error).message}`, type: 'error' });
+            notificationService.error(`AI failed: ${(e as Error).message}`);
         } finally {
             setIsGenerating(false);
         }
-    }, [aiConfig, blendedFields, blendedData, showToast, populateEditorFromAI]);
+    }, [aiConfig, blendedFields, blendedData, populateEditorFromAI]);
     
     useEffect(() => {
         if (widgetEditorAIPrompt) {
@@ -118,45 +120,30 @@ export const FieldsPanel: FC = () => {
     }, [widgetEditorAIPrompt, handleGenerateClick, setWidgetEditorAIPrompt]);
     
     return (
-        <>
+        <div className="flex flex-col h-full bg-secondary/50">
             <div className="p-4 border-b border-border space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground">Build with AI</h3>
-                <textarea
-                    value={aiPrompt}
-                    onChange={e => setAiPrompt(e.target.value)}
-                    placeholder="e.g., Show me total profit by product category as a bar chart"
-                    className={cn(textareaClasses, "text-sm")}
-                    rows={3}
-                />
+                <textarea value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} placeholder="e.g., Show me total profit by product category" className={cn(textareaClasses, "text-sm")} rows={3} />
                 <Button onClick={() => handleGenerateClick(aiPrompt)} disabled={isGenerating || !aiPrompt.trim()} className="w-full ai-feature-style">
-                    {isGenerating ? <RefreshCw size={16} className="animate-spin" /> : <Sparkle size={16} />}
-                    {isGenerating ? 'Generating...' : 'Generate with AI'}
+                    {isGenerating ? <RefreshCw size={16} className="animate-spin" /> : <Sparkle size={16} />} {isGenerating ? 'Generating...' : 'Generate with AI'}
                 </Button>
             </div>
             <div className="p-4 border-b border-border">
-                <div className="relative">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <input type="text" placeholder="Search fields..." value={fieldSearch} onChange={e => setFieldSearch(e.target.value)} className={`${inputClasses} pl-8 h-9`} />
-                </div>
+                <div className="relative"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" /><input type="text" placeholder="Search fields..." value={fieldSearch} onChange={e => setFieldSearch(e.target.value)} className={`${inputClasses} pl-8 h-9`} /></div>
             </div>
             <div className="flex-grow p-4 overflow-y-auto space-y-4">
                 {filteredFields.dimensions.length > 0 && (
                     <div>
                         <h4 className="font-semibold text-xs text-blue-500 uppercase tracking-wider mb-2 px-1">Dimensions</h4>
-                        <div className="space-y-2">
-                            {filteredFields.dimensions.map(f => <SelectableFieldRow key={f.name} field={f} />)}
-                        </div>
+                        <div className="space-y-2">{filteredFields.dimensions.map(f => <SelectableFieldRow key={f.name} field={f} />)}</div>
                     </div>
                 )}
                  {filteredFields.measures.length > 0 && (
                     <div>
                         <h4 className="font-semibold text-xs text-green-500 uppercase tracking-wider mb-2 px-1">Measures</h4>
-                         <div className="space-y-2">
-                            {filteredFields.measures.map(f => <SelectableFieldRow key={f.name} field={f} />)}
-                        </div>
+                        <div className="space-y-2">{filteredFields.measures.map(f => <SelectableFieldRow key={f.name} field={f} />)}</div>
                     </div>
                 )}
             </div>
-        </>
+        </div>
     );
 };

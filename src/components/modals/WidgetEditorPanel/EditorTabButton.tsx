@@ -1,4 +1,5 @@
 
+
 import React, { FC, Dispatch, SetStateAction, ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '../../ui/utils';
@@ -10,6 +11,9 @@ interface EditorTabButtonProps {
     icon: ReactNode;
     children: ReactNode;
 }
+
+// FIX: Add aliasing for motion component to fix TypeScript errors.
+const MotionDiv = motion.div as any;
 
 export const EditorTabButton: FC<EditorTabButtonProps> = ({ tabId, activeTab, setActiveTab, icon, children }) => {
     
@@ -23,7 +27,7 @@ export const EditorTabButton: FC<EditorTabButtonProps> = ({ tabId, activeTab, se
         >
             {icon}
             {children}
-            {activeTab === tabId && <motion.div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" layoutId="editor-tab-underline" />}
+            {activeTab === tabId && <MotionDiv className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" layoutId="editor-tab-underline" />}
         </button>
     );
 };

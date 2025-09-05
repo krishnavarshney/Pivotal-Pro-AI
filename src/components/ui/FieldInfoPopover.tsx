@@ -1,14 +1,12 @@
 import React, { useMemo, FC, ReactNode } from 'react';
 import { Hash, TextT, Clock } from 'phosphor-react';
 import { Field, FieldType } from '../../utils/types';
-import { useDashboard } from '../../contexts/DashboardProvider';
 import { formatValue } from '../../utils/dataProcessing/formatting';
 import { calculateNumericStats, calculateDimensionStats, createHistogramData } from '../../utils/dataProcessing/statistics';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip } from 'recharts';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from './HoverCard';
 
-export const FieldInfoPopover: FC<{field: Field, children: ReactNode, isDragging?: boolean}> = ({ field, children, isDragging = false }) => {
-    const { blendedData } = useDashboard();
+export const FieldInfoPopover: FC<{field: Field, children: ReactNode, isDragging?: boolean, blendedData: any[]}> = ({ field, children, isDragging = false, blendedData }) => {
     
     const columnData = useMemo(() => blendedData.map(row => row[field.name]), [blendedData, field.name]);
 

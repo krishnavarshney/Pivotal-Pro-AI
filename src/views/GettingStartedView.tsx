@@ -1,8 +1,15 @@
 import React, { FC, ReactNode } from 'react';
 import { useDashboard } from '../contexts/DashboardProvider';
 import { Pencil, Sparkles, Table, Database, BookOpen, Share2, ArrowRight, Brain } from 'lucide-react';
-import { Button, cn } from '../components/ui';
-import { motion, type Variants } from 'framer-motion';
+import { Button } from '../components/ui/Button';
+import { cn } from '../components/ui/utils';
+// FIX: Corrected framer-motion import for Variants and aliased motion components.
+import { motion, Variants } from 'framer-motion';
+
+// FIX: Add aliasing for motion components to fix TypeScript errors.
+const MotionDiv = motion.div as any;
+const MotionH1 = motion.h1 as any;
+const MotionP = motion.p as any;
 
 const containerVariants: Variants = {
     hidden: { opacity: 0 },
@@ -36,7 +43,7 @@ const FeatureCard: FC<{
     className?: string;
 }> = ({ icon, title, description, actionText, onClick, isPrimary = false, className }) => {
     return (
-    <motion.div
+    <MotionDiv
         variants={itemVariants}
         whileHover={{ y: -5, boxShadow: 'var(--shadow-lg)' }}
         className={cn(`bg-card rounded-xl border border-border shadow-md p-4 text-left flex flex-col group`, className)}
@@ -57,7 +64,7 @@ const FeatureCard: FC<{
         >
             {actionText} <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
         </Button>
-    </motion.div>
+    </MotionDiv>
 )};
 
 export const GettingStartedView: FC = () => {
@@ -68,21 +75,21 @@ export const GettingStartedView: FC = () => {
     return (
         <div className="absolute inset-0 h-full w-full flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 overflow-y-auto bg-background">
             <div className="text-center w-full max-w-5xl mx-auto">
-                <motion.div
+                <MotionDiv
                     initial={{ opacity: 0, y: -20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.5 }}
                 >
                     <span className="icon-hover-anim inline-block"><Sparkles size={32} className="text-primary mx-auto mb-4" /></span>
-                    <motion.h1 className="text-2xl sm:text-4xl font-bold font-display text-foreground">
+                    <MotionH1 className="text-2xl sm:text-4xl font-bold font-display text-foreground">
                         Your Analysis Journey Begins Now
-                    </motion.h1>
-                    <motion.p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto mt-4">
+                    </MotionH1>
+                    <MotionP className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto mt-4">
                         You've successfully loaded <span className="font-semibold text-primary">{source?.name || 'your data'}</span>. Here are a few ways to get started and uncover insights.
-                    </motion.p>
-                </motion.div>
+                    </MotionP>
+                </MotionDiv>
 
-                <motion.div
+                <MotionDiv
                     variants={containerVariants}
                     initial="hidden"
                     animate="visible"
@@ -145,7 +152,7 @@ export const GettingStartedView: FC = () => {
                         actionText="Launch Studio"
                         onClick={() => setView('predictive')}
                     />
-                </motion.div>
+                </MotionDiv>
             </div>
         </div>
     );

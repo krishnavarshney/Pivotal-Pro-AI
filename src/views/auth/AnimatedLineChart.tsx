@@ -1,5 +1,9 @@
 import React, { memo } from 'react';
+// FIX: Corrected framer-motion import for Variants and aliased motion components.
 import { motion, type Variants } from 'framer-motion';
+
+// FIX: Add aliasing for motion component to fix TypeScript errors.
+const MotionPath = motion.path as any;
 
 export const AnimatedLineChart = memo(() => {
     const pathVariants: Variants = {
@@ -30,7 +34,7 @@ export const AnimatedLineChart = memo(() => {
                         </feMerge>
                     </filter>
                 </defs>
-                <motion.path
+                <MotionPath
                     d="M 0 40 Q 25 10, 50 30 T 100 20"
                     fill="none"
                     stroke="url(#chartGradientAuth)"

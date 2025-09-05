@@ -2,7 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import _ from 'lodash';
 import { useDashboard } from '../../contexts/DashboardProvider';
 import { Pill, FilterConfig, FilterCondition, FieldType, Field, AggregationType } from '../../utils/types';
-import { Button, Dialog, DialogOverlay, DialogContent, DialogHeader, DialogTitle, DialogFooter, inputClasses, MultiValueInput, cn } from '../ui';
+import { Button } from '../ui/Button';
+import { Dialog, DialogOverlay, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/Dialog';
+import { inputClasses, cn } from '../ui/utils';
+import { MultiValueInput } from '../ui/MultiValueInput';
 import { Funnel, MagnifyingGlass, TextT, Hash, Clock, X, CaretDown, CheckCircle } from 'phosphor-react';
 import { motion, AnimatePresence } from 'framer-motion';
 

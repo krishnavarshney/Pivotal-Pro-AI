@@ -1,38 +1,46 @@
 import React, { useState, useMemo, useEffect, useRef, FC, useCallback } from 'react';
-//- Error in file src/components/modals/AddFieldModal.tsx on line 2: Module '"lucide-react"' has no exported member 'MagnifyingGlass'.
-//- Error in file src/components/modals/AddFieldModal.tsx on line 2: '"lucide-react"' has no exported member named 'TextT'. Did you mean 'Text'?
-//- Error in file src/components/modals/AddFieldModal.tsx on line 2: '"lucide-react"' has no exported member named 'WarningCircle'. Did you mean 'ParkingCircle'?
-//- Error in file src/components/modals/AddFieldModal.tsx on line 2: Module '"lucide-react"' has no exported member 'BracketsCurly'.
-import { Calculator, Sparkle, Search, Type, Hash, Clock, CheckCircle, AlertCircle, List, Braces, ArrowLeft, ArrowRight, Trash, Plus } from 'lucide-react';
+import { Calculator, Sparkle, Search, Type, Hash, Clock, CheckCircle, AlertCircle, List, Braces, ArrowLeft, ArrowRight, Trash, Plus, ChevronDown } from 'lucide-react';
 import _ from 'lodash';
 import { useDashboard } from '../../contexts/DashboardProvider';
-import { Button, Dialog, DialogOverlay, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, inputClasses, textareaClasses, cn, Tooltip, Checkbox, Badge } from '../ui';
+import { Button } from '../ui/Button';
+import { Dialog, DialogOverlay, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/Dialog';
+import { inputClasses, textareaClasses, cn } from '../ui/utils';
+import { Tooltip } from '../ui/Tooltip';
+import { Checkbox } from '../ui/Checkbox';
+import { Badge } from '../ui/Badge';
 import { FORMULA_FUNCTION_DEFINITIONS } from '../../utils/dataProcessing/formulaEngine';
 import * as aiService from '../../services/aiService';
 import { TransformationType, Field, CreateCategoricalPayload, CategoricalRule, FilterCondition, FieldType, DND_ITEM_TYPE } from '../../utils/types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDrag, useDrop } from 'react-dnd';
+import { notificationService } from '../../services/notificationService';
 
 // --- SUB-COMPONENTS for Formula View ---
 
-const FormulaEditorSyntaxHighlight: FC<{ formula: string }> = ({ formula }) => {
+const FormulaEditorSyntaxHighlight: FC<{ formula: string, allFields: string[], allFunctions: string[] }> = ({ formula, allFields, allFunctions }) => {
     const html = useMemo(() => {
         const escapedFormula = formula.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        const functionNames = Object.keys(FORMULA_FUNCTION_DEFINITIONS).join('|');
+        const functionNames = allFunctions.join('|');
         const tokenizer = new RegExp(`('([^']*)')|(\\[([^\\]]+)\\])|\\b(${functionNames})\\b(?=\\s*\\()|(\\b\\d+(\\.\\d+)?\\b)|([+\\-*/=<>!(),])`, 'gi');
-        const highlighted = escapedFormula.replace(tokenizer, (match, g1, _g2, g3, _g4, g5, g6, _g7, g8) => {
+        
+        const highlighted = escapedFormula.replace(tokenizer, (match, g1, _g2, g3, g4, g5, g6, _g7, g8) => {
             if (g1) return `<span class="text-amber-400">${g1}</span>`; // String
-            if (g3) return `<span class="text-purple-400">${g3}</span>`; // Field
+            if (g3) { // Field
+                const fieldName = g4;
+                const isValid = allFields.includes(fieldName);
+                return isValid ? `<span class="text-purple-400">${g3}</span>` : `<span class="text-red-400 underline decoration-wavy">${g3}</span>`;
+            }
             if (g5) return `<span class="text-sky-400">${g5}</span>`; // Function
             if (g6) return `<span class="text-teal-400">${g6}</span>`; // Number
             if (g8) return `<span class="text-rose-400">${g8}</span>`; // Operator
             return match;
         });
         return highlighted.replace(/\n/g, '<br />');
-    }, [formula]);
+    }, [formula, allFields, allFunctions]);
 
-    return <div className="p-3 font-mono text-sm tracking-wider leading-relaxed" dangerouslySetInnerHTML={{ __html: html + '<br />' }} />;
+    return <pre className="p-3 font-mono text-sm tracking-wider leading-relaxed whitespace-pre-wrap" dangerouslySetInnerHTML={{ __html: html + ' ' }} />;
 };
+
 
 const FunctionInfo: FC<{ info: typeof FORMULA_FUNCTION_DEFINITIONS[string], onInsert: (text: string) => void }> = ({ info, onInsert }) => (
     <div className="p-2 rounded-md hover:bg-accent text-left w-full text-sm">
@@ -58,22 +66,74 @@ const InitialStep: FC<{ onSelectFormula: () => void; onSelectGrouping: () => voi
     </div>
 );
 
-const FormulaStep: FC<{ onBack: () => void; onSave: (fieldName: string, formula: string) => void; sourceId: string; }> = ({ onBack, onSave, sourceId }) => {
-    const { dataSources, aiConfig, showToast } = useDashboard();
+const FormulaStep: FC<{ onBack: () => void; onSave: (fieldName: string, formula: string) => void; sourceId: string; onClose: () => void; }> = ({ onBack, onSave, sourceId, onClose }) => {
+    const { dataSources, aiConfig } = useDashboard();
     const [fieldName, setFieldName] = useState('');
     const [formula, setFormula] = useState('');
     const [aiPrompt, setAiPrompt] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
     const [activeTab, setActiveTab] = useState<'fields' | 'functions'>('fields');
     const [validation, setValidation] = useState<{ isValid: boolean, message: string }>({ isValid: true, message: '' });
+    const [functionSearch, setFunctionSearch] = useState('');
+    const [openCategories, setOpenCategories] = useState<string[]>([]);
+
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const highlightRef = useRef<HTMLDivElement>(null);
 
+    // Autocomplete state
+    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [activeSuggestion, setActiveSuggestion] = useState(0);
+    const [suggestionPos, setSuggestionPos] = useState<{ top: number, left: number } | null>(null);
+
     const source = sourceId ? dataSources.get(sourceId) : null;
     const allFields = useMemo(() => source ? [...source.fields.dimensions, ...source.fields.measures] : [], [source]);
+    const allFieldNames = useMemo(() => allFields.map(f => f.simpleName), [allFields]);
+    const allFunctionNames = useMemo(() => Object.keys(FORMULA_FUNCTION_DEFINITIONS), []);
     const groupedFunctions = useMemo(() => _.groupBy(Object.values(FORMULA_FUNCTION_DEFINITIONS), 'category'), []);
+    
+    useEffect(() => {
+        if (functionSearch) {
+            const matchingCategories = Object.entries(groupedFunctions)
+                .filter(([_category, funcs]) =>
+                    (funcs as any[]).some(f => 
+                        f.syntax.toLowerCase().includes(functionSearch.toLowerCase()) || 
+                        f.description.toLowerCase().includes(functionSearch.toLowerCase())
+                    )
+                )
+                .map(([category]) => category);
+            setOpenCategories(matchingCategories);
+        }
+    }, [functionSearch, groupedFunctions]);
 
-    const insertText = (text: string) => {
+
+    const validate = useCallback(() => {
+        if (!fieldName.trim()) { setValidation({ isValid: false, message: 'Field name is required.'}); return false; }
+        if (allFields.some(f => f.simpleName.toLowerCase() === fieldName.trim().toLowerCase())) { setValidation({ isValid: false, message: 'A field with this name already exists.'}); return false; }
+        if (!formula.trim()) { setValidation({ isValid: false, message: 'Formula cannot be empty.'}); return false; }
+        
+        // Parentheses balance
+        if ((formula.match(/\(/g) || []).length !== (formula.match(/\)/g) || []).length) { setValidation({isValid: false, message: 'Unbalanced parentheses.'}); return false; }
+        if ((formula.match(/\[/g) || []).length !== (formula.match(/\]/g) || []).length) { setValidation({isValid: false, message: 'Unbalanced square brackets.'}); return false; }
+
+        // Field and function validation
+        const mentionedFields = formula.match(/\[([^\]]+)\]/g) || [];
+        for (const field of mentionedFields) {
+            if (!allFieldNames.includes(field.slice(1, -1))) { setValidation({isValid: false, message: `Field ${field} not found.`}); return false; }
+        }
+        
+        const functionRegex = new RegExp(`\\b(${allFunctionNames.join('|')})\\b(?=\\s*\\()`, 'gi');
+        const unknownFunctions = formula.replace(functionRegex, '').match(/[a-zA-Z_]\w*(?=\s*\()/g) || [];
+        if(unknownFunctions.length > 0) {
+            setValidation({isValid: false, message: `Unknown function: ${unknownFunctions[0]}`}); return false;
+        }
+
+        setValidation({ isValid: true, message: 'Formula is valid' });
+        return true;
+    }, [fieldName, formula, allFields, allFieldNames, allFunctionNames]);
+    
+    useEffect(() => { validate(); }, [fieldName, formula, validate]);
+
+    const insertText = (text: string, moveCursorInside = false) => {
         if (!textareaRef.current) return;
         const start = textareaRef.current.selectionStart;
         const end = textareaRef.current.selectionEnd;
@@ -81,34 +141,19 @@ const FormulaStep: FC<{ onBack: () => void; onSave: (fieldName: string, formula:
         textareaRef.current.focus();
         setTimeout(() => {
             const newPos = start + text.length;
-            if (text.endsWith('()')) textareaRef.current?.setSelectionRange(newPos - 1, newPos - 1);
-            else textareaRef.current?.setSelectionRange(newPos, newPos);
+            textareaRef.current?.setSelectionRange(moveCursorInside ? newPos - 1 : newPos, moveCursorInside ? newPos - 1 : newPos);
         }, 0);
     };
 
     const handleGenerateFormula = async () => {
-        if (!aiConfig) { showToast({ message: 'AI is not configured.', type: 'error' }); return; }
+        if (!aiConfig) { notificationService.error('AI is not configured.'); return; }
         if (!aiPrompt.trim()) return;
         setIsGenerating(true);
         try {
             const generatedFormula = await aiService.getAiFormulaSuggestion(aiConfig, allFields, aiPrompt);
             setFormula(generatedFormula);
-        } catch (error) {
-            showToast({ message: `AI Error: ${(error as Error).message}`, type: 'error' });
-        } finally {
-            setIsGenerating(false);
-        }
+        } catch (error) { notificationService.error(`AI Error: ${(error as Error).message}`); } finally { setIsGenerating(false); }
     };
-    
-    const validate = useCallback(() => {
-        if (!fieldName.trim()) { setValidation({ isValid: false, message: 'Field name is required.'}); return false; }
-        if (allFields.some(f => f.simpleName.toLowerCase() === fieldName.trim().toLowerCase())) { setValidation({ isValid: false, message: 'A field with this name already exists.'}); return false; }
-        if (!formula.trim()) { setValidation({ isValid: false, message: 'Formula cannot be empty.'}); return false; }
-        setValidation({ isValid: true, message: '' });
-        return true;
-    }, [fieldName, formula, allFields]);
-    
-    useEffect(() => { validate(); }, [fieldName, formula, validate]);
     
     const handleSave = () => { if (validate()) onSave(fieldName.trim(), formula); };
     
@@ -118,22 +163,120 @@ const FormulaStep: FC<{ onBack: () => void; onSave: (fieldName: string, formula:
             highlightRef.current.scrollLeft = textareaRef.current.scrollLeft;
         }
     };
+    
+    const getCaretCoordinates = () => {
+        const textarea = textareaRef.current;
+        if (!textarea) return { top: 0, left: 0 };
+        const properties = ['boxSizing', 'width', 'height', 'overflowX', 'overflowY', 'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'fontStyle', 'fontVariant', 'fontWeight', 'fontStretch', 'fontSize', 'fontSizeAdjust', 'lineHeight', 'fontFamily', 'textAlign', 'textTransform', 'textIndent', 'textDecoration', 'letterSpacing', 'wordSpacing'];
+        const div = document.createElement('div');
+        properties.forEach(prop => { div.style[prop as any] = getComputedStyle(textarea)[prop as any]; });
+        div.style.whiteSpace = 'pre-wrap'; div.style.wordWrap = 'break-word'; div.style.position = 'absolute'; div.style.visibility = 'hidden';
+        document.body.appendChild(div);
+        div.textContent = textarea.value.substring(0, textarea.selectionStart);
+        const span = document.createElement('span');
+        span.textContent = textarea.value.substring(textarea.selectionStart) || '.';
+        div.appendChild(span);
+        const coords = { top: span.offsetTop + parseInt(getComputedStyle(div).borderTopWidth), left: span.offsetLeft + parseInt(getComputedStyle(div).borderLeftWidth) };
+        document.body.removeChild(div);
+        return coords;
+    };
 
+    const updateSuggestions = () => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+        const pos = textarea.selectionStart;
+        const text = textarea.value;
+        const textBefore = text.slice(0, pos);
+        
+        const fieldMatch = textBefore.match(/\[([^\]]*)$/);
+        const functionMatch = textBefore.match(/([a-zA-Z_]\w*)$/);
+
+        if (fieldMatch) {
+            const partial = fieldMatch[1];
+            const newSuggestions = allFieldNames.filter(f => f.toLowerCase().startsWith(partial.toLowerCase()));
+            setSuggestions(newSuggestions);
+            setActiveSuggestion(0);
+            if (newSuggestions.length > 0) {
+                const coords = getCaretCoordinates();
+                setSuggestionPos({ top: coords.top + 20, left: coords.left });
+            } else { setSuggestionPos(null); }
+        } else if (functionMatch && !textBefore.endsWith(']')) {
+            const partial = functionMatch[1];
+            const newSuggestions = allFunctionNames.filter(f => f.toLowerCase().startsWith(partial.toLowerCase()));
+            setSuggestions(newSuggestions);
+            setActiveSuggestion(0);
+            if (newSuggestions.length > 0) {
+                const coords = getCaretCoordinates();
+                setSuggestionPos({ top: coords.top + 20, left: coords.left });
+            } else { setSuggestionPos(null); }
+        } else { setSuggestionPos(null); setSuggestions([]); }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (suggestionPos && suggestions.length > 0) {
+            if (e.key === 'ArrowDown') { e.preventDefault(); setActiveSuggestion(s => (s + 1) % suggestions.length); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveSuggestion(s => (s - 1 + suggestions.length) % suggestions.length); }
+            else if (e.key === 'Enter' || e.key === 'Tab') {
+                e.preventDefault();
+                const suggestion = suggestions[activeSuggestion];
+                const text = textareaRef.current!.value;
+                const pos = textareaRef.current!.selectionStart;
+                const textBefore = text.slice(0, pos);
+                
+                const fieldMatch = textBefore.match(/\[([^\]]*)$/);
+                const functionMatch = textBefore.match(/([a-zA-Z_]\w*)$/);
+                
+                if (fieldMatch) {
+                    const start = fieldMatch.index! + 1;
+                    const newFormula = `${text.slice(0, start)}${suggestion}]${text.slice(pos)}`;
+                    setFormula(newFormula);
+                    const newPos = start + suggestion.length + 1;
+                    setTimeout(() => textareaRef.current?.setSelectionRange(newPos, newPos), 0);
+                } else if (functionMatch) {
+                    const start = functionMatch.index!;
+                    const newFormula = `${text.slice(0, start)}${suggestion}()${text.slice(pos)}`;
+                    setFormula(newFormula);
+                    const newPos = start + suggestion.length + 1;
+                    setTimeout(() => textareaRef.current?.setSelectionRange(newPos, newPos), 0);
+                }
+                setSuggestionPos(null);
+                setSuggestions([]);
+            } else if (e.key === 'Escape') {
+                setSuggestionPos(null);
+                setSuggestions([]);
+            }
+        }
+    };
+    
     const getIcon = (type: FieldType) => type === FieldType.MEASURE ? <Hash className="text-green-500"/> : type === FieldType.DATETIME ? <Clock className="text-purple-500"/> : <Type className="text-blue-500"/>;
+
+    const toggleCategory = (category: string) => {
+        setOpenCategories(prev =>
+            prev.includes(category) ? prev.filter(c => c !== category) : [...prev, category]
+        );
+    };
 
     return (
         <div className="flex flex-col h-full">
             <main className="flex-grow grid grid-cols-1 md:grid-cols-[1fr,320px] min-h-0">
                 <div className="flex flex-col p-4 md:p-6 gap-4 border-b md:border-b-0 md:border-r border-border">
                     <input type="text" placeholder="New Field Name" value={fieldName} onChange={e => setFieldName(e.target.value)} className={inputClasses}/>
-                    <div className="flex-grow flex flex-col relative border border-input rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-ring">
-                        <textarea ref={textareaRef} value={formula} onChange={e => setFormula(e.target.value)} onScroll={handleTextareaScroll} placeholder="e.g., [Sales] - [Profit]" className="absolute inset-0 w-full h-full p-3 font-mono text-sm tracking-wider bg-transparent text-transparent caret-foreground resize-none leading-relaxed focus:outline-none z-10" spellCheck="false"/>
+                    <div className="h-full flex flex-col relative border border-input rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-ring">
+                        <textarea ref={textareaRef} value={formula} onChange={e => { setFormula(e.target.value); updateSuggestions(); }} onScroll={handleTextareaScroll} placeholder="e.g., [Sales] - [Profit]" className="absolute inset-0 w-full h-full p-3 font-mono text-sm tracking-wider bg-transparent text-transparent caret-foreground resize-none leading-relaxed focus:outline-none z-10" spellCheck="false" onKeyDown={handleKeyDown} onBlur={() => setTimeout(() => setSuggestionPos(null), 150)} onClick={updateSuggestions} />
                         <div ref={highlightRef} className="absolute inset-0 w-full h-full overflow-auto bg-background pointer-events-none">
-                            <FormulaEditorSyntaxHighlight formula={formula} />
+                            <FormulaEditorSyntaxHighlight formula={formula} allFields={allFieldNames} allFunctions={allFunctionNames} />
                         </div>
+                        {suggestionPos && suggestions.length > 0 && (
+                            <div className="absolute bg-popover border border-border shadow-lg rounded-md p-1 z-20 max-h-48 overflow-y-auto" style={{ top: suggestionPos.top, left: suggestionPos.left }}>
+                                {suggestions.map((s, i) => (
+                                    <div key={s} onMouseDown={(e) => { e.preventDefault(); handleKeyDown({ key: 'Enter', preventDefault: () => {}, ...e } as any); }} className={cn("p-1.5 rounded text-sm cursor-pointer", i === activeSuggestion && "bg-accent")}>
+                                        {s}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                     <div className="flex-shrink-0 space-y-2">
-                        {/*//- Error in file src/components/modals/AddFieldModal.tsx on line 132: Type '{ weight: string; className: string; }' is not assignable to type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.*/}
                         <div className="flex items-center gap-2"><Sparkle className="text-primary"/><label className="text-sm font-semibold">Generate with AI</label></div>
                         <div className="flex items-center gap-2">
                             <input type="text" value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} placeholder="e.g., Profit Ratio" className={`${inputClasses} flex-grow`} onKeyDown={e => e.key === 'Enter' && handleGenerateFormula()}/>
@@ -141,7 +284,7 @@ const FormulaStep: FC<{ onBack: () => void; onSave: (fieldName: string, formula:
                         </div>
                     </div>
                 </div>
-                <div className="flex flex-col">
+                <div className="flex flex-col overflow-hidden">
                     <div className="flex-shrink-0 border-b border-border flex">
                         <button onClick={() => setActiveTab('fields')} className={`flex-1 text-center py-3 px-4 text-sm font-semibold transition-all relative ${activeTab === 'fields' ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}>
                             Fields {activeTab === 'fields' && <motion.div layoutId="calc-field-tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
@@ -150,23 +293,52 @@ const FormulaStep: FC<{ onBack: () => void; onSave: (fieldName: string, formula:
                             Functions {activeTab === 'functions' && <motion.div layoutId="calc-field-tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
                         </button>
                     </div>
-                    <div className="flex-grow p-2 overflow-y-auto">
+                    <div className="flex-grow flex flex-col min-h-0">
                         <AnimatePresence mode="wait">
-                            <motion.div key={activeTab} initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}}>
-                            {activeTab === 'fields' && allFields.map(f => (
-                                <Tooltip key={f.name} content={`Double-click to insert [${f.simpleName}]`}>
-                                    <button onDoubleClick={() => insertText(`[${f.simpleName}]`)} className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-accent text-left text-sm">
-                                        {getIcon(f.type)}
-                                        <span className="font-semibold">{f.simpleName}</span>
-                                    </button>
-                                </Tooltip>
-                            ))}
-                            {activeTab === 'functions' && Object.entries(groupedFunctions).map(([category, funcs]) => (
-                                <div key={category} className="mb-3">
-                                    <h4 className="font-semibold text-xs text-muted-foreground uppercase tracking-wider px-2 py-1">{category}</h4>
-                                    {(funcs as any[]).map((f: any) => <FunctionInfo key={f.syntax} info={f} onInsert={insertText} />)}
+                            <motion.div key={activeTab} initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="flex-grow flex flex-col min-h-0">
+                            {activeTab === 'fields' && (
+                                <div className="p-2 overflow-y-auto">
+                                    {allFields.map(f => (
+                                        <Tooltip key={f.name} content={`Double-click to insert [${f.simpleName}]`}>
+                                            <button onDoubleClick={() => insertText(`[${f.simpleName}]`)} className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-accent text-left text-sm">
+                                                {getIcon(f.type)}
+                                                <span className="font-semibold">{f.simpleName}</span>
+                                            </button>
+                                        </Tooltip>
+                                    ))}
                                 </div>
-                            ))}
+                            )}
+                            {activeTab === 'functions' && (
+                                <>
+                                    <div className="p-2 border-b border-border flex-shrink-0">
+                                        <input type="text" placeholder="Search functions..." value={functionSearch} onChange={e => setFunctionSearch(e.target.value)} className={cn(inputClasses, 'h-9')} />
+                                    </div>
+                                    <div className="p-2 overflow-y-auto">
+                                        {Object.entries(groupedFunctions).map(([category, funcs]) => {
+                                            const filteredFuncs = (funcs as any[]).filter(f => 
+                                                functionSearch === '' ||
+                                                f.syntax.toLowerCase().includes(functionSearch.toLowerCase()) || 
+                                                f.description.toLowerCase().includes(functionSearch.toLowerCase())
+                                            );
+                                            if (filteredFuncs.length === 0) return null;
+
+                                            return (
+                                                <div key={category} className="mb-1">
+                                                    <button onClick={() => toggleCategory(category)} className="w-full flex justify-between items-center font-semibold text-xs text-muted-foreground uppercase tracking-wider px-2 py-2 hover:bg-accent rounded">
+                                                        <span>{category}</span>
+                                                        <ChevronDown className={`transition-transform ${openCategories.includes(category) ? 'rotate-180' : ''}`} size={16} />
+                                                    </button>
+                                                    {openCategories.includes(category) && (
+                                                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden pl-2 border-l-2 border-border ml-2">
+                                                            {filteredFuncs.map((f: any) => <FunctionInfo key={f.syntax} info={f} onInsert={(text) => insertText(text, true)} />)}
+                                                        </motion.div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </>
+                            )}
                             </motion.div>
                         </AnimatePresence>
                     </div>
@@ -174,16 +346,11 @@ const FormulaStep: FC<{ onBack: () => void; onSave: (fieldName: string, formula:
             </main>
             <DialogFooter className="flex-shrink-0">
                 <Button variant="outline" onClick={onBack}><ArrowLeft/> Back</Button>
-                <div className="flex-grow">
-                    <AnimatePresence>
-                        {!validation.isValid && (
-                            <motion.div initial={{opacity:0, x:-10}} animate={{opacity:1, x:0}} exit={{opacity:0, x:-10}} className="flex items-center gap-2 text-sm text-destructive">
-                                <AlertCircle />{validation.message}
-                            </motion.div>
-                        )}
-                    </AnimatePresence>
+                <div className="flex-grow flex items-center gap-2 text-sm">
+                    {validation.isValid ? <CheckCircle className="text-green-500"/> : <AlertCircle className="text-destructive"/>}
+                    <span className={validation.isValid ? 'text-green-500' : 'text-destructive'}>{validation.message}</span>
                 </div>
-                <Button variant="outline" onClick={onBack}>Cancel</Button>
+                <Button variant="outline" onClick={onClose}>Cancel</Button>
                 <Button onClick={handleSave} disabled={!validation.isValid}>Create Field</Button>
             </DialogFooter>
         </div>
@@ -229,7 +396,7 @@ const GroupCard: FC<{ name: string; valueCount: number; isActive: boolean; onSel
     );
 };
 
-const GroupingStep: FC<{ onBack: () => void; onSave: (fieldName: string, payload: CreateCategoricalPayload) => void; sourceId: string; }> = ({ onBack, onSave, sourceId }) => {
+const GroupingStep: FC<{ onBack: () => void; onSave: (fieldName: string, payload: CreateCategoricalPayload) => void; sourceId: string; onClose: () => void; }> = ({ onBack, onSave, sourceId, onClose }) => {
     const { dataSources } = useDashboard();
     const source = sourceId ? dataSources.get(sourceId) : null;
     const sourceFields = useMemo(() => source ? [...source.fields.dimensions, ...source.fields.measures] : [], [source]);
@@ -247,7 +414,6 @@ const GroupingStep: FC<{ onBack: () => void; onSave: (fieldName: string, payload
     const [groups, setGroups] = useState<Array<{ name: string; values: Set<any> }>>([]);
     const [newGroupName, setNewGroupName] = useState('');
     const [selectedUngrouped, setSelectedUngrouped] = useState<Set<any>>(new Set());
-    const [selectedGroupedValues, setSelectedGroupedValues] = useState<Set<any>>(new Set());
     const [activeGroup, setActiveGroup] = useState<string | null>(null);
 
     const [ungroupedSearch, setUngroupedSearch] = useState('');
@@ -289,15 +455,6 @@ const GroupingStep: FC<{ onBack: () => void; onSave: (fieldName: string, payload
             return g;
         }));
         setSelectedUngrouped(s => new Set(Array.from(s).filter(val => !values.includes(val))));
-    };
-
-    const handleUngroup = (values: any[]) => {
-        const valuesToUngroup = new Set(values);
-        setGroups(currentGroups => currentGroups.map(g => ({
-            ...g,
-            values: new Set(Array.from(g.values).filter(v => !valuesToUngroup.has(v)))
-        })));
-        setSelectedGroupedValues(new Set());
     };
 
     const handleSave = () => {
@@ -385,7 +542,7 @@ const GroupingStep: FC<{ onBack: () => void; onSave: (fieldName: string, payload
             <DialogFooter className="flex-shrink-0">
                 <Button variant="outline" onClick={onBack}><ArrowLeft/> Back</Button>
                 <div className="flex-grow"></div>
-                <Button variant="outline" onClick={onBack}>Cancel</Button>
+                <Button variant="outline" onClick={onClose}>Cancel</Button>
                 <Button onClick={handleSave}>Create Field</Button>
             </DialogFooter>
         </div>
@@ -423,9 +580,9 @@ export const AddFieldModal: FC<AddFieldModalProps> = ({ isOpen, onClose, sourceI
     const renderStep = () => {
         switch (step) {
             case 'formula':
-                return <FormulaStep onBack={() => setStep('initial')} onSave={handleSaveFormula} sourceId={sourceId!} />;
+                return <FormulaStep onBack={() => setStep('initial')} onSave={handleSaveFormula} sourceId={sourceId!} onClose={onClose} />;
             case 'grouping':
-                return <GroupingStep onBack={() => setStep('initial')} onSave={handleSaveGrouping} sourceId={sourceId!} />;
+                return <GroupingStep onBack={() => setStep('initial')} onSave={handleSaveGrouping} sourceId={sourceId!} onClose={onClose} />;
             case 'initial':
             default:
                 return <InitialStep onSelectFormula={() => setStep('formula')} onSelectGrouping={() => setStep('grouping')} />;

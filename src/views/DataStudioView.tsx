@@ -2,15 +2,20 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import _ from 'lodash';
 import { useDashboard } from '../contexts/DashboardProvider';
 import { Transformation, TransformationType, Field, FieldType, ContextMenuItem, AiDataSuggestion, DND_ITEM_TYPE, StudioFieldDragItem, DataSource } from '../utils/types';
-import { Button, Popover, Tooltip, Sheet, SheetContent, cn, inputClasses } from '../components/ui';
+import { Button } from '../components/ui/Button';
+import { Popover } from '../components/ui/Popover';
+import { Tooltip } from '../components/ui/Tooltip';
+import { Sheet, SheetContent } from '../components/ui/Sheet';
+import { cn, inputClasses } from '../components/ui/utils';
 import { X, Calculator, Braces, List, Undo2, CheckCircle, Database, Trash, Pencil, CaseSensitive, Hash, Type, Baseline, CircleSlash, Settings, Lightbulb, MoreVertical, ArrowLeftRight, Clock, Redo2, ArrowUpAZ, ArrowDownAZ, Copy, Plus, Columns3 as ColumnsIcon } from 'lucide-react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
-import { applyTransformsToFields, applyTransformsToData } from '../utils/dataUtils';
+import { applyTransformsToFields, applyTransformsToData } from '../utils/dataProcessing/transformations';
 import * as aiService from '../services/aiService';
 import { ViewHeader } from '../components/common/ViewHeader';
 import { useSidebar } from '../components/ui/sidebar';
 import { HelpIcon } from '../components/ui/HelpIcon';
 import { DataStudioOnboarding } from './datastudios';
+import { notificationService } from '../services/notificationService';
 
 const formatTransformPayload = (transform: Transformation): string => {
     if (!transform.payload) return '';
@@ -85,7 +90,6 @@ const AiSuggestionCard: React.FC<{ suggestion: AiDataSuggestion; onApply: () => 
     <div className="p-3 rounded-lg group text-left shadow-sm ai-feature-style relative">
          <div className="absolute -left-4 top-1/2 -mt-px w-4 h-px bg-border group-first:hidden" />
         <div className="flex items-start gap-3">
-            {/*//- Error in file src/views/DataStudioView.tsx on line 87: Type '{ size: number; weight: string; }' is not assignable to type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.*/}
             <span className="flex-shrink-0 text-primary mt-0.5"><Lightbulb size={16} /></span>
             <div>
                 <p className="font-semibold text-sm text-foreground">{suggestion.title}</p>
@@ -174,7 +178,7 @@ const StudioSidebar: React.FC<{
     onRemoveSource: (id: string) => void;
     onAddSource: () => void;
 }> = (props) => {
-    const { addTransformation, openAddFieldModal, openMergeColumnsModal, aiConfig, showToast } = useDashboard();
+    const { addTransformation, openAddFieldModal, openMergeColumnsModal, aiConfig } = useDashboard();
     const { source, transformations, transformedFields, openFieldContextMenu, onReorderTransforms, allSources, onSourceChange, onRemoveSource, onAddSource } = props;
     const [activeTab, setActiveTab] = useState<'sources' | 'steps' | 'fields'>(source ? 'steps' : 'sources');
     const [fieldSearch, setFieldSearch] = useState('');
@@ -197,9 +201,10 @@ const StudioSidebar: React.FC<{
         try {
             const suggestions = await aiService.getAiDataStudioSuggestions(aiConfig, [...source.fields.dimensions, ...source.fields.measures], source.data.slice(0, 10), transformations);
             setAiSuggestions(suggestions);
-        } catch (error) { showToast({ message: "Error fetching AI suggestions.", type: 'error' }); } 
+        } catch (error) { 
+            notificationService.error("Error fetching AI suggestions."); } 
         finally { setIsGenerating(false); }
-    }, [aiConfig, source, showToast, transformations]);
+    }, [aiConfig, source, transformations]);
 
     const onSelectSource = (id: string) => {
         onSourceChange(id);
@@ -378,7 +383,6 @@ export const DataStudioView: React.FC = () => {
         openContextMenu, 
         openInputModal, 
         openSplitColumnModal, 
-        showToast, 
         parameters, 
         isDataStudioOnboardingNeeded, 
         completeDataStudioOnboarding,
@@ -514,7 +518,6 @@ export const DataStudioView: React.FC = () => {
                 ) : (
                     <div className="bg-card rounded-xl border border-border flex items-center justify-center text-center text-muted-foreground p-8">
                         <div>
-                            {/*//- Error in file src/views/DataStudioView.tsx on line 541: Type '{ size: number; weight: string; className: string; }' is not assignable to type 'IntrinsicAttributes & Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>'.*/}
                             <Database size={48} className="mx-auto mb-4" />
                             <h3 className="text-lg font-semibold text-foreground">No Data Source Selected</h3>
                             <p>Please select a data source from the sidebar to begin transformations.</p>

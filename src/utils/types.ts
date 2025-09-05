@@ -13,6 +13,8 @@ export const DND_ITEM_TYPE = {
     DASHBOARD_TAB: 'dashboard_tab',
     TABLE_COLUMN: 'table_column',
     GROUPING_VALUE: 'grouping_value',
+    WIDGET_CARD: 'widget_card',
+    STORY_SLIDE: 'story_slide',
 };
 
 // Drag item interfaces
@@ -121,17 +123,19 @@ export enum ChartType {
   AREA = 'Area',
   PIE = 'Pie',
   SCATTER = 'Scatter',
-  BUBBLE = 'Bubble',
+  RADAR = 'Radar',
   TABLE = 'Table',
-  KPI = 'KPI',
-  TREEMAP = 'Treemap',
-  MAP = 'Map',
-  DUAL_AXIS = 'Dual Axis',
+  KPI = 'Kpi',
+  GAUGE = 'Gauge',
   HEATMAP = 'Heatmap',
+  FUNNEL = 'Funnel',
+  TREEMAP = 'Treemap',
+  DUAL_AXIS = 'Dual Axis',
   BOXPLOT = 'Box Plot',
   CONTROL = 'Control',
-  FUNNEL = 'Funnel',
   SANKEY = 'Sankey',
+  MAP = 'Map',
+  BUBBLE = 'Bubble',
 }
 
 export interface TableSettings {
@@ -151,6 +155,9 @@ export interface ChartSettings {
     showLegend?: boolean;
     legendPosition?: 'top' | 'bottom' | 'left' | 'right';
     showTooltip?: boolean;
+    showGrid?: boolean;
+    showLabels?: boolean;
+    animation?: boolean;
 }
 
 export interface SortConfig {
@@ -193,7 +200,7 @@ export interface WidgetState {
     values2?: Pill[]; // For Dual Axis charts
     filters: Pill[];
     category?: Pill[]; // For bubble charts
-    bubbleSize?: Pill[]; // For bubble charts
+    bubbleSize?: Pill[]; // for bubble charts
   };
   subtotalSettings: {
     rows: boolean;
@@ -357,9 +364,16 @@ export interface DataSource {
         measures: Field[];
     };
     type?: 'database' | 'api' | 'file' | 'cloud';
-    status?: 'connected' | 'syncing' | 'error';
+    status: 'connected' | 'disconnected' | 'pending' | 'syncing' | 'error';
     lastSync?: string; // ISO date string
     connectionDetails?: ConnectionDetails;
+    // New properties for DataSourcesView
+    health?: number; // 0-100
+    size?: number; // in MB
+    tables?: number;
+    queryTime?: number; // in ms
+    icon?: 'database' | 'file-spreadsheet' | 'cloud' | 'api';
+    technology?: string;
 }
 
 
@@ -502,10 +516,19 @@ export interface NlpFilterResult {
     }
 }
 
+export type StoryPageType = 'title' | 'insight' | 'layout' | 'text';
+
 export interface StoryPage {
     id: string;
-    widgetId: string;
-    annotation: string;
+    type: StoryPageType;
+    title?: string;
+    subtitle?: string; // for title slide
+    annotation?: string; // for insight, text, & title slide content
+    presenterNotes?: string; // for all slides
+    widgetId?: string; // for insight slide
+    widgetIds?: string[]; // for layout slide
+    layoutConfig?: { [breakpoint: string]: WidgetLayout[] }; // for layout slide
+    insightLayout?: 'left' | 'right'; // for insight slide
 }
 
 export type StoryTone = 'Executive' | 'Detailed' | 'Casual';
@@ -513,6 +536,10 @@ export type StoryTone = 'Executive' | 'Detailed' | 'Casual';
 export interface Story {
     id: string;
     title: string;
+    description?: string;
+    author?: string;
+    createdAt?: string;
+    updatedAt?: string;
     pages: StoryPage[];
 }
 
@@ -531,6 +558,8 @@ export interface ExplorerState {
 export interface ToastNotification {
     id: string;
     message: string;
+    // FIX: Added optional description to allow for more detailed toast notifications.
+    description?: string;
     type: 'success' | 'error' | 'info' | 'warning';
     duration?: number;
     action?: {
@@ -628,7 +657,8 @@ export type AdvancedAnalysisType = 'ANOMALY_DETECTION' | 'KEY_INFLUENCERS' | 'CL
 
 export interface SearchableItem {
     id: string;
-    category: 'Actions' | 'Navigation' | 'Dashboards' | 'Widgets';
+    /** The category for grouping items in the command palette. */
+    category: 'Actions' | 'Navigation' | 'Dashboards' | 'Widgets' | 'Quick Settings';
     title: string;
     description?: string;
     context?: string;
@@ -649,7 +679,12 @@ export interface AuthContextProps {
 
 
 // --- Predictive Studio Types ---
-export type PredictiveModelType = 'LINEAR_REGRESSION';
+export enum PredictiveModelType {
+    LINEAR_REGRESSION = 'Linear Regression',
+    LOGISTIC_REGRESSION = 'Logistic Regression (Binary)',
+    CLASSIFICATION = 'Classification (Multiclass)',
+    TIME_SERIES_FORECASTING = 'Time Series Forecasting',
+}
 
 export interface PerformanceMetric {
     name: string; // e.g., "R-squared", "Mean Absolute Error"
@@ -684,216 +719,95 @@ export interface PredictiveModelResult {
     performanceMetrics: PerformanceMetric[];
     featureImportance: FeatureImportance[];
     coefficients: ModelCoefficient[];
+    predictionVsActuals: { actual: number; predicted: number; }[];
+    residuals: { predicted: number; residual: number; }[];
 }
 
 export type CurrentView = 'dashboard' | 'explorer' | 'stories' | 'studio' | 'modeler' | 'settings' | 'admin' | 'templates' | 'predictive' | 'datasources';
 
+export type DashboardMode = 'view' | 'comment' | 'edit';
+
 export interface DashboardContextProps {
-    // Data
+    // State
     dataSources: Map<string, DataSource>;
-    addDataSourceFromFile: (file: File) => Promise<void>;
-    removeDataSource: (id: string) => void;
-    loadSampleData: (sampleKey: 'sales' | 'iris' | 'both') => void;
     relationships: Relationship[];
-    setRelationships: Dispatch<SetStateAction<Relationship[]>>;
     dataModelerLayout: DataModelerLayout;
-    setDataModelerLayout: Dispatch<SetStateAction<DataModelerLayout>>;
-    dataStudioCanvasLayout: DataStudioCanvasLayout;
-    setDataStudioCanvasLayout: Dispatch<SetStateAction<DataStudioCanvasLayout>>;
     blendedData: any[];
     blendedFields: { dimensions: Field[]; measures: Field[] };
     performanceTimings: Map<string, number>;
-    setWidgetPerformance: (widgetId: string, duration: number) => void;
-    triggerWidgetRefetch: () => void;
-    refetchCounter: number;
-
-    // AI
     aiConfig: AIConfig | null;
-    saveAiConfig: (config: AIConfig) => void;
     aiChatHistory: AiChatMessage[];
     insightsByPage: Map<string, AiInsight[]>;
+    isGeneratingInsights: boolean;
+    themeConfig: ThemeConfig;
+    chartLibrary: ChartLibrary;
+    dashboardDefaults: DashboardDefaults;
+    contextMenu: { x: number; y: number; items: ContextMenuItem[] } | null;
+    currentView: CurrentView;
+    explorerState: ExplorerState | null;
+    studioSourceId: string | null;
+    isDataStudioOnboardingNeeded: boolean;
+    notifications: ToastNotification[];
+    loadingState: { isLoading: boolean; message: string; lottieAnimation?: any };
+    scrollToWidgetId: string | null;
+    dashboardMode: DashboardMode;
+    isHelpModeActive: boolean;
+    workspaces: Workspace[];
+    activePageId: string | null;
+    activePage: DashboardPage | undefined;
+    widgets: WidgetState[];
+    layouts: { [breakpoint: string]: WidgetLayout[] };
+    globalFilters: Pill[];
+    parameters: Parameter[];
+    stories: Story[];
+    editingStory: { story: Story; focusPageId?: string } | null;
+    userTemplates: Template[];
+    crossFilter: CrossFilterState;
+    controlFilters: ControlFilterState;
+    canUndo: boolean;
+    canRedo: boolean;
+    refetchCounter: number;
+    predictiveModels: PredictiveModelResult[];
+    dataStudioCanvasLayout: DataStudioCanvasLayout;
+    newlyAddedPillId: string | null;
+
+    // Callbacks & Setters
+    addDataSourceFromFile: (file: File) => Promise<void>;
+    removeDataSource: (id: string) => void;
+    loadSampleData: (sampleKey: 'sales' | 'iris' | 'both') => void;
+    setRelationships: Dispatch<SetStateAction<Relationship[]>>;
+    setDataModelerLayout: Dispatch<SetStateAction<DataModelerLayout>>;
+    setDataStudioCanvasLayout: Dispatch<SetStateAction<DataStudioCanvasLayout>>;
+    setWidgetPerformance: (widgetId: string, duration: number) => void;
+    triggerWidgetRefetch: () => void;
+    saveAiConfig: Dispatch<SetStateAction<AIConfig | null>>;
     sendAiChatMessage: (message: string, context?: ChatContext) => Promise<void>;
     clearAiChatHistory: () => void;
     createWidgetFromSuggestion: (suggestion: Partial<WidgetState>) => void;
     chatContext: ChatContext;
     setChatContext: Dispatch<SetStateAction<ChatContext>>;
     proactiveInsights: Map<string, ProactiveInsight[]>;
-    isGeneratingInsights: boolean;
     runProactiveAnalysis: () => Promise<void>;
     hasNewInsights: boolean;
     setHasNewInsights: Dispatch<SetStateAction<boolean>>;
-    
-    // UI
-    themeConfig: ThemeConfig;
     setThemeConfig: Dispatch<SetStateAction<ThemeConfig>>;
     toggleThemeMode: () => void;
     setThemeName: (name: string) => void;
-    chartLibrary: ChartLibrary;
     setChartLibrary: Dispatch<SetStateAction<ChartLibrary>>;
-    dashboardDefaults: DashboardDefaults;
     setDashboardDefaults: Dispatch<SetStateAction<DashboardDefaults>>;
-    contextMenu: { x: number; y: number; items: ContextMenuItem[] } | null;
     openContextMenu: (x: number, y: number, items: ContextMenuItem[]) => void;
     closeContextMenu: () => void;
-    currentView: CurrentView;
     setView: (view: CurrentView, options?: any) => void;
-    explorerState: ExplorerState | null;
-    studioSourceId: string | null;
-    isDataStudioOnboardingNeeded: boolean;
     completeDataStudioOnboarding: () => void;
-    notifications: ToastNotification[];
-    showToast: (options: Omit<ToastNotification, 'id'>) => void;
     removeToast: (id: string) => void;
-    loadingState: { isLoading: boolean; message: string; lottieAnimation?: any; };
-    isInsightHubOpen: boolean;
-    openInsightHub: () => void;
-    closeInsightHub: () => void;
-    isChatModalOpen: boolean;
-    openChatModal: () => void;
-    closeChatModal: () => void;
-    isCommandPaletteOpen: boolean;
-    openCommandPalette: () => void;
-    closeCommandPalette: () => void;
-    scrollToWidgetId: string | null;
     setScrollToWidgetId: Dispatch<SetStateAction<string | null>>;
-    dashboardMode: 'view' | 'comment';
-    setDashboardMode: Dispatch<SetStateAction<'view' | 'comment'>>;
-    isHelpModeActive: boolean;
+    setDashboardMode: Dispatch<SetStateAction<DashboardMode>>;
     toggleHelpMode: () => void;
-    
-    // Modals
-    isWidgetEditorModalOpen: boolean;
-    editingWidgetState: WidgetState | null;
-    openWidgetEditorModal: (widgetId?: string | null) => void;
-    closeWidgetEditorModal: () => void;
-    updateEditingWidget: (update: Partial<WidgetState> | ((prevState: WidgetState) => WidgetState)) => void;
-    saveEditingWidget: () => void;
-    populateEditorFromAI: (suggestion: Partial<WidgetState>) => void;
-    widgetEditorAIPrompt: string | null;
-    setWidgetEditorAIPrompt: Dispatch<SetStateAction<string | null>>;
-    openEditorWithAIPrompt: (prompt: string) => void;
-    toggleFieldInEditorShelves: (field: Field) => void;
-    
-    filterConfigModalState: { isOpen: boolean; pill: Pill | null; onSave: ((p: Pill) => void) | null; onBack?: (() => void) | undefined; };
-    openFilterConfigModal: (pill: Pill, onSave: (p: Pill) => void, onBack?: () => void) => void;
-    closeFilterConfigModal: () => void;
-
-    isPageFiltersModalOpen: boolean;
-    openPageFiltersModal: () => void;
-    closePageFiltersModal: () => void;
-    
-    selectFieldModalOpen: boolean;
-    openSelectFieldModal: () => void;
-    closeSelectFieldModal: () => void;
-
-    addFieldModalState: { isOpen: boolean; sourceId: string | null; initialStep?: 'formula' | 'grouping'; };
-    openAddFieldModal: (sourceId: string, initialStep?: 'formula' | 'grouping') => void;
-    closeAddFieldModal: () => void;
-    
-    valueFormatModalState: { isOpen: boolean; pill: Pill | null; onSave: ((f: ValueFormat) => void) | null; };
-    openValueFormatModal: (pill: Pill, onSave: (f: ValueFormat) => void) => void;
-    closeValueFormatModal: () => void;
-
-    confirmationModalState: { isOpen: boolean; title: string; message: string; onConfirm: () => void | Promise<void>; } | null;
-    openConfirmationModal: (config: { title: string; message: string; onConfirm: () => void | Promise<void>; }) => void;
-    closeConfirmationModal: () => void;
-    
-    inputModalState: { isOpen: boolean; title: string; message?: string; inputLabel: string; initialValue?: string; onConfirm: (value: string) => void | Promise<void>; inputType?: string; actionLabel?: string; } | null;
-    openInputModal: (config: Omit<NonNullable<DashboardContextProps['inputModalState']>, 'isOpen'>) => void;
-    closeInputModal: () => void;
-
-    isParameterModalOpen: boolean;
-    openParameterModal: () => void;
-    closeParameterModal: () => void;
-    
-    isAddControlModalOpen: boolean;
-    openAddControlModal: () => void;
-    closeAddControlModal: () => void;
-
-    isTemplateModalOpen: boolean;
-    openTemplateModal: () => void;
-    closeTemplateModal: () => void;
-
-    templatePreviewModalState: { isOpen: boolean; template: Template | null };
-    openTemplatePreviewModal: (template: Template) => void;
-    closeTemplatePreviewModal: () => void;
-
-    activeCommentThread: DashboardComment | null;
-    setActiveCommentThread: Dispatch<SetStateAction<DashboardComment | null>>;
-    
-    splitColumnModalState: { isOpen: boolean; field: Field; onConfirm: (payload: any) => void; } | null;
-    openSplitColumnModal: (field: Field, onConfirm: (payload: any) => void) => void;
-    closeSplitColumnModal: () => void;
-    
-    mergeColumnsModalState: { isOpen: boolean; onConfirm: (payload: any) => void; availableFields: Field[]; } | null;
-    openMergeColumnsModal: (onConfirm: (payload: any) => void, availableFields: Field[]) => void;
-    closeMergeColumnsModal: () => void;
-    
-    fieldMappingModalState: { isOpen: boolean; template: Template | null; onBack?: () => void; };
-    openFieldMappingModal: (template: Template, onBack?: () => void) => void;
-    closeFieldMappingModal: () => void;
-
-    advancedAnalysisModalState: { isOpen: boolean; result: AdvancedAnalysisResult | null; title: string; };
-    openAdvancedAnalysisModal: (result: AdvancedAnalysisResult, title: string) => void;
-    closeAdvancedAnalysisModal: () => void;
-
-    addToStoryModalState: { isOpen: boolean; widgetId: string | null; };
-    closeAddToStoryModal: () => void;
-    
-    createTemplateModalState: { isOpen: boolean; page: DashboardPage | null; };
-    openCreateTemplateModal: (page: DashboardPage) => void;
-    closeCreateTemplateModal: () => void;
-
-    dataLineageModalState: { isOpen: boolean; widgetId: string | null; };
-    openDataLineageModal: (widgetId: string) => void;
-    closeDataLineageModal: () => void;
-    
-    isPerformanceAnalyzerOpen: boolean;
-    openPerformanceAnalyzer: () => void;
-    closePerformanceAnalyzer: () => void;
-
-    whatIfConfigModalState: { isOpen: boolean; widgetId: string | null; };
-    openWhatIfConfigModal: (widgetId: string) => void;
-    closeWhatIfConfigModal: () => void;
-    isGenerateStoryModalOpen: boolean;
-    openGenerateStoryModal: () => void;
-    closeGenerateStoryModal: () => void;
-    focusedWidgetId: string | null;
-    setFocusedWidgetId: Dispatch<SetStateAction<string | null>>;
-    isAiInsightStarterModalOpen: boolean;
-    openAiInsightStarterModal: () => void;
-    closeAiInsightStarterModal: () => void;
-    handleGenerateAiDashboard: () => Promise<void>;
-
-    isAddDataSourceModalOpen: boolean;
-    openAddDataSourceModal: () => void;
-    closeAddDataSourceModal: () => void;
-
-    dataSourceConnectionModalState: { isOpen: boolean; connector: Connector | null };
-    openDataSourceConnectionModal: (connector: Connector) => void;
-    closeDataSourceConnectionModal: () => void;
-    createDataSourceFromConnection: (config: { connector: Connector; details: any; name: string }) => Promise<void>;
-    
-    nlpDisambiguationModalState: { isOpen: boolean, term: string, fields: string[] };
-    openNlpDisambiguationModal: (term: string, fields: string[]) => void;
-    closeNlpDisambiguationModal: () => void;
-    resolveNlpAmbiguity: (term: string, field: string) => void;
-    handleNlpFilterQuery: (query: string) => Promise<void>;
-    newlyAddedPillId: string | null;
-    setNewlyAddedPillId: Dispatch<SetStateAction<string | null>>;
-
-    // Dashboard state
-    workspaces: Workspace[];
     setWorkspaces: (updater: SetStateAction<Workspace[]>) => void;
-    activePageId: string | null;
-    activePage: DashboardPage | undefined;
     setActivePageId: Dispatch<SetStateAction<string | null>>;
     addPage: () => void;
     removePage: (id: string) => void;
-    updatePage: (id: string, updates: Partial<DashboardPage> | ((page: DashboardPage) => DashboardPage)) => void;
-    widgets: WidgetState[];
-    layouts: { [breakpoint: string]: WidgetLayout[] };
-    globalFilters: Pill[];
+    updatePage: (id: string, updater: Partial<DashboardPage> | ((page: DashboardPage) => DashboardPage)) => void;
     setLayouts: (layouts: { [breakpoint: string]: WidgetLayout[] }) => void;
     setGlobalFilters: (updater: SetStateAction<Pill[]>) => void;
     addGlobalFilter: (pill: Omit<Pill, 'id'>) => void;
@@ -901,43 +815,28 @@ export interface DashboardContextProps {
     saveWidget: (widget: WidgetState, layoutOverride?: Partial<Omit<WidgetLayout, 'i'>>) => void;
     duplicateWidget: (id: string) => void;
     duplicatePage: (pageId: string) => void;
-    
-    crossFilter: CrossFilterState;
     setCrossFilter: Dispatch<SetStateAction<CrossFilterState>>;
-    controlFilters: ControlFilterState;
     setControlFilter: (widgetId: string, filterPill: Pill | null) => void;
-    
-    parameters: Parameter[];
     addParameter: (p: Omit<Parameter, 'id'>) => void;
     updateParameter: (id: string, updates: Partial<Parameter>) => void;
     removeParameter: (id: string) => void;
-    
-    stories: Story[];
     saveStory: (story: Story) => void;
     removeStory: (id: string) => void;
-
     undo: () => void;
     redo: () => void;
-    canUndo: boolean;
-    canRedo: boolean;
-
     importInputRef: RefObject<HTMLInputElement>;
-    handleImportDashboard: (event: ChangeEvent<HTMLInputElement>) => void;
+    handleImportDashboard: (e: ChangeEvent<HTMLInputElement>) => void;
     resetDashboard: () => void;
     addNewPage: (templatePage?: Partial<DashboardPage>) => void;
-    
-    userTemplates: Template[];
     setUserTemplates: Dispatch<SetStateAction<Template[]>>;
     addBookmark: (name: string) => void;
     applyBookmark: (bookmark: Bookmark) => void;
     removeBookmark: (bookmarkId: string) => void;
-    
     isRowCollapsed: (path: string) => boolean;
     toggleRowCollapse: (path: string) => void;
     expandAllRows: () => void;
     collapseAllRows: (paths: string[]) => void;
-    editingStory: { story: Story; focusPageId?: string; } | null;
-    setEditingStory: Dispatch<SetStateAction<{ story: Story; focusPageId?: string; } | null>>;
+    setEditingStory: Dispatch<SetStateAction<{ story: Story; focusPageId?: string } | null>>;
     handleWidgetAddToStory: (widgetId: string) => void;
     createStoryFromWidget: (widgetId: string) => void;
     addWidgetToStory: (storyId: string, widgetId: string) => void;
@@ -955,15 +854,122 @@ export interface DashboardContextProps {
     deleteComment: (commentId: string) => void;
     generateDashboardInsights: () => Promise<void>;
     runAdvancedAnalysis: (widgetId: string, analysisType: 'ANOMALY_DETECTION' | 'KEY_INFLUENCERS' | 'CLUSTERING') => Promise<void>;
-    runWhatIfAnalysis: (widgetId: string, scenarioConfig: { targetMetric: string, modifiedVariables: { [key: string]: number } }) => Promise<void>;
+    runWhatIfAnalysis: (widgetId: string, scenarioConfig: { targetMetric: string; modifiedVariables: { [key: string]: number } }) => Promise<void>;
     runWidgetAnalysis: (widget: WidgetState, tone?: StoryTone) => Promise<void>;
     getWidgetAnalysisText: (widget: WidgetState, tone?: StoryTone) => Promise<string | null>;
     generateStoryFromPage: (pageId: string, title: string, tone: StoryTone) => Promise<void>;
     generateStoryFromInsights: (insights: ProactiveInsight[]) => Promise<void>;
     createPageFromTemplate: (template: Template, mappings: Map<string, string>) => void;
     createTemplateFromPage: (page: DashboardPage, templateDetails: Omit<Template, 'id' | 'page' | 'requiredFields'>) => void;
-
-    // Predictive Studio
-    predictiveModels: PredictiveModelResult[];
+    handleGenerateAiDashboard: () => Promise<void>;
     addPredictiveModel: (model: PredictiveModelResult) => void;
+    refreshApiDataSource: (source: DataSource) => Promise<void>;
+    runHealthCheck: () => void;
+    createDataSourceFromConnection: (config: { connector: Connector; details: any; name: string }) => Promise<void>;
+    openWidgetEditorModal: (widgetId?: string | null) => void;
+    openWidgetEditorForNewWidget: (chartType: ChartType) => void;
+    saveEditingWidget: () => void;
+    populateEditorFromAI: (suggestion: Partial<WidgetState>) => void;
+    openEditorWithAIPrompt: (prompt: string) => void;
+    resolveNlpAmbiguity: (term: string, fieldSimpleName: string) => void;
+    handleNlpFilterQuery: (query: string) => Promise<void>;
+    setNewlyAddedPillId: Dispatch<SetStateAction<string | null>>;
+
+    // Modal Manager props
+    isWidgetEditorModalOpen: boolean;
+    editingWidgetState: WidgetState | null;
+    widgetEditorAIPrompt: string | null;
+    filterConfigModalState: { isOpen: boolean; pill: Pill | null; onSave: ((p: Pill) => void) | null; onBack?: () => void };
+    isPageFiltersModalOpen: boolean;
+    selectFieldModalOpen: boolean;
+    isInsightHubOpen: boolean;
+    isChatModalOpen: boolean;
+    addFieldModalState: { isOpen: boolean; sourceId: string | null; initialStep?: 'formula' | 'grouping' };
+    valueFormatModalState: { isOpen: boolean; pill: Pill | null; onSave: ((f: ValueFormat) => void) | null };
+    confirmationModalState: { isOpen: boolean; title: string; message: string; onConfirm: () => void } | null;
+    inputModalState: { isOpen: boolean; title: string; message?: string; inputLabel: string; initialValue?: string; onConfirm: (value: string) => void | Promise<void>; inputType?: string; actionLabel?: string } | null;
+    isParameterModalOpen: boolean;
+    isAddControlModalOpen: boolean;
+    isTemplateModalOpen: boolean;
+    templatePreviewModalState: { isOpen: boolean; template: Template | null };
+    fieldMappingModalState: { isOpen: boolean; template: Template | null; onBack?: () => void };
+    createTemplateModalState: { isOpen: boolean; page: DashboardPage | null };
+    isCommandPaletteOpen: boolean;
+    addToStoryModalState: { isOpen: boolean; widgetId: string | null };
+    splitColumnModalState: { isOpen: boolean; field: Field | null; onConfirm: (payload: any) => void };
+    mergeColumnsModalState: { isOpen: boolean; onConfirm: (payload: any) => void; availableFields: Field[] };
+    advancedAnalysisModalState: { isOpen: boolean; result: AdvancedAnalysisResult | null; title: string };
+    activeCommentThread: DashboardComment | null;
+    whatIfConfigModalState: { isOpen: boolean; widgetId: string | null };
+    isGenerateStoryModalOpen: boolean;
+    focusedWidgetId: string | null;
+    dataLineageModalState: { isOpen: boolean; widgetId: string | null };
+    isPerformanceAnalyzerOpen: boolean;
+    isAiInsightStarterModalOpen: boolean;
+    isAddDataSourceModalOpen: boolean;
+    dataSourceConnectionModalState: { isOpen: boolean; connector: Connector | null };
+    nlpDisambiguationModalState: { isOpen: boolean; term: string; fields: string[] };
+    setEditingWidgetState: Dispatch<SetStateAction<WidgetState | null>>;
+    setWidgetEditorAIPrompt: Dispatch<SetStateAction<string | null>>;
+    closeWidgetEditorModal: () => void;
+    updateEditingWidget: (update: Partial<WidgetState> | ((prevState: WidgetState) => WidgetState)) => void;
+    openFilterConfigModal: (pill: Pill, onSave: (p: Pill) => void, onBack?: () => void) => void;
+    closeFilterConfigModal: () => void;
+    openPageFiltersModal: () => void;
+    closePageFiltersModal: () => void;
+    openSelectFieldModal: () => void;
+    closeSelectFieldModal: () => void;
+    openInsightHub: () => void;
+    closeInsightHub: () => void;
+    openChatModal: () => void;
+    closeChatModal: () => void;
+    openAddFieldModal: (sourceId: string, initialStep?: 'formula' | 'grouping') => void;
+    closeAddFieldModal: () => void;
+    openValueFormatModal: (pill: Pill, onSave: (f: ValueFormat) => void) => void;
+    closeValueFormatModal: () => void;
+    openConfirmationModal: (config: { title: string; message: string; onConfirm: () => void; }) => void;
+    closeConfirmationModal: () => void;
+    openInputModal: (config: { title: string; message?: string; inputLabel: string; initialValue?: string; onConfirm: (value: string) => void | Promise<void>; inputType?: string; actionLabel?: string; }) => void;
+    closeInputModal: () => void;
+    openParameterModal: () => void;
+    closeParameterModal: () => void;
+    openAddControlModal: () => void;
+    closeAddControlModal: () => void;
+    openTemplateModal: () => void;
+    closeTemplateModal: () => void;
+    openTemplatePreviewModal: (template: Template) => void;
+    closeTemplatePreviewModal: () => void;
+    openFieldMappingModal: (template: Template, onBack?: () => void) => void;
+    closeFieldMappingModal: () => void;
+    openCreateTemplateModal: (page: DashboardPage) => void;
+    closeCreateTemplateModal: () => void;
+    openCommandPalette: () => void;
+    closeCommandPalette: () => void;
+    closeAddToStoryModal: () => void;
+    setAddToStoryModalState: Dispatch<SetStateAction<{ isOpen: boolean; widgetId: string | null }>>;
+    openSplitColumnModal: (field: Field, onConfirm: (payload: any) => void) => void;
+    closeSplitColumnModal: () => void;
+    openMergeColumnsModal: (onConfirm: (payload: any) => void, availableFields: Field[]) => void;
+    closeMergeColumnsModal: () => void;
+    openAdvancedAnalysisModal: (result: AdvancedAnalysisResult, title: string) => void;
+    closeAdvancedAnalysisModal: () => void;
+    setActiveCommentThread: Dispatch<SetStateAction<DashboardComment | null>>;
+    openWhatIfConfigModal: (widgetId: string) => void;
+    closeWhatIfConfigModal: () => void;
+    openGenerateStoryModal: () => void;
+    closeGenerateStoryModal: () => void;
+    setFocusedWidgetId: Dispatch<SetStateAction<string | null>>;
+    openDataLineageModal: (widgetId: string) => void;
+    closeDataLineageModal: () => void;
+    openPerformanceAnalyzer: () => void;
+    closePerformanceAnalyzer: () => void;
+    openAiInsightStarterModal: () => void;
+    closeAiInsightStarterModal: () => void;
+    toggleFieldInEditorShelves: (field: Field) => void;
+    openAddDataSourceModal: () => void;
+    closeAddDataSourceModal: () => void;
+    openDataSourceConnectionModal: (connector: Connector) => void;
+    closeDataSourceConnectionModal: () => void;
+    openNlpDisambiguationModal: (term: string, fields: string[]) => void;
+    closeNlpDisambiguationModal: () => void;
 }

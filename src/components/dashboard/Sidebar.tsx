@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useMemo, useState, ReactNode, FC } from 'react';
 import { useDashboard } from '../../contexts/DashboardProvider';
 import { Plus, Sparkle, FileText, Database, Home, Table2, BookOpen, SlidersHorizontal, Share2, Settings, MessageSquare, BrainCircuit, Lightbulb, ChevronsUpDown, LogOut } from 'lucide-react';
@@ -10,11 +6,15 @@ import { Tooltip } from '../ui/Tooltip';
 import { Popover } from '../ui/Popover';
 import { cn } from '../ui/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sidebar, SidebarHeader, SidebarContent, useSidebar, SidebarFooter } from '../ui/sidebar';
+import { Sidebar, SidebarHeader, SidebarContent, useSidebar, SidebarFooter } from '../ui/sidebar.tsx';
 import { PageMenuItem, ParametersPanel } from './SidebarPanels';
 import { ThemeSwitcher } from './ThemeSwitcher';
 import { CurrentView } from '../../utils/types';
 import { useAuth } from '../../contexts/AuthProvider';
+
+// FIX: Add aliasing for motion components to fix TypeScript errors.
+const MotionDiv = motion.div as any;
+const MotionSpan = motion.span as any;
 
 const WorkspaceSwitcher: FC = () => {
     const { user, logout } = useAuth();
@@ -90,7 +90,7 @@ const NavItem: FC<{ icon: ReactNode; label: string; isActive?: boolean; disabled
         >
             <AnimatePresence>
                 {isActive && (
-                    <motion.div
+                    <MotionDiv
                         layoutId="sidebar-active-indicator"
                         className="absolute left-0 h-5 w-1 bg-primary rounded-r-full"
                         initial={false}
@@ -103,14 +103,14 @@ const NavItem: FC<{ icon: ReactNode; label: string; isActive?: boolean; disabled
             </span>
             <AnimatePresence>
                 {!isCollapsed && (
-                    <motion.span 
+                    <MotionSpan
                         initial={{ opacity: 0, width: 0 }}
                         animate={{ opacity: 1, width: 'auto', transition: { delay: 0.1, duration: 0.2 } }}
                         exit={{ opacity: 0, width: 0, transition: { duration: 0.1 } }}
                         className="truncate"
                     >
                         {label}
-                    </motion.span>
+                    </MotionSpan>
                 )}
             </AnimatePresence>
         </button>
@@ -136,6 +136,7 @@ const SidebarInternalContent: FC = () => {
         dataSources, 
         addPage,
         activePage,
+        setActivePageId,
         workspaces,
         openInsightHub,
         openChatModal,
@@ -154,6 +155,12 @@ const SidebarInternalContent: FC = () => {
         setMobileOpen(false);
     };
     
+    const handleHomeNavigation = () => {
+        setActivePageId(null);
+        setView('dashboard');
+        setMobileOpen(false);
+    };
+
     return (
         <>
             <SidebarHeader className="p-3">
@@ -164,7 +171,7 @@ const SidebarInternalContent: FC = () => {
                 <div>
                     <SectionHeader>Analysis</SectionHeader>
                     <div className="space-y-1 p-2">
-                        <NavItem icon={<Home size={20} />} label="Dashboards" onClick={() => handleNavigation('dashboard')} isActive={currentView === 'dashboard'}/>
+                        <NavItem icon={<Home size={20} />} label="Dashboards" onClick={handleHomeNavigation} isActive={currentView === 'dashboard' && !activePage}/>
                          {activeWorkspace?.pages.map(p => <PageMenuItem key={p.id} page={p} onNavigate={() => setMobileOpen(false)} />)}
                          <NavItem icon={<Plus size={20} />} label="New Page" onClick={addPage} isPage />
                     </div>
@@ -180,7 +187,7 @@ const SidebarInternalContent: FC = () => {
                     <SectionHeader>Data Management</SectionHeader>
                     <div className="space-y-1 p-2">
                         <NavItem icon={<Database size={20} />} label="Data Sources" onClick={() => handleNavigation('datasources')} isActive={currentView === 'datasources'}/>
-                        <NavItem icon={<Share2 size={20} />} label="Data Modeler" onClick={() => handleNavigation('modeler')} disabled={dataSources.size < 2} isActive={currentView === 'modeler'}/>
+                        <NavItem icon={<Share2 size={20} />} label="Data Modeler" onClick={() => handleNavigation('modeler')} isActive={currentView === 'modeler'}/>
                         <NavItem icon={<FileText size={20} />} label="Data Studio" onClick={() => handleNavigation('studio')} disabled={dataSources.size === 0} isActive={currentView === 'studio'}/>
                     </div>
                 </div>

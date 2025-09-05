@@ -1,9 +1,11 @@
+
 import React, { useState } from 'react';
 import { useDashboard } from '../../contexts/DashboardProvider';
 import { StoryTone, DashboardPage } from '../../utils/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogOverlay, DialogFooter } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 import { BookOpen, Sparkle } from 'phosphor-react';
+import { cn, inputClasses } from '../ui/utils';
 
 export const GenerateStoryModal: React.FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOpen, onClose }) => {
     const { workspaces, generateStoryFromPage } = useDashboard();
@@ -39,7 +41,7 @@ export const GenerateStoryModal: React.FC<{ isOpen: boolean; onClose: () => void
                             type="text"
                             value={title}
                             onChange={e => setTitle(e.target.value)}
-                            className="w-full mt-1 p-2 border rounded-md bg-background"
+                            className={cn(inputClasses, "mt-1")}
                         />
                     </div>
                     <div>
@@ -51,7 +53,7 @@ export const GenerateStoryModal: React.FC<{ isOpen: boolean; onClose: () => void
                                 const page = allPages.find(p => p.id === e.target.value);
                                 if (page) setTitle(`${page.name} - AI Story`);
                             }}
-                            className="w-full mt-1 p-2 border rounded-md bg-background"
+                            className={cn(inputClasses, "mt-1")}
                         >
                             {allPages.map(page => (
                                 <option key={page.id} value={page.id}>{page.name}</option>

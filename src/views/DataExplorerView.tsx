@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef, useCallback, FC, MouseEvent } from 'react';
 import { useDashboard } from '../contexts/DashboardProvider';
 import { Field, FieldType, Pill, FilterCondition, AggregationType } from '../utils/types';
@@ -16,7 +15,7 @@ import { applyFilters } from '../utils/dataProcessing/filtering';
 import { ResponsiveContainer, BarChart, Bar, AreaChart, Area, XAxis, YAxis, Cell, Tooltip as RechartsTooltip } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ViewHeader } from '../components/common/ViewHeader';
-import { useSidebar } from '../components/ui/sidebar';
+import { useSidebar } from '../components/ui/sidebar.tsx';
 
 const ROW_HEIGHT = 40;
 
@@ -205,6 +204,7 @@ const DataGrid: FC<{
     sort: { key: string, order: 'asc' | 'desc' } | null;
     openColumnMenu: (event: MouseEvent, field: Field) => void;
 }> = ({ visibleFields, filteredData, sort, openColumnMenu }) => {
+    const { blendedData } = useDashboard();
     const containerRef = useRef<HTMLDivElement>(null);
     const [scrollTop, setScrollTop] = useState(0);
     const onScroll = (e: React.UIEvent<HTMLDivElement>) => setScrollTop(e.currentTarget.scrollTop);
@@ -224,7 +224,7 @@ const DataGrid: FC<{
                                 <th key={field.name} scope="col" className="group px-4 h-[44px] whitespace-nowrap bg-secondary text-foreground border-b-2 border-border border-r border-border last:border-r-0">
                                     <div className="flex items-center justify-between h-full">
                                         <div className="flex items-center gap-1.5">
-                                            <FieldInfoPopover field={field}><span className="font-semibold">{field.simpleName}</span></FieldInfoPopover>
+                                            <FieldInfoPopover field={field} blendedData={blendedData}><span className="font-semibold">{field.simpleName}</span></FieldInfoPopover>
                                             {sort?.key === field.name && (sort.order === 'asc' ? <ArrowUpAZ className="text-primary"/> : <ArrowDownAZ className="text-primary"/>)}
                                         </div>
                                         <Tooltip content="Column options">

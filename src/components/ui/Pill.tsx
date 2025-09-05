@@ -1,4 +1,5 @@
 
+
 import React, { useRef, useEffect, FC, MouseEvent } from 'react';
 import { useDrag, useDrop, DragSourceMonitor } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
@@ -7,6 +8,7 @@ import { Field, FieldType, Pill, ShelfPillDragItem, FieldDragItem, DND_ITEM_TYPE
 import { Badge } from './Badge';
 import { FieldInfoPopover } from './FieldInfoPopover';
 import { cn } from './utils';
+import { useDashboard } from '../../contexts/DashboardProvider';
 
 export const FieldPillPreview: FC<{ item: FieldDragItem }> = ({ item }) => {
     return (
@@ -43,6 +45,7 @@ export const RelationshipFieldPreview: FC<{ item: RelationshipFieldDragItem }> =
 
 
 export const FieldPill: FC<{ field: Field }> = ({ field }) => {
+    const { blendedData } = useDashboard();
     const [{ isDragging }, drag, dragPreview] = useDrag(() => ({
         type: DND_ITEM_TYPE.FIELD,
         item: { name: field.name, simpleName: field.simpleName, type: field.type, isCalculated: field.isCalculated, formula: field.formula } as FieldDragItem,
@@ -72,7 +75,7 @@ export const FieldPill: FC<{ field: Field }> = ({ field }) => {
     return (
         <div ref={drag as any} className={cn("w-full", isDragging ? 'opacity-0' : '')}>
             <Badge variant={getBadgeVariant()} className="w-full justify-start cursor-grab text-sm px-3 py-1.5 rounded-lg">
-                 <FieldInfoPopover field={field} isDragging={isDragging}>
+                 <FieldInfoPopover field={field} isDragging={isDragging} blendedData={blendedData}>
                     <span className="flex items-center cursor-help">
                         {getIcon()}
                         {field.simpleName}

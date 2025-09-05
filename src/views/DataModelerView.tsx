@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useDrag, useDrop, useDragLayer } from 'react-dnd';
 import { Database, Link, Type, Hash, Share2, GitBranch, Trash2 } from 'lucide-react';
 import { useDashboard } from '../contexts/DashboardProvider';
+import { notificationService } from '../services/notificationService';
 import { Relationship, DataSource, Field, FieldType, DND_ITEM_TYPE, RelationshipFieldDragItem } from '../utils/types';
 import { Button } from '../components/ui/Button';
 import { Popover } from '../components/ui/Popover';
@@ -11,7 +12,7 @@ import { Tooltip } from '../components/ui/Tooltip';
 import { Sheet, SheetContent } from '../components/ui/Sheet';
 import { cn } from '../components/ui/utils';
 import { ViewHeader } from '../components/common/ViewHeader';
-import { useSidebar } from '../components/ui/sidebar';
+import { useSidebar } from '../components/ui/sidebar.tsx';
 import { HelpIcon } from '../components/ui/HelpIcon';
 
 const JOIN_COLORS = [ '#4A47E5', '#00A8B5', '#F7B801', '#E54F6D', '#7A54C7', '#34D399', '#F97316' ];
@@ -247,7 +248,7 @@ const FieldRow: FC<{ source: DataSource; field: Field; onDrop: (source: Relation
 
 // --- Main View ---
 export const DataModelerView: FC = () => {
-    const { dataSources, relationships, setRelationships, setView, showToast, dataModelerLayout, setDataModelerLayout } = useDashboard();
+    const { dataSources, relationships, setRelationships, setView, dataModelerLayout, setDataModelerLayout } = useDashboard();
     const [selectedRelationshipId, setSelectedRelationshipId] = useState<string | null>(null);
     const canvasRef = useRef<HTMLDivElement>(null);
     const fieldRefs = useRef(new Map<string, HTMLDivElement | null>());
@@ -310,9 +311,9 @@ export const DataModelerView: FC = () => {
                 type: 'inner',
             };
             setRelationships(prev => [...prev, newRel]);
-            showToast({ type: 'success', message: `Smart join created between ${sourceItem.sourceName} and ${targetSource.name} on "${sourceItem.fieldName}"` });
+            notificationService.success(`Smart join created between ${sourceItem.sourceName} and ${targetSource.name} on "${sourceItem.fieldName}"`);
         } else {
-            showToast({ type: 'info', message: `No matching field for "${sourceItem.fieldName}" found in ${targetSource.name}.` });
+            notificationService.info(`No matching field for "${sourceItem.fieldName}" found in ${targetSource.name}.`);
         }
     };
 

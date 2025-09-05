@@ -3,8 +3,15 @@ import Lottie from 'lottie-react';
 import { useDashboard } from '../contexts/DashboardProvider';
 import { Database, FileSpreadsheet, Plus, ArrowRight } from 'lucide-react';
 import { cn } from '../components/ui/utils';
-import { motion, type Variants } from 'framer-motion';
+// FIX: Corrected framer-motion import for Variants and aliased motion components.
+import { motion, Variants } from 'framer-motion';
 import { AnimatedStars } from './auth/AnimatedStars';
+
+// FIX: Add aliasing for motion components to fix TypeScript errors.
+const MotionDiv = motion.div as any;
+const MotionH1 = motion.h1 as any;
+const MotionP = motion.p as any;
+
 
 // Embedded Lottie JSON
 const animationData = {"v":"5.9.6","fr":30,"ip":0,"op":180,"w":800,"h":600,"nm":"Data to Insight","ddd":0,"assets":[],"layers":[{"ddd":0,"ind":1,"ty":4,"nm":"Line 4","sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":0,"k":[551.5,450,0],"ix":2},"a":{"a":0,"k":[0,0,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"shapes":[{"ty":"gr","it":[{"ind":0,"ty":"sh","ix":1,"ks":{"a":0,"k":{"i":[[0,0],[0,0]],"o":[[0,0],[0,0]],"v":[[-120,0],[120,0]],"c":false},"ix":2},"nm":"Path 1","mn":"ADBE Vector Shape - Group","hd":false},{"ty":"st","c":{"a":0,"k":[0.96862745285,0.721568644047,0,1],"ix":3},"o":{"a":0,"k":100,"ix":4},"w":{"a":0,"k":4,"ix":5},"lc":2,"lj":2,"ml":4,"bm":0,"nm":"Stroke 1","mn":"ADBE Vector Graphic - Stroke","hd":false},{"ty":"tm","s":{"a":1,"k":[{"i":{"x":[0.833],"y":[0.833]},"o":{"x":[0.167],"y":[0.167]},"t":90,"s":0},{"t":120,"s":100}],"ix":1},"e":{"a":1,"k":[{"i":{"x":[0.833],"y":[0.833]},"o":{"x":[0.167],"y":[0.167]},"t":90,"s":0},{"t":120,"s":100}],"ix":2},"o":{"a":0,"k":0,"ix":3},"m":1,"ix":2,"nm":"Trim Paths 1","mn":"ADBE Vector Filter - Trim","hd":false}],"nm":"Group 1","np":3,"cix":2,"bm":0,"ix":1,"mn":"ADBE Vector Group","hd":false}],"ip":0,"op":180,"st":0,"bm":0},{"ddd":0,"ind":2,"ty":4,"nm":"Line 3","sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":0,"k":[248.5,450,0],"ix":2},"a":{"a":0,"k":[0,0,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"shapes":[{"ty":"gr","it":[{"ind":0,"ty":"sh","ix":1,"ks":{"a":0,"k":{"i":[[0,0],[0,0]],"o":[[0,0],[0,0]],"v":[[-120,0],[120,0]],"c":false},"ix":2},"nm":"Path 1","mn":"ADBE Vector Shape - Group","hd":false},{"ty":"st","c":{"a":0,"k":[0,0.658823549747,0.709803938866,1],"ix":3},"o":{"a":0,"k":100,"ix":4},"w":{"a":0,"k":4,"ix":5},"lc":2,"lj":2,"ml":4,"bm":0,"nm":"Stroke 1","mn":"ADBE Vector Graphic - Stroke","hd":false},{"ty":"tm","s":{"a":1,"k":[{"i":{"x":[0.833],"y":[0.833]},"o":{"x":[0.167],"y":[0.167]},"t":90,"s":0},{"t":120,"s":100}],"ix":1},"e":{"a":1,"k":[{"i":{"x":[0.833],"y":[0.833]},"o":{"x":[0.167],"y":[0.167]},"t":90,"s":0},{"t":120,"s":100}],"ix":2},"o":{"a":0,"k":0,"ix":3},"m":1,"ix":2,"nm":"Trim Paths 1","mn":"ADBE Vector Filter - Trim","hd":false}],"nm":"Group 1","np":3,"cix":2,"bm":0,"ix":1,"mn":"ADBE Vector Group","hd":false}],"ip":0,"op":180,"st":0,"bm":0},{"ddd":0,"ind":3,"ty":4,"nm":"Line 2","sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":0,"k":[400,150,0],"ix":2},"a":{"a":0,"k":[0,0,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"shapes":[{"ty":"gr","it":[{"ind":0,"ty":"sh","ix":1,"ks":{"a":0,"k":{"i":[[0,0],[0,0]],"o":[[0,0],[0,0]],"v":[[-250,0],[250,0]],"c":false},"ix":2},"nm":"Path 1","mn":"ADBE Vector Shape - Group","hd":false},{"ty":"st","c":{"a":0,"k":[0.290196090937,0.270588248968,0.858823597431,1],"ix":3},"o":{"a":0,"k":100,"ix":4},"w":{"a":0,"k":4,"ix":5},"lc":2,"lj":2,"ml":4,"bm":0,"nm":"Stroke 1","mn":"ADBE Vector Graphic - Stroke","hd":false},{"ty":"tm","s":{"a":1,"k":[{"i":{"x":[0.833],"y":[0.833]},"o":{"x":[0.167],"y":[0.167]},"t":0,"s":0},{"t":30,"s":100}],"ix":1},"e":{"a":1,"k":[{"i":{"x":[0.833],"y":[0.833]},"o":{"x":[0.167],"y":[0.167]},"t":30,"s":0},{"t":60,"s":100}],"ix":2},"o":{"a":0,"k":0,"ix":3},"m":1,"ix":2,"nm":"Trim Paths 1","mn":"ADBE Vector Filter - Trim","hd":false}],"nm":"Group 1","np":3,"cix":2,"bm":0,"ix":1,"mn":"ADBE Vector Group","hd":false}],"ip":0,"op":180,"st":0,"bm":0},{"ddd":0,"ind":4,"ty":4,"nm":"Line 1","sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":0,"k":[400,150,0],"ix":2},"a":{"a":0,"k":[0,0,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"shapes":[{"ty":"gr","it":[{"ind":0,"ty":"sh","ix":1,"ks":{"a":0,"k":{"i":[[0,0],[0,0]],"o":[[0,0],[0,0]],"v":[[-250,0],[250,0]],"c":false},"ix":2},"nm":"Path 1","mn":"ADBE Vector Shape - Group","hd":false},{"ty":"st","c":{"a":0,"k":[0.290196090937,0.270588248968,0.858823597431,1],"ix":3},"o":{"a":0,"k":100,"ix":4},"w":{"a":0,"k":4,"ix":5},"lc":2,"lj":2,"ml":4,"bm":0,"nm":"Stroke 1","mn":"ADBE Vector Graphic - Stroke","hd":false},{"ty":"tm","s":{"a":1,"k":[{"i":{"x":[0.833],"y":[0.833]},"o":{"x":[0.167],"y":[0.167]},"t":0,"s":0},{"t":30,"s":100}],"ix":1},"e":{"a":1,"k":[{"i":{"x":[0.833],"y":[0.833]},"o":{"x":[0.167],"y":[0.167]},"t":30,"s":0},{"t":60,"s":100}],"ix":2},"o":{"a":0,"k":0,"ix":3},"m":1,"ix":2,"nm":"Trim Paths 1","mn":"ADBE Vector Filter - Trim","hd":false},{"ty":"tr","p":{"a":0,"k":[400,150],"ix":2},"a":{"a":0,"k":[0,0],"ix":1},"s":{"a":0,"k":[100,100],"ix":3},"r":{"a":0,"k":90,"ix":6},"o":{"a":0,"k":100,"ix":7}}],"nm":"Group 1","np":3,"cix":2,"bm":0,"ix":1,"mn":"ADBE Vector Group","hd":false}],"ip":0,"op":180,"st":0,"bm":0},{"ddd":0,"ind":5,"ty":4,"nm":"Arrow","sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":0,"k":[400,300,0],"ix":2},"a":{"a":0,"k":[0,0,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"shapes":[{"ty":"gr","it":[{"ty":"gr","it":[{"ind":0,"ty":"sh","ix":1,"ks":{"a":0,"k":{"i":[[0,0],[0,0]],"o":[[0,0],[0,0]],"v":[[-13.1,30.3],[13.1,30.3]],"c":false},"ix":2},"nm":"Path 1","mn":"ADBE Vector Shape - Group","hd":false},{"ind":1,"ty":"sh","ix":2,"ks":{"a":0,"k":{"i":[[0,0],[0,0]],"o":[[0,0],[0,0]],"v":[[-13.1,-30.3],[13.1,-30.3]],"c":false},"ix":2},"nm":"Path 2","mn":"ADBE Vector Shape - Group","hd":false},{"ind":2,"ty":"sh","ix":3,"ks":{"a":0,"k":{"i":[[0,0],[-17.2,0]],"o":[[17.2,0],[0,0]],"v":[[30.3,13.1],[-30.3,0],[30.3,-13.1]],"c":true},"ix":2},"nm":"Path 3","mn":"ADBE Vector Shape - Group","hd":false}],"nm":"Group 1","np":3,"cix":2,"bm":0,"ix":1,"mn":"ADBE Vector Group","hd":false},{"ty":"fl","c":{"a":0,"k":[0.929411768913,0.309803932905,0.427450984716,1],"ix":4},"o":{"a":0,"k":100,"ix":5},"r":1,"bm":0,"nm":"Fill 1","mn":"ADBE Vector Graphic - Fill","hd":false}],"nm":"Group 2","np":2,"cix":2,"bm":0,"ix":2,"mn":"ADBE Vector Group","hd":false},{"ty":"tm","s":{"a":1,"k":[{"i":{"x":[0.833],"y":[0.833]},"o":{"x":[0.167],"y":[0.167]},"t":120,"s":0},{"t":150,"s":100}],"ix":1},"e":{"a":1,"k":[{"i":{"x":[0.833],"y":[0.833]},"o":{"x":[0.167],"y":[0.167]},"t":120,"s":100},{"t":150,"s":100}],"ix":2},"o":{"a":0,"k":0,"ix":3},"m":1,"ix":2,"nm":"Trim Paths 1","mn":"ADBE Vector Filter - Trim","hd":false}],"nm":"Group 1","np":3,"cix":2,"bm":0,"ix":1,"mn":"ADBE Vector Group","hd":false}],"ip":0,"op":180,"st":0,"bm":0}]}
@@ -33,7 +40,7 @@ const ActionCard: FC<{
     className?: string;
 }> = ({ icon, title, description, onClick, className }) => {
     return (
-        <motion.div
+        <MotionDiv
             variants={itemVariants}
             whileHover={{ y: -8, scale: 1.02, boxShadow: '0 20px 25px -5px hsl(var(--primary-values) / 0.1), 0 8px 10px -6px hsl(var(--primary-values) / 0.1)' }}
             className={cn("glass-panel rounded-2xl p-4 sm:p-6 text-left flex flex-col items-start gap-4 cursor-pointer relative overflow-hidden group", className)}
@@ -49,7 +56,7 @@ const ActionCard: FC<{
             <div className="mt-4 text-primary font-semibold text-sm flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 Get Started <ArrowRight size={16} className="transition-transform group-hover:translate-x-1" />
             </div>
-        </motion.div>
+        </MotionDiv>
     );
 };
 
@@ -62,29 +69,29 @@ export const EmptyStateView: FC = () => {
             <div className="absolute inset-0 -z-10 bg-aurora" />
 
             <div className="text-center w-full max-w-4xl mx-auto">
-                <motion.div
+                <MotionDiv
                     variants={containerVariants}
                     initial="hidden"
                     animate="visible"
                 >
-                    <motion.div variants={itemVariants} className="w-64 h-48 mx-auto -mb-8">
+                    <MotionDiv variants={itemVariants} className="w-64 h-48 mx-auto -mb-8">
                         <Lottie animationData={animationData} loop={true} />
-                    </motion.div>
-                    <motion.h1
+                    </MotionDiv>
+                    <MotionH1
                         variants={itemVariants}
                         className="text-4xl md:text-6xl lg:text-7xl font-bold font-display text-gradient-aurora tracking-tight"
                     >
                         Unlock Your Data's Potential
-                    </motion.h1>
-                    <motion.p
+                    </MotionH1>
+                    <MotionP
                         variants={itemVariants}
                         className="text-base sm:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto mt-6"
                     >
                         Welcome to Pivotal Pro AI. Connect your data to begin building interactive dashboards, uncovering insights, and telling compelling data stories.
-                    </motion.p>
-                </motion.div>
+                    </MotionP>
+                </MotionDiv>
 
-                <motion.div 
+                <MotionDiv
                     variants={containerVariants}
                     initial="hidden"
                     animate="visible"
@@ -113,7 +120,7 @@ export const EmptyStateView: FC = () => {
                         onClick={() => loadSampleData('sales')}
                         className="lg:col-span-5"
                     />
-                </motion.div>
+                </MotionDiv>
             </div>
         </div>
     );

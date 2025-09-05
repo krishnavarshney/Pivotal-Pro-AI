@@ -110,7 +110,7 @@ export function DataTable<TData, TValue>({
       </div>
       <div className="flex-grow overflow-auto">
         <Table>
-          <TableHeader className="sticky top-0 bg-secondary">
+          <TableHeader className="sticky top-0 bg-secondary z-10">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {

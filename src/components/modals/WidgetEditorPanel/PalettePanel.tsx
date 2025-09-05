@@ -1,18 +1,18 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import _ from 'lodash';
-import { useDashboard } from '../../contexts/DashboardProvider';
-import { Field, FieldType, Pill, AggregationType, ChartType, DND_ITEM_TYPE, AiChatMessage, FieldDragItem, WidgetState, ContextMenuItem } from '../../utils/types';
-import * as aiService from '../../services/aiService';
-import { Button, Checkbox, ColorPicker, HelpIcon, Shelf, ToggleSwitch, Tooltip, ChartTypeSelector, cn, inputClasses, textareaClasses } from '../ui';
+import { useDashboard } from '../../../contexts/DashboardProvider';
+import { Field, FieldType, Pill, AggregationType, ChartType, DND_ITEM_TYPE, AiChatMessage, FieldDragItem, WidgetState, ContextMenuItem } from '../../../utils/types';
+import * as aiService from '../../../services/aiService';
+import { Button, Checkbox, ColorPicker, HelpIcon, Shelf, ToggleSwitch, Tooltip, ChartTypeSelector, cn, inputClasses, textareaClasses } from '../../ui';
 import { Database, Layout, Paintbrush, Settings, Sparkle, Search, RefreshCw, Type, Hash, Clock, Columns, List, Filter, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import { useDrag } from 'react-dnd';
-import { FieldInfoPopover } from '../ui/FieldInfoPopover';
-import { COLOR_PALETTES } from '../../utils/constants';
-import { generateTitle } from '../../utils/dataUtils';
+import { FieldInfoPopover } from '../../ui/FieldInfoPopover';
+import { COLOR_PALETTES } from '../../../utils/constants';
+import { generateTitle } from '../../../utils/dataUtils';
 import Slider from 'rc-slider';
-import { notificationService } from '../../services/notificationService';
+import { notificationService } from '../../../services/notificationService';
 
 const PaletteTabButton: React.FC<{ tabId: string; activeTab: string; setActiveTab: (id: string) => void; children: React.ReactNode; }> = ({ tabId, activeTab, setActiveTab, children }) => (
     <button
@@ -27,6 +27,7 @@ const PaletteTabButton: React.FC<{ tabId: string; activeTab: string; setActiveTa
 );
 
 const SelectableFieldRow: React.FC<{ field: Field }> = ({ field }) => {
+    // FIX: Get blendedData from useDashboard to pass to FieldInfoPopover.
     const { editingWidgetState, toggleFieldInEditorShelves, blendedData } = useDashboard();
     
     const isChecked = useMemo(() => {

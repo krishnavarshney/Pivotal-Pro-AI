@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo, useEffect, useRef, FC, ReactElement, MouseEvent, KeyboardEvent, useCallback } from 'react';
 import { Responsive, WidthProvider } from 'react-grid-layout';
 import { 
@@ -15,7 +13,8 @@ import { WidgetState, WidgetLayout, ChartType, Pill, FilterCondition, Aggregatio
 import { Button } from '../components/ui/Button';
 import { Popover } from '../components/ui/Popover';
 import { ShelfPill } from '../components/ui/Pill';
-import { inputClasses, cn, Checkbox } from '../components/ui';
+import { inputClasses, cn } from '../components/ui/utils';
+import { Checkbox } from '../components/ui/Checkbox';
 import { Tooltip } from '../components/ui/Tooltip';
 import { DataProcessor } from '../components/common/DataProcessor';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -24,7 +23,7 @@ import jsPDF from 'jspdf';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import _ from 'lodash';
-import { useSidebar, SidebarTrigger } from '../components/ui/sidebar';
+import { useSidebar, SidebarTrigger } from '../components/ui/sidebar.tsx';
 import { GettingStartedView } from './GettingStartedView';
 import { processWidgetData, generateTitle } from '../utils/dataProcessing/widgetProcessor';
 import { useAuth } from '../contexts/AuthProvider';
@@ -32,6 +31,10 @@ import { HelpIcon } from '../components/ui/HelpIcon';
 import { ThemeSwitcher } from '../components/dashboard/ThemeSwitcher';
 import Slider from 'rc-slider';
 import { formatValue } from '../utils/dataProcessing/formatting';
+import { BuilderSidebar } from '../components/dashboard/BuilderSidebar';
+
+// FIX: Add aliasing for motion components to fix TypeScript errors.
+const MotionButton = motion.button as any;
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -144,6 +147,8 @@ const NlpFilterBar: FC = () => {
 const GlobalFilterShelf: FC = () => {
     const { activePage, setGlobalFilters, openPageFiltersModal, crossFilter, setCrossFilter, openFilterConfigModal, newlyAddedPillId } = useDashboard();
     
+    // FIX: Add aliasing for motion component to fix TypeScript errors.
+    const MotionDiv = motion.div as any;
     const globalFilters = activePage?.globalFilters || [];
 
     const handleRemovePill = (index: number) => {
@@ -173,7 +178,7 @@ const GlobalFilterShelf: FC = () => {
                 <div className="flex-grow flex items-center gap-2 flex-wrap min-h-[32px]">
                      <AnimatePresence>
                     {globalFilters.map((pill, index) => (
-                         <motion.div 
+                         <MotionDiv
                             key={pill.id} 
                             layout
                             initial={{opacity:0, scale:0.5}} 
@@ -190,10 +195,10 @@ const GlobalFilterShelf: FC = () => {
                                 onContextMenu={() => {}}
                                 isNew={pill.id === newlyAddedPillId}
                             />
-                         </motion.div>
+                         </MotionDiv>
                     ))}
                      {crossFilter && (
-                         <motion.div initial={{opacity:0, scale:0.5}} animate={{opacity:1, scale:1}} exit={{opacity:0, scale:0.5}}>
+                         <MotionDiv initial={{opacity:0, scale:0.5}} animate={{opacity:1, scale:1}} exit={{opacity:0, scale:0.5}}>
                             <div className="group relative">
                                 <ShelfPill
                                     pill={crossFilter.filter}
@@ -208,7 +213,7 @@ const GlobalFilterShelf: FC = () => {
                                     <span className="icon-hover-anim"><Aperture size={12} strokeWidth={3}/></span>
                                 </div>
                             </div>
-                         </motion.div>
+                         </MotionDiv>
                      )}
                      </AnimatePresence>
                 </div>
@@ -474,6 +479,9 @@ const Widget: FC<{ widget: WidgetState }> = ({ widget }) => {
         dashboardMode, addComment, setActiveCommentThread, activePage,
         setChatContext, openChatModal
     } = useDashboard();
+    // FIX: Add aliasing for motion component to fix TypeScript errors.
+    const MotionDiv = motion.div as any;
+    const MotionButton = motion.button as any;
 
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isChartTypePopoverOpen, setChartTypePopoverOpen] = useState(false);
@@ -559,7 +567,7 @@ const Widget: FC<{ widget: WidgetState }> = ({ widget }) => {
     ];
 
     return (
-        <motion.div ref={widgetRef} layoutId={`widget-container-${widget.id}`} onClick={handleWidgetClick} className="glass-panel rounded-xl flex flex-col h-full w-full group/widget overflow-hidden relative transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5">
+        <MotionDiv ref={widgetRef} layoutId={`widget-container-${widget.id}`} onClick={handleWidgetClick} className="glass-panel rounded-xl flex flex-col h-full w-full group/widget overflow-hidden relative transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5">
              <header className="drag-handle flex items-center p-3 h-[52px] border-b border-border/50 flex-shrink-0 gap-1 cursor-move">
                 <div className="nodrag cursor-default text-muted-foreground hover:text-foreground p-1 transition-colors duration-300 group-hover/widget:text-primary" title="Drag to move widget">
                     <span className="icon-hover-anim"><GripVertical /></span>
@@ -601,7 +609,7 @@ const Widget: FC<{ widget: WidgetState }> = ({ widget }) => {
                     </div>
                     <AnimatePresence>
                         {widget.displayMode === 'chart' && widget.chartType !== ChartType.KPI && (
-                            <motion.div initial={{opacity:0, width:0}} animate={{opacity:1, width:'auto'}} exit={{opacity:0, width:0}}>
+                            <MotionDiv initial={{opacity:0, width:0}} animate={{opacity:1, width:'auto'}} exit={{opacity:0, width:0}}>
                                 <Popover
                                     isOpen={isChartTypePopoverOpen}
                                     onClose={() => setChartTypePopoverOpen(false)}
@@ -620,7 +628,7 @@ const Widget: FC<{ widget: WidgetState }> = ({ widget }) => {
                                          onClose={() => setChartTypePopoverOpen(false)}
                                      />
                                 </Popover>
-                            </motion.div>
+                            </MotionDiv>
                         )}
                     </AnimatePresence>
                     <Popover
@@ -650,13 +658,13 @@ const Widget: FC<{ widget: WidgetState }> = ({ widget }) => {
             </div>
              <AnimatePresence>
             {commentsForWidget.map(comment => (
-                <motion.button 
+                <MotionButton
                     key={comment.id}
                     initial={{ scale: 0, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0, opacity: 0 }}
                     whileHover={{ scale: 1.2, boxShadow: '0 0 10px hsl(var(--primary))' }}
-                    onClick={(e) => {
+                    onClick={(e: MouseEvent) => {
                         e.stopPropagation(); // prevent creating a new comment
                         setActiveCommentThread(comment);
                     }}
@@ -669,10 +677,10 @@ const Widget: FC<{ widget: WidgetState }> = ({ widget }) => {
                     aria-label="View comment thread"
                 >
                     <MessageSquare size={14} />
-                </motion.button>
+                </MotionButton>
             ))}
             </AnimatePresence>
-        </motion.div>
+        </MotionDiv>
     );
 };
 
@@ -838,7 +846,7 @@ export const DashboardView: FC = () => {
         setScrollToWidgetId,
         dashboardMode
     } = useDashboard();
-    const MotionDiv = motion.div;
+    const MotionDiv = motion.div as any;
 
     useEffect(() => {
         if (scrollToWidgetId) {
@@ -881,31 +889,34 @@ export const DashboardView: FC = () => {
     };
 
     return (
-        <div className="h-full w-full flex flex-col bg-transparent p-4 gap-4">
-            <DashboardHeader />
-            <GlobalFilterShelf />
-            <div id="dashboard-grid" className={cn("flex-grow overflow-auto bg-grid rounded-xl", dashboardMode === 'comment' && 'cursor-crosshair')}>
-                <ResponsiveGridLayout
-                    layouts={layouts}
-                    onLayoutChange={onLayoutChange}
-                    breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-                    cols={{ lg: 24, md: 20, sm: 12, xs: 8, xxs: 4 }}
-                    rowHeight={30}
-                    draggableHandle=".drag-handle"
-                    draggableCancel=".nodrag"
-                    isBounded={true}
-                    resizeHandles={['sw', 'nw', 'se', 'ne']}
-                    isDraggable={true}
-                    isResizable={true}
-                    className="layout"
-                    useCSSTransforms={true}
-                >
-                    {widgets.map(widget => (
-                        <div key={widget.id} id={`widget-wrapper-${widget.id}`} className="flex flex-col h-full">
-                            <Widget widget={widget} />
-                        </div>
-                    ))}
-                </ResponsiveGridLayout>
+        <div className="h-full w-full flex flex-col bg-transparent p-4 gap-4 relative">
+            {dashboardMode === 'edit' && <BuilderSidebar />}
+            <div className="flex-grow flex flex-col gap-4 min-w-0">
+                <DashboardHeader />
+                <GlobalFilterShelf />
+                <div id="dashboard-grid" className={cn("flex-grow overflow-auto bg-grid rounded-xl", dashboardMode === 'comment' && 'cursor-crosshair')}>
+                    <ResponsiveGridLayout
+                        layouts={layouts}
+                        onLayoutChange={onLayoutChange}
+                        breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+                        cols={{ lg: 24, md: 20, sm: 12, xs: 8, xxs: 4 }}
+                        rowHeight={30}
+                        draggableHandle=".drag-handle"
+                        draggableCancel=".nodrag"
+                        isBounded={true}
+                        resizeHandles={['sw', 'nw', 'se', 'ne']}
+                        isDraggable={true}
+                        isResizable={true}
+                        className="layout"
+                        useCSSTransforms={true}
+                    >
+                        {widgets.map(widget => (
+                            <div key={widget.id} id={`widget-wrapper-${widget.id}`} className="flex flex-col h-full">
+                                <Widget widget={widget} />
+                            </div>
+                        ))}
+                    </ResponsiveGridLayout>
+                </div>
             </div>
         </div>
     );

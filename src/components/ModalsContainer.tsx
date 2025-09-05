@@ -1,4 +1,5 @@
 
+
 import React, { FC } from 'react';
 import { useDashboard } from '../contexts/DashboardProvider';
 import { FilterConfigModal } from './modals/FilterConfigModal';
@@ -85,7 +86,6 @@ export const ModalsContainer: FC = () => {
         isAiInsightStarterModalOpen,
         closeAiInsightStarterModal,
         handleGenerateAiDashboard,
-        showToast,
         handleImportDashboard, 
         importInputRef,
         isAddDataSourceModalOpen,

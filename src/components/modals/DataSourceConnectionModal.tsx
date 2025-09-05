@@ -8,6 +8,10 @@ import { Connector } from '../../utils/types';
 import { Link, TestTube, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import * as apiService from '../../services/apiService';
+import { notificationService } from '../../services/notificationService';
+
+// FIX: Add aliasing for motion component to fix TypeScript errors.
+const MotionDiv = motion.div as any;
 
 const ConnectionField: React.FC<{ id: string; label: string; type?: string; placeholder: string; value: string; onChange: (e: React.ChangeEvent<HTMLInputElement>) => void; }> = ({ id, label, type = 'text', placeholder, value, onChange }) => (
     <div>
@@ -70,7 +74,7 @@ export const DataSourceConnectionModal: React.FC<{
     onClose: () => void;
     connector: Connector | null;
 }> = ({ isOpen, onClose, connector }) => {
-    const { createDataSourceFromConnection, showToast } = useDashboard();
+    const { createDataSourceFromConnection } = useDashboard();
     const [details, setDetails] = useState<any>({});
     const [name, setName] = useState('');
     const [isTesting, setIsTesting] = useState(false);
@@ -95,10 +99,11 @@ export const DataSourceConnectionModal: React.FC<{
         try {
             await apiService.fetchDataFromApi(details, 1); // Fetch 1 record to test
             setTestResult('success');
-            showToast({ type: 'success', message: 'Connection test successful!' });
+            // FIX: Replaced direct `showToast` call with `notificationService` to decouple the component from the context provider implementation and fix the missing property error.
+            notificationService.success('Connection test successful!');
         } catch (e) {
             setTestResult('error');
-            showToast({ type: 'error', message: `Connection test failed: ${(e as Error).message}` });
+            notificationService.error(`Connection test failed: ${(e as Error).message}`);
         } finally {
             setIsTesting(false);
         }
@@ -106,7 +111,7 @@ export const DataSourceConnectionModal: React.FC<{
 
     const handleConnect = () => {
         if (!name.trim()) {
-            showToast({type: 'error', message: 'Please enter a connection name.'});
+            notificationService.error('Please enter a connection name.');
             return;
         }
         if (connector) {
@@ -138,13 +143,13 @@ export const DataSourceConnectionModal: React.FC<{
                      <div className="flex-grow">
                         <AnimatePresence>
                             {testResult && (
-                                <motion.div
+                                <MotionDiv
                                     initial={{ opacity: 0, y: 5 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     className={`text-sm font-semibold ${testResult === 'success' ? 'text-green-500' : 'text-red-500'}`}
                                 >
                                     {testResult === 'success' ? 'Connection Successful!' : 'Connection Failed.'}
-                                </motion.div>
+                                </MotionDiv>
                             )}
                         </AnimatePresence>
                     </div>

@@ -1,9 +1,10 @@
 
+
 import React, { FC, ReactNode } from 'react';
-import { ArrowLeft } from 'phosphor-react';
+import { ArrowLeft } from 'lucide-react';
 import { useDashboard } from '../../contexts/DashboardProvider';
-import { useSidebar, SidebarTrigger } from '../ui/sidebar';
-import { Button } from '../ui';
+import { useSidebar, SidebarTrigger } from '../ui/sidebar.tsx';
+import { Button } from '../ui/Button';
 
 interface ViewHeaderProps {
     icon: ReactNode;

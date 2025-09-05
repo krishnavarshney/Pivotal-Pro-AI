@@ -14,7 +14,7 @@ export const AnimatedStars: FC<{isAuth?: boolean}> = ({isAuth = false}) => {
     }, []);
 
     return (
-        <div className="absolute inset-0 -z-10 overflow-hidden">
+        <div className="absolute inset-0 overflow-hidden">
             {stars.map((star, i) => (
                 <div
                     key={i}

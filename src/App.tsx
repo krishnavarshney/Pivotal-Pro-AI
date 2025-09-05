@@ -48,6 +48,7 @@ const App: FC = () => {
     
     useEffect(() => {
         document.body.classList.toggle('comment-mode', dashboardMode === 'comment');
+        document.body.classList.toggle('edit-mode', dashboardMode === 'edit');
     }, [dashboardMode]);
 
     if (isLoading) {

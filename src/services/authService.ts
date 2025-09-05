@@ -128,6 +128,7 @@ export const signup = async (name: string, email: string, password: string): Pro
 
 export const logout = (): void => {
     localStorage.removeItem(MOCK_TOKEN_KEY);
+    localStorage.removeItem('pivotalProActivePageId');
 };
 
 export const getToken = (): string | null => {

@@ -3,15 +3,22 @@ import _ from 'lodash';
 import { Settings, Paintbrush, Sliders, Columns, List, Hash, Filter, Check, Type, AreaChart } from 'lucide-react';
 import { useDashboard } from '../../../contexts/DashboardProvider';
 import { WidgetState, TableSettings, FieldDragItem, Pill, FieldType, AggregationType, ChartType, ContextMenuItem, SectionSettings } from '../../../utils/types';
-import { inputClasses, ChartTypeSelector, ToggleSwitch, Shelf, labelClasses, HelpIcon, ColorPicker } from '../../ui';
+import { inputClasses, labelClasses } from '../../ui/utils';
+import { ChartTypeSelector } from '../../ui/ChartTypeSelector';
+import { ToggleSwitch } from '../../ui/ToggleSwitch';
+import { Shelf } from '../../ui/Shelf';
+import { HelpIcon } from '../../ui/HelpIcon';
+import { ColorPicker } from '../../ui/ColorPicker';
 import { COLOR_PALETTES } from '../../../utils/constants';
 import { EditorTabButton } from './EditorTabButton';
 import { motion, AnimatePresence } from 'framer-motion';
-import { generateTitle } from '../../../utils/dataUtils';
+import { generateTitle } from '../../../utils/dataProcessing/widgetProcessor';
 import Slider from 'rc-slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/Select';
 import { Label } from '../../ui/Label';
 
+// FIX: Add aliasing for motion component to fix TypeScript errors.
+const MotionDiv = motion.div as any;
 
 const SectionSettingsPanel: React.FC = () => {
     const { editingWidgetState, updateEditingWidget } = useDashboard();
@@ -347,7 +354,7 @@ export const ConfigurationPanel: React.FC = () => {
 
             <div className="flex-grow overflow-y-auto -mr-4 pr-4">
                 <AnimatePresence mode="wait">
-                    <motion.div key={activeTab} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}>
+                    <MotionDiv key={activeTab} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}>
                         {activeTab === 'configuration' && (
                             <div className="space-y-4">
                                 {shelvesConfig.map(shelf => (
@@ -379,33 +386,6 @@ export const ConfigurationPanel: React.FC = () => {
                                         {Object.keys(COLOR_PALETTES).map(name => <option key={name} value={name}>{name}</option>)}
                                     </select>
                                 </div>
-                                {localWidget.displayMode === 'chart' && localWidget.chartType !== ChartType.KPI && (
-                                    <>
-                                        <h4 className="text-base font-semibold text-foreground pt-4 border-t border-border">Chart Formatting</h4>
-                                        <div className="space-y-4">
-                                            <ToggleSwitch 
-                                                label="Show Legend" 
-                                                enabled={localWidget.chartSettings?.showLegend !== false} 
-                                                onChange={val => handleUpdate(w => ({ ...w, chartSettings: { ...w.chartSettings, showLegend: val } }))} 
-                                            />
-                                            {localWidget.chartSettings?.showLegend !== false && (
-                                                <div>
-                                                    <label className={labelClasses}>Legend Position</label>
-                                                    <select 
-                                                        value={localWidget.chartSettings?.legendPosition || 'bottom'} 
-                                                        onChange={e => handleUpdate(w => ({ ...w, chartSettings: { ...w.chartSettings, legendPosition: e.target.value as any } }))} 
-                                                        className={`${inputClasses} mt-1`}
-                                                    >
-                                                        <option value="top">Top</option>
-                                                        <option value="bottom">Bottom</option>
-                                                        <option value="left">Left</option>
-                                                        <option value="right">Right</option>
-                                                    </select>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </>
-                                )}
                                 {localWidget.displayMode === 'table' && (
                                     <>
                                         <h4 className="text-base font-semibold text-foreground pt-4 border-t border-border">Table Formatting</h4>
@@ -480,7 +460,7 @@ export const ConfigurationPanel: React.FC = () => {
                                 <ToggleSwitch label="Column Totals" enabled={!!localWidget.subtotalSettings.columns} onChange={val => handleUpdate(w => ({...w, subtotalSettings: {...w.subtotalSettings, columns: val}}))} />
                             </div>
                         )}
-                    </motion.div>
+                    </MotionDiv>
                 </AnimatePresence>
             </div>
         </div>

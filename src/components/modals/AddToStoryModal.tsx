@@ -1,4 +1,5 @@
 
+
 import React, { FC } from 'react';
 import { Plus } from 'lucide-react';
 import { useDashboard } from '../../contexts/DashboardProvider';
@@ -21,7 +22,7 @@ export const AddToStoryModal: FC<{
                 <DialogHeader>
                     <DialogTitle>Add Widget to Story</DialogTitle>
                     <DialogDescription>
-                        Add this widget to an existing story or create a new one.
+                        Add this widget as a new slide to an existing story or create a new one.
                     </DialogDescription>
                 </DialogHeader>
                 <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4">
@@ -49,6 +50,7 @@ export const AddToStoryModal: FC<{
                                 <p className="text-sm text-muted-foreground">{story.pages.length} page(s)</p>
                             </button>
                         ))}
+                         {stories.length === 0 && <p className="text-muted-foreground text-center text-sm p-4">No existing stories. Create a new one to begin.</p>}
                     </div>
                 </div>
             </DialogContent>

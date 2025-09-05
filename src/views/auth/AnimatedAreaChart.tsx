@@ -1,5 +1,9 @@
 import React, { memo } from 'react';
+// FIX: Corrected framer-motion import for Variants and aliased motion components.
 import { motion, type Variants } from 'framer-motion';
+
+// FIX: Add aliasing for motion component to fix TypeScript errors.
+const MotionCircle = motion.circle as any;
 
 export const AnimatedDonutChart = memo(() => {
     const segmentVariants: Variants = {
@@ -26,7 +30,7 @@ export const AnimatedDonutChart = memo(() => {
                     </linearGradient>
                 </defs>
                 <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="10"/>
-                <motion.circle 
+                <MotionCircle 
                     cx="50" 
                     cy="50" 
                     r="45" 

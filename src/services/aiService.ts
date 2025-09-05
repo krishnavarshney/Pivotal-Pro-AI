@@ -1026,7 +1026,7 @@ const predictiveModelSchema = {
             properties: {
                 targetVariable: { type: Type.STRING },
                 featureVariables: { type: Type.ARRAY, items: { type: Type.STRING } },
-                modelType: { type: Type.STRING, enum: ['LINEAR_REGRESSION'] },
+                modelType: { type: Type.STRING, enum: Object.values(PredictiveModelType) },
                 aiSummary: { type: Type.STRING, description: "A concise, 1-2 paragraph summary of the model's performance and key findings in plain English." },
                 formula: { type: Type.STRING, description: "The mathematical formula for the model, e.g., '12.34 + 5.67 * [Ad Spend] - 2.1 * [Discount]'." }
             },
@@ -1067,9 +1067,33 @@ const predictiveModelSchema = {
                 },
                 required: ["feature", "coefficient", "stdError", "pValue"]
             }
+        },
+        predictionVsActuals: {
+            type: Type.ARRAY,
+            description: "A sample of up to 100 data points with their actual and predicted values for plotting.",
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    actual: { type: Type.NUMBER },
+                    predicted: { type: Type.NUMBER }
+                },
+                required: ["actual", "predicted"]
+            }
+        },
+        residuals: {
+            type: Type.ARRAY,
+            description: "A sample of up to 100 data points showing the predicted value and the residual (actual - predicted).",
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    predicted: { type: Type.NUMBER },
+                    residual: { type: Type.NUMBER }
+                },
+                required: ["predicted", "residual"]
+            }
         }
     },
-    required: ["summary", "performanceMetrics", "featureImportance", "coefficients"]
+    required: ["summary", "performanceMetrics", "featureImportance", "coefficients", "predictionVsActuals", "residuals"]
 };
 
 
@@ -1087,6 +1111,8 @@ export const runPredictiveModel = async (
     - Calculate all necessary statistical metrics for the model.
     - Provide a clear, plain-English summary of the results.
     - Construct the mathematical formula for the model.
+    - For a sample of up to 100 data points, provide the actual target value and the value predicted by your model.
+    - For the same sample, provide the predicted value and the residual (actual - predicted).
     - Your entire response MUST be a valid JSON object conforming to the provided schema. Do not include any other text or markdown.`;
 
     const fields = [target, ...features];

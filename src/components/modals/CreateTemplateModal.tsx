@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { PuzzlePiece } from 'phosphor-react';
 import { useDashboard } from '../../contexts/DashboardProvider';
 import { DashboardPage, Template } from '../../utils/types';
-import { Button, Dialog, DialogOverlay, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, inputClasses, textareaClasses } from '../ui';
+import { Button } from '../ui/Button';
+import { Dialog, DialogOverlay, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/Dialog';
+import { inputClasses, textareaClasses } from '../ui/utils';
 
 export const CreateTemplateModal: React.FC<{
     isOpen: boolean;

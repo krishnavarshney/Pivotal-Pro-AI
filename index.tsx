@@ -4,7 +4,7 @@ import App from './src/App';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { DashboardProvider } from './src/contexts/DashboardProvider';
-import { SidebarProvider } from './src/components/ui/sidebar';
+import { SidebarProvider } from './src/components/ui/sidebar.tsx';
 import { AuthProvider } from './src/contexts/AuthProvider';
 import './src/styles.css';
 

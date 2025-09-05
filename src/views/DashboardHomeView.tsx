@@ -6,12 +6,22 @@ import { Home, MoreVertical, Edit, Copy, Trash2, LayoutGrid, FileText, Plus } fr
 import { motion } from 'framer-motion';
 import { DashboardPage, WidgetState, Workspace, WidgetLayout } from '../utils/types';
 import { Responsive, WidthProvider } from 'react-grid-layout';
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui';
+import { Button } from '../components/ui/Button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/Popover';
+
+// FIX: Add aliasing for motion component to fix TypeScript errors.
+const MotionDiv = motion.div as any;
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
 const MiniatureLayout: React.FC<{ widgets: WidgetState[], layouts: { [key: string]: WidgetLayout[] } }> = ({ widgets, layouts }) => {
-    // A simplified, non-interactive preview of the dashboard layout
+    if (!widgets || widgets.length === 0) {
+        return (
+            <div className="w-full h-full flex items-center justify-center text-muted-foreground/50 text-xs">
+                Empty Page
+            </div>
+        );
+    }
     return (
         <div className="w-full h-full bg-grid overflow-hidden relative pointer-events-none">
             <ResponsiveGridLayout
@@ -39,7 +49,7 @@ const DashboardCard: React.FC<{
     page: DashboardPage;
     workspace: Workspace;
 }> = ({ page, workspace }) => {
-    const { setView, setActivePageId, removePage, duplicatePage, openInputModal, updatePage, openConfirmationModal } = useDashboard();
+    const { setActivePageId, setView, removePage, duplicatePage, openInputModal, updatePage, openConfirmationModal } = useDashboard();
     
     const handleNavigate = () => {
         setActivePageId(page.id);
@@ -64,7 +74,7 @@ const DashboardCard: React.FC<{
     };
 
     return (
-        <motion.div
+        <MotionDiv
             layout
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -106,28 +116,40 @@ const DashboardCard: React.FC<{
                     </div>
                 </div>
             </button>
-        </motion.div>
+        </MotionDiv>
     );
 };
 
 export const DashboardHomeView: React.FC = () => {
-    const { workspaces, addPage } = useDashboard();
+    const { workspaces, setView, setActivePageId } = useDashboard();
     
     const allPagesWithWorkspaces = useMemo(() => {
         return workspaces.flatMap(ws => (ws.pages || []).map(p => ({ page: p, workspace: ws })));
     }, [workspaces]);
 
+    const handleNewPage = () => {
+        setActivePageId(null);
+        setView('templates');
+    };
+
     return (
         <div className="h-full flex flex-col bg-background">
             <ViewHeader icon={<Home size={24} />} title="Dashboards" showBackToDashboard={false}>
-                <Button onClick={addPage}>
+                <Button onClick={handleNewPage}>
                     <Plus size={16} /> Create New Page
                 </Button>
             </ViewHeader>
             <main className="flex-grow p-6 overflow-y-auto bg-secondary/30">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {allPagesWithWorkspaces.map(({ page, workspace }) => (
-                        <DashboardCard key={page.id} page={page} workspace={workspace} />
+                <div className="space-y-8">
+                    {_.map(_.groupBy(allPagesWithWorkspaces, 'workspace.name'), (pages, workspaceName) => (
+                        <div key={workspaceName}>
+                            <h2 className="text-xl font-bold mb-4 font-display text-foreground">{workspaceName}</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                {pages.map(({ page, workspace }) => (
+                                    <DashboardCard key={page.id} page={page} workspace={workspace} />
+                                ))}
+                            </div>
+                        </div>
                     ))}
                 </div>
             </main>

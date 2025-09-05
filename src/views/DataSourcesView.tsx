@@ -1,179 +1,175 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, FC, ReactNode } from 'react';
 import _ from 'lodash';
 import { useDashboard } from '../contexts/DashboardProvider';
 import { ViewHeader } from '../components/common/ViewHeader';
-import { Database, Plus, CheckCircle, Clock, AlertTriangle, RefreshCw, Cog, TestTube, Link, Cloud, File as FileIcon, HardDrive, Activity } from 'lucide-react';
-import { Button, Card, Badge, cn, Tooltip } from '../components/ui';
+import { Database, Plus, CheckCircle, XCircle, AlertTriangle, RefreshCw, MoreVertical, Search, FileSpreadsheet, Link as LinkIcon, Cloud, Server } from 'lucide-react';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/ui/Badge';
+import { cn, inputClasses } from '../components/ui/utils';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/Popover';
 import { DataSource } from '../utils/types';
+import { motion, AnimatePresence } from 'framer-motion';
 
-function timeAgo(dateString: string | undefined): string {
-    if (!dateString) return 'never';
-    const date = new Date(dateString);
-    const now = new Date();
-    const seconds = Math.round((now.getTime() - date.getTime()) / 1000);
-    const minutes = Math.round(seconds / 60);
-    const hours = Math.round(minutes / 60);
-    const days = Math.round(hours / 24);
+const MotionDiv = motion.div as any;
 
-    if (days > 365) return `${Math.floor(days / 365)}d ago`;
-    if (days > 0) return `${days}d ago`;
-    if (hours > 0) return `${hours}h ago`;
-    if (minutes > 0) return `${minutes}m ago`;
-    return 'just now';
-}
-
-const sourceIcons: Record<NonNullable<DataSource['type']>, React.ReactNode> = {
-    'database': <HardDrive size={24} />,
-    'api': <Link size={24} />,
-    'file': <FileIcon size={24} />,
-    'cloud': <Cloud size={24} />,
-};
-
-const statusInfo: Record<NonNullable<DataSource['status']>, { icon: React.ReactNode, text: string, className: string }> = {
-    'connected': { icon: <CheckCircle size={14} />, text: 'Connected', className: 'text-green-500' },
-    'syncing': { icon: <RefreshCw size={14} className="animate-spin" />, text: 'Syncing', className: 'text-yellow-500' },
-    'error': { icon: <AlertTriangle size={14} />, text: 'Error', className: 'text-red-500' },
-};
-
-const DataSourceCard: React.FC<{ dataSource: DataSource }> = ({ dataSource }) => {
-    const { setView, showToast } = useDashboard();
-
-    return (
-        <Card className="flex flex-col group hover:border-primary/50 hover:shadow-lg transition-all duration-200 hover:-translate-y-1">
-            <div className="p-4 flex-grow">
-                <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
-                            {sourceIcons[dataSource.type || 'file']}
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-foreground truncate">{dataSource.name}</h3>
-                            <Badge variant="secondary" className="mt-1 capitalize">{dataSource.type || 'file'}</Badge>
-                        </div>
-                    </div>
-                    <Tooltip content="Refresh">
-                        <Button variant="ghost" size="icon" className="w-8 h-8 opacity-0 group-hover:opacity-100" onClick={() => showToast({ type: 'info', message: `Refreshing ${dataSource.name}...` })}>
-                            <RefreshCw size={16} />
-                        </Button>
-                    </Tooltip>
-                </div>
-
-                <p className="text-sm text-muted-foreground mt-3 h-10">{dataSource.description || 'No description provided.'}</p>
-                
-                <div className="mt-4 pt-4 border-t border-border/50 text-sm space-y-2">
-                    <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Status</span>
-                        <div className={cn("flex items-center gap-1.5 font-semibold", statusInfo[dataSource.status || 'connected'].className)}>
-                            {statusInfo[dataSource.status || 'connected'].icon}
-                            <span>{statusInfo[dataSource.status || 'connected'].text}</span>
-                        </div>
-                    </div>
-                    <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Last Synced</span>
-                        <span className="font-semibold">{timeAgo(dataSource.lastSync)}</span>
-                    </div>
-                     <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Records</span>
-                        <span className="font-semibold">{dataSource.data.length.toLocaleString()}</span>
-                    </div>
-                </div>
-            </div>
-            <div className="p-3 border-t border-border/50 bg-secondary/30 flex items-center gap-2">
-                <Button variant="outline" className="w-full" onClick={() => setView('studio', { sourceId: dataSource.id })}><Cog size={16}/> Configure</Button>
-                <Button variant="outline" className="w-full" onClick={() => showToast({type: 'success', message: `Connection test for ${dataSource.name} successful!`})}><TestTube size={16}/> Test</Button>
-            </div>
-        </Card>
-    );
-};
-
-const ConnectionStatusCard: React.FC<{
+const StatCard: React.FC<{
     icon: React.ReactNode;
     title: string;
-    count: string;
+    value: number;
     colorClass: string;
-}> = ({ icon, title, count, colorClass }) => (
-    <div className={cn("p-4 bg-card rounded-xl border flex items-start gap-4", colorClass)}>
-        <div className="w-10 h-10 rounded-lg bg-current/10 flex items-center justify-center text-current">{icon}</div>
+}> = ({ icon, title, value, colorClass }) => (
+    <div className="bg-card p-4 rounded-xl border border-border flex items-center gap-4">
+        <div className={cn("w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 text-current", colorClass, "bg-current/10")}>
+            {icon}
+        </div>
         <div>
-            <p className="text-sm font-semibold text-muted-foreground">{title}</p>
-            <p className="text-3xl font-bold text-foreground">{count}</p>
+            <p className="text-2xl font-bold text-foreground">{value.toLocaleString()}</p>
+            <p className="text-sm font-medium text-muted-foreground">{title}</p>
         </div>
     </div>
 );
 
-export const DataSourcesView: React.FC = () => {
-    const { dataSources, openAddDataSourceModal } = useDashboard();
-    const [activeTab, setActiveTab] = useState('dataSources');
+const statusInfo: Record<DataSource['status'], { text: string, className: string }> = {
+    'connected': { text: 'Connected', className: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300 ring-green-500/30' },
+    'disconnected': { text: 'Disconnected', className: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300 ring-red-500/30' },
+    'pending': { text: 'Pending', className: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-300 ring-yellow-500/30' },
+    'syncing': { text: 'Syncing', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-300 ring-blue-500/30' },
+    'error': { text: 'Error', className: 'bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300 ring-red-500/30' },
+};
 
-    const sourcesArray = useMemo(() => Array.from(dataSources.values()), [dataSources]);
-    
-    const stats = useMemo(() => {
-        const connected = sourcesArray.filter(s => s.status === 'connected').length;
-        const syncing = sourcesArray.filter(s => s.status === 'syncing').length;
-        const error = sourcesArray.filter(s => s.status === 'error').length;
-        const totalRecords = _.sumBy(sourcesArray, s => s.data.length);
-        return { connected, syncing, error, totalRecords };
-    }, [sourcesArray]);
-    
-    const handleAddSource = () => {
-        openAddDataSourceModal();
-    };
+const sourceIcons: Record<NonNullable<DataSource['icon']>, React.ReactNode> = {
+    'database': <Database size={20} />,
+    'file-spreadsheet': <FileSpreadsheet size={20} />,
+    'cloud': <Cloud size={20} />,
+    'api': <LinkIcon size={20} />,
+};
 
-    const TabButton: React.FC<{ tabId: string, children: React.ReactNode }> = ({ tabId, children }) => (
-        <button
-            onClick={() => setActiveTab(tabId)}
+const DataSourceCard: FC<{ source: DataSource, isHighlighted: boolean }> = ({ source, isHighlighted }) => {
+    const status = statusInfo[source.status];
+    const { setView } = useDashboard();
+
+    return (
+        <MotionDiv
+            layout
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
             className={cn(
-                "px-4 py-2 text-sm font-semibold border-b-2",
-                activeTab === tabId
-                    ? 'border-primary text-primary'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                "bg-card rounded-xl border border-border shadow-sm flex flex-col transition-all duration-300",
+                isHighlighted && "ring-2 ring-primary shadow-lg"
             )}
         >
-            {children}
-        </button>
+            <header className="p-4 flex items-start gap-4">
+                <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center text-primary flex-shrink-0">
+                    {sourceIcons[source.icon || 'database']}
+                </div>
+                <div className="flex-grow">
+                    <h3 className="font-bold text-foreground">{source.name}</h3>
+                    <p className="text-sm text-muted-foreground">{source.technology}</p>
+                </div>
+                <Badge className={cn("ring-1", status.className)}>{status.text}</Badge>
+            </header>
+            <div className="px-4 pb-4 space-y-4">
+                <p className="text-sm text-muted-foreground text-pretty h-10">{source.description}</p>
+                <div>
+                    <div className="flex justify-between items-center text-xs font-medium text-muted-foreground mb-1">
+                        <span>Health</span>
+                        <span>{source.health || 0}%</span>
+                    </div>
+                    <div className="w-full bg-secondary rounded-full h-2 overflow-hidden">
+                        <div className="bg-primary h-2 rounded-full transition-all duration-500" style={{width: `${source.health || 0}%`}} />
+                    </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center text-sm pt-2 border-t border-border">
+                    <div><p className="font-bold text-foreground">{source.size || 0} GB</p><p className="text-xs text-muted-foreground">Size</p></div>
+                    <div><p className="font-bold text-foreground">{source.tables || 0}</p><p className="text-xs text-muted-foreground">Tables</p></div>
+                    <div><p className="font-bold text-foreground">{source.queryTime || 0}ms</p><p className="text-xs text-muted-foreground">Query Time</p></div>
+                </div>
+            </div>
+            <footer className="p-4 border-t border-border mt-auto flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                    Last sync: {source.lastSync ? new Date(source.lastSync).toLocaleString([], { dateStyle: 'short', timeStyle: 'short'}) : 'Never'}
+                </p>
+                <div className="flex items-center gap-1">
+                    <Button variant={source.status === 'connected' ? 'destructive' : 'default'} size="sm">
+                        {source.status === 'connected' ? 'Disconnect' : 'Connect'}
+                    </Button>
+                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setView('studio', {sourceId: source.id})}><MoreVertical size={16} /></Button>
+                </div>
+            </footer>
+        </MotionDiv>
     );
+};
+
+export const DataSourcesView: React.FC = () => {
+    const { dataSources, openAddDataSourceModal, runHealthCheck } = useDashboard();
+    const [activeFilter, setActiveFilter] = useState<string>('All');
+    const [searchTerm, setSearchTerm] = useState('');
+    
+    const sourcesArray = useMemo(() => Array.from(dataSources.values()), [dataSources]);
+
+    const filteredSources = useMemo(() => {
+        return sourcesArray.filter(source => {
+            const filterMatch = activeFilter === 'All' || source.status === activeFilter.toLowerCase();
+            const searchMatch = source.name.toLowerCase().includes(searchTerm.toLowerCase()) 
+                || (source.description && source.description.toLowerCase().includes(searchTerm.toLowerCase()))
+                || (source.technology && source.technology.toLowerCase().includes(searchTerm.toLowerCase()));
+            return filterMatch && searchMatch;
+        });
+    }, [sourcesArray, activeFilter, searchTerm]);
+
+    const stats = useMemo(() => {
+        return {
+            total: sourcesArray.length,
+            connected: sourcesArray.filter(s => s.status === 'connected').length,
+            disconnected: sourcesArray.filter(s => s.status === 'disconnected').length,
+            pending: sourcesArray.filter(s => s.status === 'pending').length,
+        };
+    }, [sourcesArray]);
+
+    const filterTabs = ['All', 'Connected', 'Disconnected', 'Pending'];
 
     return (
         <div className="h-full flex flex-col bg-background">
-            <ViewHeader icon={<Database size={24} />} title="Data Sources" showBackToDashboard={false}>
-                <p className="text-muted-foreground hidden lg:block">Manage and monitor your data connections</p>
-                <div className="flex-grow"></div>
-                <Button variant="outline" onClick={handleAddSource}><FileIcon size={16}/> Import Data</Button>
-                <Button onClick={handleAddSource}><Plus size={16}/> Add Source</Button>
-            </ViewHeader>
-
-            <div className="flex-shrink-0 border-b border-border px-6">
-                <div className="flex items-center">
-                    <TabButton tabId="dataSources">Data Sources</TabButton>
-                    <TabButton tabId="importHistory">Import History</TabButton>
-                    <TabButton tabId="connections">Connections</TabButton>
+            <ViewHeader icon={<Server size={24} />} title="Data Sources" showBackToDashboard={true} />
+            <main className="flex-grow p-6 overflow-y-auto bg-secondary/30 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <StatCard icon={<Database size={24} />} title="Total Sources" value={stats.total} colorClass="text-indigo-500" />
+                    <StatCard icon={<CheckCircle size={24} />} title="Connected" value={stats.connected} colorClass="text-green-500" />
+                    <StatCard icon={<XCircle size={24} />} title="Disconnected" value={stats.disconnected} colorClass="text-red-500" />
+                    <StatCard icon={<AlertTriangle size={24} />} title="Pending" value={stats.pending} colorClass="text-yellow-500" />
                 </div>
-            </div>
 
-            <main className="flex-grow p-6 overflow-y-auto bg-secondary/30 space-y-8">
-                {activeTab === 'dataSources' && (
-                    <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                            <ConnectionStatusCard icon={<CheckCircle size={20} />} title="Connected" count={stats.connected.toString()} colorClass="border-green-500/30 text-green-500" />
-                            <ConnectionStatusCard icon={<RefreshCw size={20} />} title="Syncing" count={stats.syncing.toString()} colorClass="border-yellow-500/30 text-yellow-500" />
-                            <ConnectionStatusCard icon={<AlertTriangle size={20} />} title="Error" count={stats.error.toString()} colorClass="border-red-500/30 text-red-500" />
-                            <ConnectionStatusCard icon={<HardDrive size={20} />} title="Total Records" count={`${(stats.totalRecords / 1000).toFixed(0)}K`} colorClass="border-border text-foreground" />
+                <div className="bg-card p-3 rounded-xl border border-border space-y-4">
+                    <div className="flex flex-wrap gap-4 items-center justify-between">
+                        <div className="relative flex-grow max-w-xs">
+                            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
+                            <input type="text" placeholder="Search data sources..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={cn(inputClasses, 'pl-9 h-10')} />
                         </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            {sourcesArray.map(source => (
-                                <DataSourceCard key={source.id} dataSource={source} />
+                        <div className="flex items-center gap-2 p-1 bg-secondary rounded-lg">
+                            {filterTabs.map(tab => (
+                                <button key={tab} onClick={() => setActiveFilter(tab)} className={cn('px-3 py-1.5 text-sm font-semibold rounded-md transition-colors', activeFilter === tab ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+                                    {tab}
+                                </button>
                             ))}
                         </div>
-                    </>
-                )}
-                {activeTab !== 'dataSources' && (
-                    <div className="flex items-center justify-center h-full text-muted-foreground text-center">
-                        <div>
-                             <Activity size={48} className="mx-auto mb-4 opacity-50"/>
-                            <h3 className="text-lg font-semibold text-foreground">Coming Soon</h3>
-                            <p>This section is under construction.</p>
+                        <div className="flex items-center gap-2">
+                             <Button variant="secondary" onClick={runHealthCheck}><RefreshCw size={16} /> Health Check</Button>
+                             <Button onClick={openAddDataSourceModal}><Plus size={16} /> Add Data Source</Button>
                         </div>
+                    </div>
+                </div>
+
+                <AnimatePresence>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredSources.map(source => (
+                            <DataSourceCard key={source.id} source={source} isHighlighted={source.name.includes("Financial Reports")} />
+                        ))}
+                    </div>
+                </AnimatePresence>
+                {filteredSources.length === 0 && (
+                    <div className="text-center py-16 text-muted-foreground">
+                        <p>No data sources match your criteria.</p>
                     </div>
                 )}
             </main>

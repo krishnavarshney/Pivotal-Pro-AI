@@ -8,7 +8,7 @@ import {
     Relationship, DataModelerLayout, Transformation, AIConfig, AiChatMessage, ThemeConfig, 
     ChartLibrary, DashboardDefaults, ContextMenuItem, ToastNotification, ExplorerState, User, 
     AdvancedAnalysisResult, AiInsight, TransformationType, ChartType, ValueFormat, DashboardComment, StoryPage, DashboardCommentMessage, WhatIfResult, StoryTone, AggregationType, AiDashboardSuggestion,
-    ChatContext, ProactiveInsight, PredictiveModelResult, Connector, DataStudioCanvasLayout, ControlFilterState, FilterCondition
+    ChatContext, ProactiveInsight, PredictiveModelResult, Connector, DataStudioCanvasLayout, ControlFilterState, FilterCondition, DashboardMode
 } from '../utils/types';
 import { SAMPLE_DATA_SALES, SAMPLE_DATA_IRIS, DASHBOARD_TEMPLATES } from '../utils/constants';
 import { blendData } from '../utils/dataProcessing/blending';
@@ -16,6 +16,7 @@ import { applyTransformsToFields, applyTransformsToData } from '../utils/dataPro
 import { processWidgetData } from '../utils/dataProcessing/widgetProcessor';
 import * as aiService from '../services/aiService';
 import * as apiService from '../services/apiService';
+import { notificationService, registerShowToast } from '../services/notificationService';
 import { useAuth } from './AuthProvider';
 import { useHistoryState, UndoableState } from '../hooks/useHistoryState';
 import { useModalManager } from '../hooks/useModalManager';
@@ -126,7 +127,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     const [notifications, setNotifications] = useState<ToastNotification[]>([]);
     const [loadingState, setLoadingState] = useState<{ isLoading: boolean; message: string; lottieAnimation?: any }>({ isLoading: false, message: '' });
     const [scrollToWidgetId, setScrollToWidgetId] = useState<string | null>(null);
-    const [dashboardMode, setDashboardMode] = useState<'view' | 'comment'>('view');
+    const [dashboardMode, setDashboardMode] = useState<DashboardMode>('view');
     const [isHelpModeActive, setIsHelpModeActive] = useState(false);
     
     // --- Performance & Lineage State ---
@@ -135,7 +136,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
 
     // --- Dashboard State ---
     const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>(workspaces[0].id);
-    const [activePageId, setActivePageId] = useState<string>(workspaces[0].pages[0].id);
+    const [activePageId, setActivePageId] = useState<string | null>(() => getInitialState('pivotalProActivePageId', null));
     const [parameters, setParameters] = useState<Parameter[]>(() => getInitialState('pivotalProParameters', []));
     const [stories, setStories] = useState<Story[]>(() => getInitialState('pivotalProStories', []));
     const [editingStory, setEditingStory] = useState<{ story: Story; focusPageId?: string; } | null>(null);
@@ -168,6 +169,20 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
 
     const { blendedData, blendedFields } = useMemo(() => blendData(transformedDataSources, relationships), [transformedDataSources, relationships]);
 
+    // FIX: This effect ensures that an invalid activePageId (e.g., from a deleted page)
+    // is reset, but it correctly leaves a null activePageId alone, which is the
+    // required state for viewing the dashboard home page.
+    useEffect(() => {
+        const allPages = workspaces.flatMap(ws => ws.pages || []);
+        const activePageExists = allPages.some(p => p.id === activePageId);
+
+        // Only reset the active page ID if it's set to a page that no longer exists.
+        // A null ID is a valid state for the dashboard overview and should not be changed.
+        if (activePageId && !activePageExists) {
+            setActivePageId(allPages[0]?.id || null);
+        }
+    }, [workspaces, activePageId]);
+
     const activePage = useMemo(() => workspaces.flatMap(ws => ws.pages || []).find(p => p.id === activePageId), [workspaces, activePageId]);
     const widgets = useMemo(() => activePage?.widgets || [], [activePage]);
     const layouts = useMemo(() => activePage?.layouts || {}, [activePage]);
@@ -183,6 +198,10 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         setTimeout(() => removeToast(id), options.duration || 5000);
     }, []);
 
+    useEffect(() => {
+        registerShowToast(showToast);
+    }, [showToast]);
+
     // --- Persistence ---
     const saveStateToLocalStorage = useCallback(_.debounce(() => {
         try {
@@ -192,6 +211,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                 transformations: Array.from(transformations.entries()),
             };
             localStorage.setItem('pivotalProDashboardState', JSON.stringify(stateToSave));
+            localStorage.setItem('pivotalProActivePageId', JSON.stringify(activePageId));
             localStorage.setItem('pivotalProDataSources', JSON.stringify(Array.from(dataSources.entries())));
             localStorage.setItem('pivotalProRelationships', JSON.stringify(relationships));
             localStorage.setItem('pivotalProParameters', JSON.stringify(parameters));
@@ -205,9 +225,9 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
             localStorage.setItem('pivotalProDataStudioLayout', JSON.stringify(dataStudioCanvasLayout));
         } catch (error) {
             console.error("Failed to save state to local storage:", error);
-            showToast({ message: "Could not save dashboard state.", type: 'error' });
+            notificationService.error("Could not save dashboard state.");
         }
-    }, 1000), [workspaces, transformations, relationships, parameters, stories, aiConfig, themeConfig, chartLibrary, dashboardDefaults, userTemplates, dataModelerLayout, dataStudioCanvasLayout, showToast, dataSources]);
+    }, 1000), [workspaces, transformations, relationships, parameters, stories, aiConfig, themeConfig, chartLibrary, dashboardDefaults, userTemplates, dataModelerLayout, dataStudioCanvasLayout, dataSources, activePageId]);
 
     useEffect(() => {
         saveStateToLocalStorage();
@@ -289,14 +309,11 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     const addPage = () => setCurrentView('templates');
     
     const removePage = (id: string) => {
-        setWorkspaces(wss => {
-            const newWss = wss.map(ws => ({ ...ws, pages: (ws.pages || []).filter(p => p.id !== id) }));
-            if (activePageId === id) {
-                const firstRemainingPage = newWss.flatMap(ws => ws.pages || [])[0];
-                setActivePageId(firstRemainingPage ? firstRemainingPage.id : null);
-            }
-            return newWss;
-        });
+        setWorkspaces(wss => wss.map(ws => ({ ...ws, pages: (ws.pages || []).filter(p => p.id !== id) })));
+        if (activePageId === id) {
+            setActivePageId(null);
+            setView('dashboard');
+        }
     };
     
     const addTransformation = (sourceId: string, type: TransformationType, payload: any) => setDashboardUndoableState(p => { const currentTransformsMap = new Map(p.transformations); const c = currentTransformsMap.get(sourceId) || []; const n = new Map(currentTransformsMap).set(sourceId, [...c, { id: _.uniqueId('t_'), type, payload }]); return { ...p, transformations: Array.from(n.entries()) }; });
@@ -392,7 +409,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                 return ws;
             }));
 
-            showToast({ message: `Page "${pageToCopy.name}" duplicated.`, type: 'success' });
+            notificationService.success(`Page "${pageToCopy.name}" duplicated.`);
         }
     };
 
@@ -444,17 +461,17 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                 lastSync: new Date().toISOString()
             };
             setDataSources(d => new Map(d).set(newSource.id, newSource));
-            showToast({ message: `Successfully loaded ${file.name}`, type: 'success' });
+            notificationService.success(`Successfully loaded ${file.name}`);
             
             if(aiConfig) {
                  setTimeout(() => {
-                    showToast({ message: "Get started with AI-powered analysis!", type: 'info', duration: 10000,
+                    notificationService.info("Get started with AI-powered analysis!", { duration: 10000,
                         action: { label: 'Suggest Charts', onClick: modalManager.openChatModal }
                     })
                 }, 1000);
             }
         } catch (e) {
-            showToast({ type: 'error', message: `Error loading file: ${(e as Error).message}` });
+            notificationService.error(`Error loading file: ${(e as Error).message}`);
         } finally {
             setLoadingState({ isLoading: false, message: '' });
         }
@@ -472,13 +489,25 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                         fields[isNumeric ? 'measures' : 'dimensions'].push({ name: key, simpleName: key, type: isNumeric ? FieldType.MEASURE : FieldType.DIMENSION });
                     });
                 }
-                const newSource: DataSource = { id, name, data: parsed.data, fields };
+                const newSource: DataSource = {
+                    id, name, data: parsed.data, fields,
+                    type: 'file',
+                    status: 'connected',
+                    lastSync: new Date(new Date().getTime() - Math.random() * 1000 * 3600 * 24).toISOString(),
+                    description: 'Sample data loaded from a local file.',
+                    health: 90 + Math.floor(Math.random() * 11),
+                    size: parseFloat((0.5 + Math.random() * 2).toFixed(1)),
+                    tables: Math.floor(5 + Math.random() * 20),
+                    queryTime: Math.floor(50 + Math.random() * 100),
+                    icon: 'file-spreadsheet',
+                    technology: 'CSV File',
+                };
                 setDataSources(d => new Map(d).set(id, newSource));
-            } catch (e) { showToast({ type: 'error', message: `Error parsing sample data "${name}": ${(e as Error).message}` }); }
+            } catch (e) { notificationService.error(`Error parsing sample data "${name}": ${(e as Error).message}`); }
         };
         if(sampleKey === 'sales' || sampleKey === 'both') processSample('sample_sales', 'Sample - Superstore Sales', SAMPLE_DATA_SALES);
         if(sampleKey === 'iris' || sampleKey === 'both') processSample('sample_iris', 'Sample - Iris Dataset', SAMPLE_DATA_IRIS);
-        showToast({ type: 'success', message: 'Sample data loaded!' });
+        notificationService.success('Sample data loaded!');
     };
 
     const removeDataSource = (id: string) => {
@@ -488,14 +517,14 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                 setDataSources(prev => { const newSources = new Map(prev); newSources.delete(id); return newSources; });
                 setDashboardUndoableState(prev => { const newTMap = new Map(prev.transformations); newTMap.delete(id); return { ...prev, transformations: Array.from(newTMap.entries()) }; });
                 setRelationships(prev => prev.filter(r => r.sourceAId !== id && r.sourceBId !== id));
-                showToast({ type: 'success', message: 'Data source removed.' });
+                notificationService.success('Data source removed.');
             }
         });
     };
     
     // --- AI Callbacks ---
     const sendAiChatMessage = async (message: string, context?: ChatContext) => {
-        if (!aiConfig) { showToast({ message: "AI is not configured.", type: 'error' }); return; }
+        if (!aiConfig) { notificationService.error("AI is not configured."); return; }
         
         let fullContextMessage = message;
         if (context) {
@@ -530,7 +559,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
 
     const handleNlpFilterQuery = async (query: string) => {
         if (!aiConfig) {
-            showToast({ message: 'AI is not configured.', type: 'error' });
+            notificationService.error('AI is not configured.');
             return;
         }
         setLoadingState({ isLoading: true, message: 'Parsing your request with AI...' });
@@ -549,15 +578,15 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                         aggregation: field.type === FieldType.MEASURE ? AggregationType.SUM : AggregationType.COUNT,
                         filter: { condition, values },
                     });
-                    showToast({ type: 'success', message: `Filter added for "${field.simpleName}".` });
+                    notificationService.success(`Filter added for "${field.simpleName}".`);
                 }
             } else if (result.type === 'AMBIGUOUS' && result.ambiguousResult) {
                 modalManager.openNlpDisambiguationModal(result.ambiguousResult.term, result.ambiguousResult.possibleFields);
             } else {
-                showToast({ type: 'info', message: "Couldn't find a filter in your request. Try something like 'show sales in the east region'." });
+                notificationService.info("Couldn't find a filter in your request. Try something like 'show sales in the east region'.");
             }
         } catch (error) {
-            showToast({ type: 'error', message: `AI filter parsing failed: ${(error as Error).message}` });
+            notificationService.error(`AI filter parsing failed: ${(error as Error).message}`);
         } finally {
             setLoadingState({ isLoading: false, message: '' });
         }
@@ -575,7 +604,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                 aggregation: field.type === FieldType.MEASURE ? AggregationType.SUM : AggregationType.COUNT,
                 filter: { condition: FilterCondition.IS_ONE_OF, values: [term] },
             });
-            showToast({ type: 'success', message: `Filter added for "${field.simpleName}".` });
+            notificationService.success(`Filter added for "${field.simpleName}".`);
         }
     };
 
@@ -591,11 +620,11 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                 })
             );
             const fullSummary = widgetDataSummaries.filter(Boolean).join('\n');
-            if (!fullSummary) { showToast({ type: 'info', message: 'Not enough data on the dashboard to generate insights.' }); return; }
+            if (!fullSummary) { notificationService.info('Not enough data on the dashboard to generate insights.'); return; }
             const rawResult = await aiService.getAiDashboardAnalysis(aiConfig, fullSummary);
             const result: AiInsight = { id: _.uniqueId('insight_'), timestamp: new Date().toISOString(), ...JSON.parse(rawResult) };
             setInsightsByPage(prev => new Map(prev).set(activePage.id, [result]));
-        } catch (e) { showToast({ message: `Failed to generate insights: ${(e as Error).message}`, type: 'error' }); } 
+        } catch (e) { notificationService.error(`Failed to generate insights: ${(e as Error).message}`); } 
         finally { setIsGeneratingInsights(false); }
     };
 
@@ -617,11 +646,11 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                  setProactiveInsights(prev => new Map(prev).set(activePage.id, []));
             }
         } catch (e) {
-            showToast({ message: `Failed to get proactive insights: ${(e as Error).message}`, type: 'error' });
+            notificationService.error(`Failed to get proactive insights: ${(e as Error).message}`);
         } finally {
             setIsGeneratingInsights(false);
         }
-    }, [aiConfig, activePage, blendedData, blendedFields, showToast]);
+    }, [aiConfig, activePage, blendedData, blendedFields]);
 
     // --- Widget Editor Logic ---
     const openWidgetEditorModal = (widgetId?: string | null) => {
@@ -640,6 +669,30 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                 colorPalette: dashboardDefaults.colorPalette,
             });
         }
+        modalManager.openWidgetEditorModal();
+    };
+
+    const openWidgetEditorForNewWidget = (chartType: ChartType) => {
+        const displayMode = chartType === ChartType.TABLE ? 'table' : (chartType === ChartType.CONTROL ? 'control' : 'chart');
+        
+        let widgetDefaults: Partial<WidgetState> = {};
+        if (chartType === ChartType.CONTROL) {
+            widgetDefaults.title = 'New Control';
+            widgetDefaults.controlSettings = { display: 'list' };
+        } else {
+            widgetDefaults.title = `New ${chartType}`;
+        }
+    
+        modalManager.setEditingWidgetState({
+            id: 'new',
+            chartType: chartType,
+            displayMode: displayMode,
+            shelves: { columns: [], rows: [], values: [], filters: [] },
+            subtotalSettings: { rows: false, columns: false, grandTotal: true },
+            colorPalette: dashboardDefaults.colorPalette,
+            ...widgetDefaults,
+        } as WidgetState);
+    
         modalManager.openWidgetEditorModal();
     };
 
@@ -714,10 +767,10 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                 const result = await aiService.getAiAdvancedAnalysis(aiConfig, analysisType, widget, data);
                 modalManager.openAdvancedAnalysisModal(result, `AI Analysis: ${widget.title}`);
             } else {
-                showToast({ message: `Analysis for widget type '${data.type}' is not supported.`, type: 'info' });
+                notificationService.info(`Analysis for widget type '${data.type}' is not supported.`);
             }
         } catch (e) {
-            showToast({ message: `Advanced analysis failed: ${(e as Error).message}`, type: 'error' });
+            notificationService.error(`Advanced analysis failed: ${(e as Error).message}`);
         } finally {
             setLoadingState({ isLoading: false, message: '' });
         }
@@ -740,11 +793,11 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                 };
                 modalManager.openAdvancedAnalysisModal(result, `What-If Analysis: ${widget.title}`);
             } else {
-                 showToast({ message: `What-If analysis requires chart or table data.`, type: 'info' });
+                 notificationService.info(`What-If analysis requires chart or table data.`);
                  return;
             }
         } catch (e) {
-            showToast({ message: `What-If analysis failed: ${(e as Error).message}`, type: 'error' });
+            notificationService.error(`What-If analysis failed: ${(e as Error).message}`);
         } finally {
             setLoadingState({ isLoading: false, message: '' });
         }
@@ -752,19 +805,19 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     
     const getWidgetAnalysisText = async (widget: WidgetState, tone: StoryTone = 'Executive'): Promise<string | null> => {
         if (!aiConfig) {
-            showToast({ message: "AI not configured", type: "error" });
+            notificationService.error("AI not configured");
             return null;
         }
         setLoadingState({ isLoading: true, message: `Analyzing "${widget.title}"...`, lottieAnimation: aiThinkingAnimation });
         try {
             const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, parameters);
              if (data.type === 'loading' || data.type === 'nodata' || data.type === 'sankey' || data.type === 'heatmap') {
-                showToast({ message: `AI analysis for this widget type is not yet supported.`, type: 'info' });
+                notificationService.info(`AI analysis for this widget type is not yet supported.`);
                 return null;
             }
             return await aiService.getAiWidgetAnalysis(aiConfig, widget.title, widget.chartType, data as any);
         } catch(e) {
-            showToast({ message: `Widget analysis failed: ${(e as Error).message}`, type: 'error' });
+            notificationService.error(`Widget analysis failed: ${(e as Error).message}`);
             return null;
         } finally {
             setLoadingState({ isLoading: false, message: '' });
@@ -832,23 +885,39 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                 if (chartSuggestion) {
                     const newWidget = createWidgetFromSuggestionObject(chartSuggestion as Partial<WidgetState>);
                     saveWidget(newWidget);
-                    storyPages.push({ id: _.uniqueId('spage_'), widgetId: newWidget.id, annotation: `**${insight.title}**\n\n${insight.summary}` });
+                    storyPages.push({ 
+                        id: _.uniqueId('spage_'), 
+                        type: 'insight',
+                        title: insight.title,
+                        widgetId: newWidget.id, 
+                        annotation: `**${insight.title}**\n\n${insight.summary}`,
+                        presenterNotes: ''
+                    });
                 }
             }
 
             if (storyPages.length === 0) {
-                showToast({ message: "Could not generate any visualizations from the insights.", type: 'info' });
+                notificationService.info("Could not generate any visualizations from the insights.");
                 return;
             }
 
-            const newStory: Story = { id: _.uniqueId('story_'), title: "AI Generated Story from Insights", pages: storyPages };
+            const now = new Date().toISOString();
+            const newStory: Story = {
+                id: _.uniqueId('story_'),
+                title: "AI Generated Story from Insights",
+                description: `A story automatically generated on ${new Date().toLocaleDateString()} based on proactive data insights.`,
+                author: currentUser?.name || 'AI Assistant',
+                createdAt: now,
+                updatedAt: now,
+                pages: storyPages
+            };
             setStories(s => [...s, newStory]);
             setEditingStory({ story: newStory });
             setView('stories');
-            showToast({ message: `Successfully generated story!`, type: 'success' });
+            notificationService.success(`Successfully generated story!`);
 
         } catch (e) {
-            showToast({ message: `Failed to generate story from insights: ${(e as Error).message}`, type: 'error' });
+            notificationService.error(`Failed to generate story from insights: ${(e as Error).message}`);
         } finally {
             setLoadingState({ isLoading: false, message: '' });
         }
@@ -858,7 +927,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         if (!aiConfig) return;
         const page = workspaces.flatMap(ws => ws.pages).find(p => p.id === pageId);
         if (!page || page.widgets.length === 0) {
-            showToast({ message: 'Selected page has no widgets to create a story from.', type: 'info' });
+            notificationService.info('Selected page has no widgets to create a story from.');
             return;
         }
         setLoadingState({ isLoading: true, message: 'Generating story with AI...', lottieAnimation: aiThinkingAnimation });
@@ -868,21 +937,37 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                 const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, parameters);
                 if (data.type === 'chart' || data.type === 'kpi' || data.type === 'table') {
                     const annotation = await aiService.getAiWidgetAnalysis(aiConfig, widget.title, widget.chartType, data);
-                    storyPages.push({ id: _.uniqueId('page_'), widgetId: widget.id, annotation });
+                    storyPages.push({
+                        id: _.uniqueId('page_'),
+                        type: 'insight',
+                        title: `Insight from ${widget.title}`,
+                        widgetId: widget.id,
+                        annotation: annotation || `Analysis of ${widget.title}.`,
+                        presenterNotes: ''
+                    });
                 }
             }
     
             if (storyPages.length === 0) {
-                showToast({ message: "No widgets on this page were suitable for AI analysis.", type: 'info' });
+                notificationService.info("No widgets on this page were suitable for AI analysis.");
                 return;
             }
     
-            const newStory: Story = { id: _.uniqueId('story_'), title, pages: storyPages };
+            const now = new Date().toISOString();
+            const newStory: Story = {
+                id: _.uniqueId('story_'),
+                title,
+                description: `A story automatically generated from the '${page.name}' dashboard on ${new Date().toLocaleDateString()}.`,
+                author: currentUser?.name || 'AI Assistant',
+                createdAt: now,
+                updatedAt: now,
+                pages: storyPages
+            };
             setStories(s => [...s, newStory]);
             setEditingStory({ story: newStory });
-            showToast({ message: `Successfully generated "${title}"!`, type: 'success' });
+            notificationService.success(`Successfully generated "${title}"!`);
         } catch (e) {
-            showToast({ message: `Failed to generate story: ${(e as Error).message}`, type: 'error' });
+            notificationService.error(`Failed to generate story: ${(e as Error).message}`);
         } finally {
             setLoadingState({ isLoading: false, message: '' });
         }
@@ -910,7 +995,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
             });
         });
         addNewPage(newPage);
-        showToast({ message: `New page created from "${template.name}" template.`, type: 'success' });
+        notificationService.success(`New page created from "${template.name}" template.`);
     };
 
     const createTemplateFromPage = (page: DashboardPage, templateDetails: Omit<Template, 'id' | 'page' | 'requiredFields'>) => {
@@ -921,7 +1006,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
             requiredFields: []
         };
         setUserTemplates(current => [...current, newTemplate]);
-        showToast({ message: `Template "${newTemplate.name}" saved.`, type: 'success' });
+        notificationService.success(`Template "${newTemplate.name}" saved.`);
     };
     
     const handleImportDashboard = (e: ChangeEvent<HTMLInputElement>) => {
@@ -942,12 +1027,12 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                     if (importedState.dashboardDefaults) setDashboardDefaults(importedState.dashboardDefaults);
                     if (importedState.userTemplates) setUserTemplates(importedState.userTemplates);
                     if (importedState.dataModelerLayout) setDataModelerLayout(importedState.dataModelerLayout);
-                    showToast({ message: 'Dashboard imported successfully!', type: 'success' });
+                    notificationService.success('Dashboard imported successfully!');
                 } else {
                     throw new Error('Invalid dashboard file format.');
                 }
             } catch (error) {
-                showToast({ message: `Failed to import dashboard: ${(error as Error).message}`, type: 'error' });
+                notificationService.error(`Failed to import dashboard: ${(error as Error).message}`);
             }
         };
         reader.readAsText(file);
@@ -961,7 +1046,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
             onConfirm: () => {
                 if (activePage) {
                     updatePage(activePage.id, p => ({ ...p, widgets: [], layouts: {} }));
-                    showToast({ message: 'Dashboard page has been reset.', type: 'success' });
+                    notificationService.success('Dashboard page has been reset.');
                 }
             },
         });
@@ -971,13 +1056,13 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         if (!activePageId) return;
         const newBookmark: Bookmark = { id: _.uniqueId('bookmark_'), name, globalFilters, crossFilter };
         updatePage(activePageId, p => ({ ...p, bookmarks: [...(p.bookmarks || []), newBookmark] }));
-        showToast({ message: `Bookmark "${name}" created.`, type: 'success' });
+        notificationService.success(`Bookmark "${name}" created.`);
     };
     const applyBookmark = (bookmark: Bookmark) => {
         if (!activePageId) return;
         setGlobalFilters(bookmark.globalFilters);
         setCrossFilter(bookmark.crossFilter);
-        showToast({ message: `Applied bookmark "${bookmark.name}".`, type: 'info' });
+        notificationService.info(`Applied bookmark "${bookmark.name}".`);
     };
     const removeBookmark = (bookmarkId: string) => {
         if (!activePageId) return;
@@ -1007,7 +1092,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         a.download = `pivotal-pro-export-${new Date().toISOString().split('T')[0]}.json`;
         a.click();
         URL.revokeObjectURL(url);
-        showToast({ message: 'Dashboard exported.', type: 'success' });
+        notificationService.success('Dashboard exported.');
     };
 
     const clearApplicationState = () => {
@@ -1018,11 +1103,11 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     const handleGenerateAiDashboard = async () => {
         modalManager.closeAiInsightStarterModal();
         if (!aiConfig) {
-            showToast({ message: 'AI is not configured.', type: 'error' });
+            notificationService.error('AI is not configured.');
             return;
         }
         if (dataSources.size === 0) {
-            showToast({ message: 'Please add a data source first.', type: 'error' });
+            notificationService.error('Please add a data source first.');
             return;
         }
     
@@ -1100,9 +1185,9 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                 layouts: remappedLayouts,
             });
             
-            showToast({ message: "Your new AI-generated dashboard is ready!", type: 'success' });
+            notificationService.success("Your new AI-generated dashboard is ready!");
         } catch (e) {
-            showToast({ message: `AI dashboard generation failed: ${(e as Error).message}`, type: 'error' });
+            notificationService.error(`AI dashboard generation failed: ${(e as Error).message}`);
         } finally {
             setLoadingState({ isLoading: false, message: '' });
         }
@@ -1143,26 +1228,29 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
             };
 
             setDataSources(d => new Map(d).set(newSource.id, newSource));
-            showToast({ message: `Successfully connected to ${config.name}`, type: 'success' });
+            notificationService.success(`Successfully connected to ${config.name}`);
             modalManager.closeDataSourceConnectionModal();
             setView('studio', { sourceId: newSource.id });
         } catch (e) {
-            showToast({ type: 'error', message: `Failed to connect: ${(e as Error).message}` });
+            notificationService.error(`Failed to connect: ${(e as Error).message}`);
         } finally {
             setLoadingState({ isLoading: false, message: '' });
         }
     };
 
     const refreshApiDataSource = useCallback(async (source: DataSource) => {
+        if (source.type === 'file') {
+            notificationService.info(`"${source.name}" is a file-based source and cannot be refreshed automatically.`);
+            return;
+        }
         if (!source.connectionDetails) return;
-        console.log(`Refreshing data for ${source.name}...`);
+
         setDataSources(prev => new Map(prev).set(source.id, { ...source, status: 'syncing' }));
+        await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000)); // Simulate network delay
         try {
             const fetchedData = await apiService.fetchDataFromApi(source.connectionDetails);
             if (!Array.isArray(fetchedData)) throw new Error("API did not return a valid array.");
             
-            // Note: We don't re-infer fields on refresh to avoid breaking changes.
-            // A more advanced implementation might allow for schema evolution.
             setDataSources(prev => {
                 const currentSource = prev.get(source.id);
                 if (!currentSource) return prev;
@@ -1173,7 +1261,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                     lastSync: new Date().toISOString() 
                 });
             });
-             showToast({ type: 'info', message: `Data for "${source.name}" has been refreshed.` });
+             notificationService.info(`Data for "${source.name}" has been refreshed.`);
         } catch (e) {
             console.error(`Failed to refresh data for ${source.name}:`, e);
             setDataSources(prev => {
@@ -1181,18 +1269,18 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                  if (!currentSource) return prev;
                  return new Map(prev).set(source.id, { ...currentSource, status: 'error' });
             });
-             showToast({ type: 'error', message: `Could not refresh data for "${source.name}".` });
+             notificationService.error(`Could not refresh data for "${source.name}".`);
         }
-    }, [showToast]);
+    }, []);
 
     useEffect(() => {
         const initialDataSources = getInitialState<[string, DataSource][]>('pivotalProDataSources', []);
         initialDataSources.forEach(([id, source]) => {
             if (source.type === 'api' && source.connectionDetails) {
-                refreshApiDataSource(source);
+                // Initial fetch is now more for show, actual refresh is manual
             }
         });
-    }, [refreshApiDataSource]);
+    }, []);
 
     const setControlFilter = useCallback((widgetId: string, filterPill: Pill | null) => {
         setControlFilters(prev => {
@@ -1209,6 +1297,89 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     const addPredictiveModel = (model: PredictiveModelResult) => {
         setPredictiveModels(prev => [...prev, model]);
     };
+    
+    const saveStory = (story: Story) => {
+        setStories(prev => {
+            const i = prev.findIndex(s => s.id === story.id);
+            const storyToSave = { ...story, updatedAt: new Date().toISOString() };
+            if (i > -1) {
+                const n = [...prev];
+                n[i] = storyToSave;
+                return n;
+            }
+            return [...prev, storyToSave];
+        });
+    };
+    
+    const createStoryFromWidget = (widgetId: string) => {
+        const allWidgets = workspaces.flatMap(ws => ws.pages).flatMap(p => p.widgets);
+        const widget = allWidgets.find(w => w.id === widgetId);
+        const now = new Date().toISOString();
+        const newStory: Story = {
+            id: _.uniqueId('story_'),
+            title: `${widget?.title || 'New'} Story`,
+            description: '',
+            author: currentUser?.name || 'Unknown',
+            createdAt: now,
+            updatedAt: now,
+            pages: [{ 
+                id: _.uniqueId('page_'),
+                type: 'insight',
+                title: widget?.title || 'New Insight',
+                widgetId, 
+                annotation: '',
+                presenterNotes: ''
+            }]
+        };
+        setStories(s => [...s, newStory]);
+        setEditingStory({ story: newStory, focusPageId: newStory.pages[0].id });
+        modalManager.closeAddToStoryModal();
+    };
+
+    const addWidgetToStory = (storyId: string, widgetId: string) => {
+        const allWidgets = workspaces.flatMap(ws => ws.pages).flatMap(p => p.widgets);
+        const widget = allWidgets.find(w => w.id === widgetId);
+        const newPage: StoryPage = { 
+            id: _.uniqueId('page_'), 
+            type: 'insight',
+            title: widget?.title || 'New Insight',
+            widgetId, 
+            annotation: '',
+            presenterNotes: ''
+        };
+        const story = stories.find(s => s.id === storyId);
+        if(story) {
+            const updatedStory = { ...story, pages: [...story.pages, newPage] };
+            setStories(s => s.map(st => st.id === storyId ? updatedStory : st));
+            setEditingStory({ story: updatedStory, focusPageId: newPage.id });
+            modalManager.closeAddToStoryModal();
+        }
+    };
+    const runHealthCheck = useCallback(() => {
+        notificationService.info('Health Check in Progress', {
+            description: 'Checking connection status for all data sources...',
+        });
+    
+        setTimeout(() => {
+            setDataSources(prevSources => {
+                const newSources = new Map<string, DataSource>();
+                prevSources.forEach((source, id) => {
+                    const health = 80 + Math.floor(Math.random() * 21);
+                    
+                    const updatedSource: DataSource = {
+                        ...source,
+                        health,
+                        status: source.status === 'pending' ? 'pending' : (Math.random() > 0.1 ? 'connected' : 'disconnected'),
+                        lastSync: new Date().toISOString(),
+                    };
+                    newSources.set(id, updatedSource);
+                });
+                return newSources;
+            });
+            
+            notificationService.success('Connection Successful', { description: 'Successfully checked all data sources.' });
+        }, 2500);
+    }, []);
 
     const value: DashboardContextProps = {
         // State
@@ -1233,14 +1404,14 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         setChartLibrary, setDashboardDefaults,
         openContextMenu: (x, y, items) => setContextMenu({ x, y, items }), closeContextMenu: () => setContextMenu(null),
         setView, completeDataStudioOnboarding: () => setDataStudioOnboardingNeeded(false),
-        showToast, removeToast,
+        removeToast,
         setScrollToWidgetId, setDashboardMode, toggleHelpMode: () => setIsHelpModeActive(p => !p),
         setWorkspaces, setActivePageId, addPage, removePage, updatePage,
         setLayouts, setGlobalFilters, addGlobalFilter, removeWidget, saveWidget, duplicateWidget, duplicatePage,
         setCrossFilter, setControlFilter, addParameter: p => setParameters(prev => [...prev, { ...p, id: _.uniqueId('param_') }]),
         updateParameter: (id, updates) => setParameters(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p)),
         removeParameter: (id: string) => setParameters(prev => prev.filter(p => p.id !== id)),
-        saveStory: story => setStories(prev => { const i = prev.findIndex(s => s.id === story.id); if(i > -1) { const n = [...prev]; n[i] = story; return n; } return [...prev, story]; }),
+        saveStory,
         removeStory: id => setStories(s => s.filter(story => story.id !== id)),
         undo: historyUndo, redo: historyRedo,
         importInputRef, handleImportDashboard, resetDashboard, addNewPage,
@@ -1251,23 +1422,8 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         collapseAllRows: paths => { if(activePageId) updatePage(activePageId, { collapsedRows: paths })},
         setEditingStory,
         handleWidgetAddToStory: widgetId => modalManager.setAddToStoryModalState({isOpen: true, widgetId}),
-        createStoryFromWidget: widgetId => {
-            const widget = widgets.find(w => w.id === widgetId);
-            const newStory: Story = { id: _.uniqueId('story_'), title: `${widget?.title || 'New'} Story`, pages: [{ id: _.uniqueId('page_'), widgetId, annotation: '' }]};
-            setStories(s => [...s, newStory]);
-            setEditingStory({ story: newStory, focusPageId: newStory.pages[0].id });
-            modalManager.closeAddToStoryModal();
-        },
-        addWidgetToStory: (storyId, widgetId) => {
-            const newPage: StoryPage = { id: _.uniqueId('page_'), widgetId, annotation: '' };
-            const story = stories.find(s => s.id === storyId);
-            if(story) {
-                const updatedStory = { ...story, pages: [...story.pages, newPage] };
-                setStories(s => s.map(st => st.id === storyId ? updatedStory : st));
-                setEditingStory({ story: updatedStory, focusPageId: newPage.id });
-                modalManager.closeAddToStoryModal();
-            }
-        },
+        createStoryFromWidget,
+        addWidgetToStory,
         handleExportDashboard, saveStateToLocalStorage, clearApplicationState,
         applyTransformations: (sourceId, newTransforms) => setDashboardUndoableState(p => { const n = new Map(p.transformations); n.set(sourceId, newTransforms); return { ...p, transformations: Array.from(n.entries()) }; }),
         getTransformationsForSource: sourceId => transformations.get(sourceId) || [],
@@ -1289,9 +1445,12 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         createTemplateFromPage,
         handleGenerateAiDashboard,
         addPredictiveModel,
-        ...modalManager,
+        refreshApiDataSource,
+        runHealthCheck,
         createDataSourceFromConnection,
+        ...modalManager,
         openWidgetEditorModal,
+        openWidgetEditorForNewWidget,
         saveEditingWidget,
         populateEditorFromAI,
         openEditorWithAIPrompt,

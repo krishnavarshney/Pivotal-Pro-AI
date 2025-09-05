@@ -1,8 +1,7 @@
-
 import React, { useMemo, useState, useEffect, useRef, useCallback, useLayoutEffect, CSSProperties, MouseEvent as ReactMouseEvent, Fragment, FC } from 'react';
 import _ from 'lodash';
 import { useDashboard } from '../../contexts/DashboardProvider';
-import { WidgetState, ProcessedData, TableRow, ChartType, Pill, AggregationType, FilterCondition, ContextMenuItem, SortConfig, DND_ITEM_TYPE, HeaderCell } from '../../utils/types';
+import { WidgetState, ProcessedData, TableRow, ChartType, Pill, AggregationType, FilterCondition, ContextMenuItem, SortConfig, DND_ITEM_TYPE, HeaderCell, FieldType } from '../../utils/types';
 import { formatValue } from '../../utils/dataProcessing/formatting';
 import * as mockApiService from '../../services/mockApiService';
 import { Home, ZoomIn, ZoomOut, Info, Check, ChevronRight, ArrowUp, ArrowDown, ChevronDown, Share2, Expand, GripVertical } from 'lucide-react';
@@ -12,10 +11,17 @@ import { WidgetSkeleton } from '../ui/WidgetSkeleton';
 import { RechartsComponent } from '../charts/RechartsComponent';
 import { ApexChartsComponent } from '../charts/ApexChartsComponent';
 import { EChartsComponent } from '../charts/EChartsComponent';
+// FIX: Import 'cn' and 'Checkbox' from their specific files to avoid barrel file issues.
 import { cn } from '../ui/utils';
+import { Checkbox } from '../ui/Checkbox';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDrag, useDrop } from 'react-dnd';
+import { Popover } from '../ui/Popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/Select';
 
+
+// FIX: Add aliasing for motion component to fix TypeScript errors.
+const MotionDiv = motion.div as any;
 
 const HeatmapComponent: FC<{ data: ProcessedData, theme: 'light' | 'dark' }> = ({ data, theme }) => {
     if (data.type !== 'heatmap') return null;
@@ -498,7 +504,7 @@ export const DataProcessor: FC<{ widget: WidgetState }> = ({ widget }) => {
 
     const renderContent = () => {
         if (!processedData) {
-            return <WidgetSkeleton />;
+            return <WidgetSkeleton chartType={widget.chartType} />;
         }
 
         if (processedData.type === 'loading' || processedData.type === 'nodata') {
@@ -754,14 +760,14 @@ export const DataProcessor: FC<{ widget: WidgetState }> = ({ widget }) => {
             </div>
             <AnimatePresence>
                 {isLoading && processedData && (
-                    <motion.div 
-                        initial={{ opacity: 0 }} 
-                        animate={{ opacity: 1 }} 
-                        exit={{ opacity: 0 }} 
+                    <MotionDiv
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
                         className="absolute inset-0 bg-card/70 backdrop-blur-sm flex items-center justify-center z-40"
                     >
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    </motion.div>
+                    </MotionDiv>
                 )}
             </AnimatePresence>
         </div>

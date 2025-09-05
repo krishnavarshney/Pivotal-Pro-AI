@@ -1,6 +1,6 @@
 import React, { useMemo, FC } from 'react';
 import { useDashboard } from '../../contexts/DashboardProvider';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogOverlay } from '../ui';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogOverlay } from '../ui/Dialog';
 import { WidgetState } from '../../utils/types';
 
 export const SelectWidgetForStoryModal: FC<{ isOpen: boolean; onClose: () => void; onSelect: (widgetId: string) => void; }> = ({ isOpen, onClose, onSelect }) => {

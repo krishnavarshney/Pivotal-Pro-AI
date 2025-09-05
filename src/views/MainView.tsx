@@ -14,20 +14,25 @@ import { PredictiveStudioView } from './PredictiveStudioView';
 import { DataSourcesView } from './DataSourcesView';
 import { DashboardHomeView } from './DashboardHomeView';
 import { AdminView } from './AdminView';
+import { cn } from '../components/ui/utils';
 
+// FIX: Add aliasing for motion component to fix TypeScript errors.
+const MotionDiv = motion.div as any;
 
 export const MainView: FC = () => {
     const { 
         currentView, 
         dataSources,
-        workspaces
+        workspaces,
+        activePage,
+        dashboardMode,
     } = useDashboard();
     
     const renderCurrentView = () => {
         switch(currentView) {
             case 'dashboard':
                 const allPages = workspaces.flatMap(ws => ws.pages || []);
-                if (allPages.length > 1) {
+                if (!activePage && allPages.length > 0) {
                     return <DashboardHomeView />;
                 }
                 return <DashboardView />;
@@ -47,6 +52,8 @@ export const MainView: FC = () => {
     const showEmptyState = dataSources.size === 0;
     const allPages = workspaces.flatMap(ws => ws.pages || []);
     const showGettingStarted = !showEmptyState && currentView === 'dashboard' && allPages.length === 1 && allPages[0].widgets.length === 0;
+
+    const isBuilderMode = dashboardMode === 'edit' && currentView === 'dashboard' && !!activePage;
 
     if (showEmptyState) {
         return (
@@ -70,9 +77,9 @@ export const MainView: FC = () => {
     return (
         <div className="flex h-screen bg-transparent p-4 gap-4">
             <AppSidebar />
-            <main className="flex-1 relative overflow-hidden rounded-xl">
+            <main className={cn("flex-1 relative overflow-hidden rounded-xl transition-all duration-300 ease-in-out", isBuilderMode && "pl-[260px]")}>
                 <AnimatePresence mode="wait">
-                    <motion.div
+                    <MotionDiv
                         key={currentView}
                         initial={{ opacity: 0, x: 15 }}
                         animate={{ opacity: 1, x: 0 }}
@@ -81,7 +88,7 @@ export const MainView: FC = () => {
                         className="absolute inset-0"
                     >
                         {renderCurrentView()}
-                    </motion.div>
+                    </MotionDiv>
                 </AnimatePresence>
             </main>
         </div>

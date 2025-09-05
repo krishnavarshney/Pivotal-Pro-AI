@@ -12,6 +12,9 @@ import { DefaultsSettings } from './settings/DefaultsSettings';
 import { EngineSettings } from './settings/EngineSettings';
 import { DangerZone } from './settings/DangerZone';
 
+// FIX: Add aliasing for motion component to fix TypeScript errors.
+const MotionDiv = motion.div as any;
+
 type SettingsTab = 'appearance' | 'ai' | 'defaults' | 'engine' | 'danger';
 
 const TABS: { id: SettingsTab; label: string; icon: ReactNode }[] = [
@@ -61,7 +64,7 @@ export const SettingsView: FC = () => {
                 </aside>
                 <main className="flex-grow p-4 md:p-8 overflow-y-auto">
                     <AnimatePresence mode="wait">
-                        <motion.div
+                        <MotionDiv
                             key={activeTab}
                             initial={{ opacity: 0, y: 10 }}
                             animate={{ opacity: 1, y: 0 }}
@@ -70,7 +73,7 @@ export const SettingsView: FC = () => {
                             className="max-w-4xl mx-auto"
                         >
                             {renderContent()}
-                        </motion.div>
+                        </MotionDiv>
                     </AnimatePresence>
                 </main>
             </div>

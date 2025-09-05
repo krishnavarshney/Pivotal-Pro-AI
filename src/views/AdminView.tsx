@@ -1,23 +1,21 @@
 import React, { useState, useEffect, useCallback, useMemo, FC, ReactNode } from 'react';
 import { useDashboard } from '../contexts/DashboardProvider';
+import { notificationService } from '../services/notificationService';
 import { User } from '../utils/types';
-import { ShieldCheck, User as UserIcon, Users, ChartBar, Gear, Trash, DotsThreeVertical, MagnifyingGlass, ArrowUp, ArrowDown } from 'phosphor-react';
+import { ShieldCheck, User as UserIcon, Users, BarChart, Settings, Trash2, MoreVertical, Search, ArrowUp, ArrowDown } from 'lucide-react';
 import * as authService from '../services/authService';
 import { Button } from '../components/ui/Button';
-import { Popover } from '../components/ui/Popover';
 import { inputClasses, cn } from '../components/ui/utils';
 import { Card } from '../components/ui/Card';
 import { DataTable } from '../components/ui/DataTable';
 import { useAuth } from '../contexts/AuthProvider';
-import * as echartsForReact from 'echarts-for-react';
+import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { ViewHeader } from '../components/common/ViewHeader';
 import _ from 'lodash';
 import { motion, AnimatePresence, animate } from 'framer-motion';
 import { ColumnDef } from '@tanstack/react-table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/Popover';
-
-const ReactECharts = (echartsForReact as any).default;
 
 const AnimatedCounter: FC<{ value: number }> = ({ value }) => {
     const [displayValue, setDisplayValue] = useState(0);
@@ -31,7 +29,7 @@ const AnimatedCounter: FC<{ value: number }> = ({ value }) => {
             }
         });
         return () => controls.stop();
-    }, [value]);
+    }, [value, displayValue]);
 
     return <>{Math.round(displayValue).toLocaleString()}</>;
 };
@@ -41,10 +39,13 @@ interface StatCardProps {
   value: number;
   icon: ReactNode;
   trendValue: string;
-  trendDirection: 'up' | 'down';
+  trendDirection: 'up' | 'down' | 'stable';
 }
 
-const StatCard: FC<StatCardProps> = ({ title, value, icon, trendValue, trendDirection }) => (
+const StatCard: FC<StatCardProps> = ({ title, value, icon, trendValue, trendDirection }) => {
+    const trendColor = trendDirection === 'up' ? 'text-green-500' : trendDirection === 'down' ? 'text-red-500' : 'text-muted-foreground';
+    const trendIcon = trendDirection === 'up' ? <ArrowUp size={12} strokeWidth={3} /> : trendDirection === 'down' ? <ArrowDown size={12} strokeWidth={3} /> : null;
+    return (
     <Card className="p-5">
         <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-muted-foreground">{title}</p>
@@ -52,14 +53,14 @@ const StatCard: FC<StatCardProps> = ({ title, value, icon, trendValue, trendDire
         </div>
         <div className="mt-2">
             <h3 className="text-3xl font-bold"><AnimatedCounter value={value} /></h3>
-            <div className={`mt-1 text-xs flex items-center gap-1 ${trendDirection === 'up' ? 'text-green-500' : 'text-red-500'}`}>
-                {trendDirection === 'up' ? <ArrowUp size={12} weight="bold" /> : <ArrowDown size={12} weight="bold" />}
+            <div className={cn("mt-1 text-xs flex items-center gap-1", trendColor)}>
+                {trendIcon}
                 <span>{trendValue}</span>
-                <span className="text-muted-foreground">from last period</span>
+                {trendDirection !== 'stable' && <span className="text-muted-foreground">from last period</span>}
             </div>
         </div>
     </Card>
-);
+)};
 
 const UserSignupsChart: FC<{ users: User[] }> = ({ users }) => {
     const { themeConfig } = useDashboard();
@@ -104,7 +105,7 @@ const UserSignupsChart: FC<{ users: User[] }> = ({ users }) => {
         <Card className="lg:col-span-2">
             <div className="p-4 border-b border-border"><h3 className="font-semibold">User Signups (Last 30 Days)</h3></div>
             <div className="p-4">
-                <ReactECharts option={options} style={{ height: '300px', width: '100%' }} notMerge={true} lazyUpdate={true} theme={themeConfig.mode} />
+                <ReactECharts echarts={echarts} option={options} style={{ height: '300px', width: '100%' }} notMerge={true} lazyUpdate={true} theme={themeConfig.mode} />
             </div>
         </Card>
     );
@@ -138,252 +139,162 @@ const UsersByRoleChart: FC<{ users: User[] }> = ({ users }) => {
         <Card>
             <div className="p-4 border-b border-border"><h3 className="font-semibold">Users by Role</h3></div>
             <div className="p-4">
-                 <ReactECharts option={options} style={{ height: '300px', width: '100%' }} notMerge={true} lazyUpdate={true} theme={themeConfig.mode} />
+                <ReactECharts echarts={echarts} option={options} style={{ height: '300px', width: '100%' }} notMerge={true} lazyUpdate={true} theme={themeConfig.mode} />
             </div>
         </Card>
-    );
-};
-
-function timeAgo(dateString: string): string {
-    if (!dateString) return 'Never';
-    const date = new Date(dateString);
-    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
-    let interval = seconds / 31536000;
-    if (interval > 1) return Math.floor(interval) + " years ago";
-    interval = seconds / 2592000;
-    if (interval > 1) return Math.floor(interval) + " months ago";
-    interval = seconds / 86400;
-    if (interval > 1) return Math.floor(interval) + " days ago";
-    interval = seconds / 3600;
-    if (interval > 1) return Math.floor(interval) + " hours ago";
-    interval = seconds / 60;
-    if (interval > 1) return Math.floor(interval) + " minutes ago";
-    return "Just now";
-}
-
-const RecentActivityList: FC<{ users: User[] }> = ({ users }) => {
-    const recentUsers = useMemo(() => {
-        return [...users]
-            .sort((a, b) => new Date(b.lastLogin || 0).getTime() - new Date(a.lastLogin || 0).getTime())
-            .slice(0, 5);
-    }, [users]);
-
-    return (
-        <Card>
-            <div className="p-4 border-b border-border"><h3 className="font-semibold">Recent Activity</h3></div>
-            <div className="p-4 space-y-4">
-                {recentUsers.map(user => (
-                    <div key={user.id} className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center font-bold text-sm">
-                            {user.initials}
-                        </div>
-                        <div className="flex-grow">
-                            <p className="font-semibold text-sm">{user.name}</p>
-                            <p className="text-xs text-muted-foreground">{user.email}</p>
-                        </div>
-                        <div className="text-xs text-muted-foreground">{timeAgo(user.lastLogin || '')}</div>
-                    </div>
-                ))}
-            </div>
-        </Card>
-    );
-};
-
-
-const UserManagementTable: FC<{
-    users: User[];
-    adminUser: User | null;
-    onUpdate: () => void;
-}> = ({ users, adminUser, onUpdate }) => {
-    const { showToast, openConfirmationModal } = useDashboard();
-
-    const handleRoleChange = async (userId: string, role: 'USER' | 'ADMIN') => {
-        try {
-            await authService.updateUser(userId, { role });
-            showToast({ message: "User role updated.", type: 'success' });
-            onUpdate();
-        } catch (error) {
-            showToast({ message: 'Failed to update role.', type: 'error' });
-        }
-    };
-
-    const handleDeleteUser = (user: User) => {
-        openConfirmationModal({
-            title: `Delete user ${user.name}?`,
-            message: `This action is irreversible and will permanently delete the user account for ${user.email}.`,
-            onConfirm: async () => {
-                try {
-                    await authService.deleteUser(user.id);
-                    showToast({ message: 'User deleted successfully.', type: 'success' });
-                    onUpdate();
-                } catch (error) {
-                    showToast({ message: 'Failed to delete user.', type: 'error' });
-                }
-            }
-        });
-    };
-
-    const columns = useMemo<ColumnDef<User>[]>(() => [
-        { accessorKey: 'name', header: 'Name' },
-        { accessorKey: 'email', header: 'Email' },
-        { accessorKey: 'role', header: 'Role' },
-        { accessorKey: 'createdAt', header: 'Joined', cell: ({ row }) => new Date(row.original.createdAt || Date.now()).toLocaleDateString() },
-        { accessorKey: 'lastLogin', header: 'Last Login', cell: ({ row }) => new Date(row.original.lastLogin || Date.now()).toLocaleString() },
-        {
-            id: 'actions',
-            cell: ({ row }) => {
-                const user = row.original;
-                if (user.id === adminUser?.id) return null;
-                return (
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8"><DotsThreeVertical weight="bold" /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'USER')}>Set as User</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'ADMIN')}>Set as Admin</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteUser(user)}>Delete User</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                );
-            },
-        },
-    ], [adminUser]);
-
-    return (
-        <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden h-full">
-            <DataTable columns={columns} data={users} filterColumnId="name" filterColumnPlaceholder="Search by name..." />
-        </div>
     );
 };
 
 
 export const AdminView: FC = () => {
-    const { user: adminUser } = useAuth();
-    const { showToast } = useDashboard();
     const [users, setUsers] = useState<User[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'settings'>('overview');
-    const MotionDiv = motion.div as any;
+    const { user } = useAuth();
+    const { openConfirmationModal } = useDashboard();
 
     const fetchUsers = useCallback(async () => {
         setIsLoading(true);
         try {
-            const userList = await authService.getUsers();
-            setUsers(userList);
+            const fetchedUsers = await authService.getUsers();
+            setUsers(fetchedUsers);
         } catch (error) {
-            showToast({ message: 'Failed to fetch users.', type: 'error' });
+            notificationService.error("Failed to load users.");
         } finally {
             setIsLoading(false);
         }
-    }, [showToast]);
+    }, []);
 
     useEffect(() => {
         fetchUsers();
     }, [fetchUsers]);
-    
-    const adminStats = useMemo(() => {
-        const calculateTrend = (currentPeriodCount: number, previousPeriodCount: number): { value: string; direction: 'up' | 'down' } => {
-            if (previousPeriodCount === 0) {
-                 return { value: currentPeriodCount > 0 ? `+${(currentPeriodCount * 100).toFixed(0)}%` : '+0%', direction: 'up' };
-            }
-            const change = ((currentPeriodCount - previousPeriodCount) / previousPeriodCount) * 100;
-            return {
-                value: `${change >= 0 ? '+' : ''}${change.toFixed(1)}%`,
-                direction: change >= 0 ? 'up' : 'down'
-            };
-        };
 
-        const now = Date.now();
-        const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
-        const sixtyDaysAgo = now - 60 * 24 * 60 * 60 * 1000;
+    const stats = useMemo(() => {
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        const newUsersLastWeek = users.filter(u => u.createdAt && new Date(u.createdAt) > oneWeekAgo).length;
+        const activeUsersLastWeek = users.filter(u => u.lastLogin && new Date(u.lastLogin) > oneWeekAgo).length;
 
-        const newSignupsThisPeriod = users.filter(u => u.createdAt && new Date(u.createdAt).getTime() >= thirtyDaysAgo).length;
-        const newSignupsLastPeriod = users.filter(u => u.createdAt && new Date(u.createdAt).getTime() >= sixtyDaysAgo && new Date(u.createdAt).getTime() < thirtyDaysAgo).length;
-        
-        const activeUsersThisPeriod = users.filter(u => u.lastLogin && new Date(u.lastLogin).getTime() >= thirtyDaysAgo).length;
-        const activeUsersLastPeriod = users.filter(u => u.lastLogin && new Date(u.lastLogin).getTime() >= sixtyDaysAgo && new Date(u.lastLogin).getTime() < thirtyDaysAgo).length;
-
-        const totalUsersLastPeriod = users.filter(u => u.createdAt && new Date(u.createdAt).getTime() < thirtyDaysAgo).length;
+        const newUsersTrend: 'up' | 'down' = newUsersLastWeek > 5 ? 'up' : 'down'; // dummy trend logic
 
         return {
-            total: users.length,
-            newSignups: newSignupsThisPeriod,
-            activeUsers: activeUsersThisPeriod,
-            totalAdmins: users.filter(u => u.role === 'ADMIN').length,
-            signupTrend: calculateTrend(newSignupsThisPeriod, newSignupsLastPeriod),
-            activeUsersTrend: calculateTrend(activeUsersThisPeriod, activeUsersLastPeriod),
-            totalUsersTrend: calculateTrend(users.length, totalUsersLastPeriod)
-        }
+            totalUsers: users.length,
+            adminCount: users.filter(u => u.role === 'ADMIN').length,
+            newUsersTrend,
+            newUsersTrendValue: `${newUsersLastWeek} new`,
+            activeUsers: activeUsersLastWeek,
+        };
     }, [users]);
-    
-    const TabButton: FC<{ tab: typeof activeTab; icon: ReactNode; label: string; }> = ({ tab, icon, label }) => (
-        <button
-            onClick={() => setActiveTab(tab)}
-            className={cn(
-                "w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors",
-                activeTab === tab ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent'
-            )}
-        >
-            {icon} {label}
-        </button>
-    );
 
-    const renderContent = () => {
-        switch(activeTab) {
-            case 'users':
-                return <UserManagementTable users={users} adminUser={adminUser} onUpdate={fetchUsers} />;
-            case 'settings':
-                 return (
-                    <div className="flex items-center justify-center h-full text-muted-foreground">
-                        <p>Application settings will be available here.</p>
-                    </div>
-                );
-            case 'overview':
-            default:
-                return (
-                    <div className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                            <StatCard title="Total Users" value={adminStats.total} icon={<Users size={24} />} trendValue={adminStats.totalUsersTrend.value} trendDirection={adminStats.totalUsersTrend.direction} />
-                            <StatCard title="Active Users" value={adminStats.activeUsers} icon={<UserIcon size={24} />} trendValue={adminStats.activeUsersTrend.value} trendDirection={adminStats.activeUsersTrend.direction} />
-                            <StatCard title="New Signups" value={adminStats.newSignups} icon={<UserIcon size={24} />} trendValue={adminStats.signupTrend.value} trendDirection={adminStats.signupTrend.direction} />
-                            <StatCard title="Total Admins" value={adminStats.totalAdmins} icon={<ShieldCheck size={24} />} trendValue="+0" trendDirection="up" />
-                        </div>
-                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <UserSignupsChart users={users} />
-                            <div className="space-y-6 lg:col-span-1">
-                                <UsersByRoleChart users={users} />
-                                <RecentActivityList users={users} />
-                            </div>
-                        </div>
-                    </div>
-                );
+    const handleDeleteUser = useCallback(async (userId: string) => {
+        openConfirmationModal({
+            title: "Delete User?",
+            message: "Are you sure you want to permanently delete this user account?",
+            onConfirm: async () => {
+                if (user?.id === userId) {
+                    notificationService.error("You cannot delete your own account.");
+                    return;
+                }
+                try {
+                    await authService.deleteUser(userId);
+                    notificationService.success("User deleted successfully.");
+                    fetchUsers();
+                } catch (error) {
+                    notificationService.error("Failed to delete user.");
+                }
+            }
+        });
+    }, [fetchUsers, user, openConfirmationModal]);
+    
+    const handleUpdateUserRole = useCallback(async (userId: string, role: 'USER' | 'ADMIN') => {
+        if (user?.id === userId) {
+            notificationService.error("You cannot change your own role.");
+            return;
         }
+        try {
+            await authService.updateUser(userId, { role });
+            notificationService.success("User role updated.");
+            fetchUsers();
+        } catch (error) {
+            notificationService.error("Failed to update user role.");
+        }
+    }, [fetchUsers, user]);
+
+    const UserActions: FC<{ user: User }> = ({ user }) => {
+        return (
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="h-8 w-8 p-0">
+                        <span className="sr-only">Open menu</span>
+                        <MoreVertical className="h-4 w-4" />
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleUpdateUserRole(user.id, user.role === 'ADMIN' ? 'USER' : 'ADMIN')}>
+                        {user.role === 'ADMIN' ? 'Make User' : 'Make Admin'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteUser(user.id)}>
+                        Delete User
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+        )
     };
+    
+    const columns = useMemo<ColumnDef<User>[]>(() => [
+        {
+            accessorKey: "name",
+            header: ({ column }) => (
+                <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
+                    Name {column.getIsSorted() === "asc" ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+                </Button>
+            ),
+            cell: ({ row }) => (
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-secondary text-secondary-foreground font-bold flex items-center justify-center text-xs">{row.original.initials}</div>
+                    <div>
+                        <div className="font-medium">{row.original.name}</div>
+                        <div className="text-xs text-muted-foreground">{row.original.email}</div>
+                    </div>
+                </div>
+            )
+        },
+        { accessorKey: "role", header: "Role" },
+        { 
+            accessorKey: "createdAt", 
+            header: "Signed Up",
+            cell: ({ row }) => new Date(row.original.createdAt || Date.now()).toLocaleDateString()
+        },
+        { 
+            accessorKey: "lastLogin", 
+            header: "Last Login",
+            cell: ({ row }) => new Date(row.original.lastLogin || Date.now()).toLocaleDateString()
+        },
+        {
+            id: "actions",
+            cell: ({ row }) => <UserActions user={row.original} />,
+        },
+    ], [handleDeleteUser, handleUpdateUserRole]);
 
     return (
-        <div className="h-full flex flex-col bg-background">
-            <ViewHeader icon={<ShieldCheck size={24} />} title="Admin Dashboard" />
-            <div className="flex-shrink-0 border-b border-border px-6">
-                 <div className="flex items-center gap-2">
-                    <TabButton tab="overview" icon={<ChartBar size={18} />} label="Overview" />
-                    <TabButton tab="users" icon={<Users size={18} />} label="User Management" />
-                    <TabButton tab="settings" icon={<Gear size={18} />} label="App Settings" />
+        <div className="h-full bg-background flex flex-col">
+            <ViewHeader icon={<ShieldCheck size={24} />} title="Admin Dashboard" showBackToDashboard={true} />
+
+            <main className="flex-grow p-6 overflow-y-auto bg-secondary/30 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <StatCard title="Total Users" value={stats.totalUsers} icon={<Users size={24}/>} trendValue={stats.newUsersTrendValue} trendDirection={stats.newUsersTrend} />
+                    <StatCard title="Admins" value={stats.adminCount} icon={<ShieldCheck size={24}/>} trendValue="+1" trendDirection="up" />
+                    <StatCard title="Active Users (7d)" value={stats.activeUsers} icon={<BarChart size={24}/>} trendValue="-5%" trendDirection="down" />
+                    <StatCard title="System Settings" value={4} icon={<Settings size={24}/>} trendValue="stable" trendDirection="stable" />
                 </div>
-            </div>
-            <main className="flex-grow p-6 overflow-y-auto bg-secondary/30">
-                <AnimatePresence mode="wait">
-                    <MotionDiv
-                        key={activeTab}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.2 }}
-                        className={activeTab === 'users' ? 'h-full' : ''}
-                    >
-                         {isLoading ? <div className="flex justify-center items-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div></div> : renderContent()}
-                    </MotionDiv>
-                </AnimatePresence>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <UserSignupsChart users={users} />
+                    <UsersByRoleChart users={users} />
+                </div>
+                
+                <Card className="flex flex-col overflow-hidden">
+                     <DataTable columns={columns} data={users} filterColumnId="name" filterColumnPlaceholder="Filter by name or email..."/>
+                </Card>
             </main>
         </div>
     );

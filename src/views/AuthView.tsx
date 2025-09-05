@@ -1,13 +1,92 @@
-import React, { useState, FC, ReactNode, ChangeEvent, FormEvent, useEffect } from 'react';
+import React, { useState, FC, ReactNode, ChangeEvent, FormEvent, useEffect, memo } from 'react';
 import { useAuth } from '../contexts/AuthProvider';
-import { Mail, Lock, User as UserIcon, AlertCircle, Zap } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, AlertCircle, Zap, Sun, Moon } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { cn } from '../components/ui/utils';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
-import { AnimatedLineChart } from './auth/AnimatedLineChart';
-import { AnimatedBarChart } from './auth/AnimatedBarChart';
-import { AnimatedAreaChart } from './auth/AnimatedAreaChart';
+import { useDashboard } from '../contexts/DashboardProvider';
 import { AnimatedStars } from './auth/AnimatedStars';
+
+// New, more professional hero graphic
+const AuthHeroGraphic: FC = memo(() => {
+    return (
+        <div className="w-full h-64 relative flex items-center justify-center">
+            <motion.div
+                className="absolute w-full h-full"
+                variants={{
+                    initial: { opacity: 0, scale: 0.8 },
+                    animate: { opacity: 1, scale: 1, transition: { delay: 1, duration: 0.7, ease: 'easeOut' } },
+                }}
+            >
+                <svg width="100%" height="100%" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid meet">
+                    <defs>
+                        <linearGradient id="hero-grad-1" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="hsl(var(--primary-values) / 0.8)" />
+                            <stop offset="100%" stopColor="hsl(var(--primary-values) / 0.3)" />
+                        </linearGradient>
+                         <linearGradient id="hero-grad-2" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stopColor="hsl(var(--primary-values) / 0.6)" />
+                            <stop offset="100%" stopColor="hsl(217.2 91.2% 59.8% / 0.4)" />
+                        </linearGradient>
+                        <filter id="hero-glow" x="-50%" y="-50%" width="200%" height="200%">
+                           <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                            <feMerge>
+                                <feMergeNode in="coloredBlur" />
+                                <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                        </filter>
+                    </defs>
+
+                    {/* Animated bars */}
+                    {[...Array(5)].map((_, i) => (
+                        <motion.rect
+                            key={i}
+                            x={i * 25 + 137.5}
+                            width="15"
+                            rx="4"
+                            ry="4"
+                            stroke="hsl(var(--primary-values) / 0.2)"
+                            strokeWidth="1"
+                            fill="url(#hero-grad-2)"
+                            initial={{ y: 150, height: 0 }}
+                            animate={{ y: [150, 100 - i*10, 150], height: [0, 50 + i*10, 0] }}
+                            transition={{ duration: 3, repeat: Infinity, delay: 1 + i * 0.2, ease: "easeInOut" }}
+                        />
+                    ))}
+                    
+                    {/* Flowing line */}
+                    <motion.path
+                        d="M 50 100 C 150 20, 250 180, 350 100"
+                        fill="none"
+                        stroke="url(#hero-grad-1)"
+                        strokeWidth="5"
+                        strokeLinecap="round"
+                        filter="url(#hero-glow)"
+                        initial={{ pathLength: 0 }}
+                        animate={{ pathLength: 1 }}
+                        transition={{ delay: 1.2, duration: 1.5, ease: 'easeOut' }}
+                    />
+                </svg>
+            </motion.div>
+        </div>
+    );
+});
+
+
+const AuthThemeSwitcher: FC = () => {
+    const { themeConfig, toggleThemeMode } = useDashboard();
+    
+    return (
+        <button
+            onClick={toggleThemeMode}
+            className="absolute top-6 right-6 z-20 p-2 rounded-full text-auth-link hover:text-auth-link-hover hover:bg-auth-glass-bg transition-colors"
+            aria-label="Toggle theme"
+        >
+            {themeConfig.mode === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+        </button>
+    );
+};
+
 
 const PasswordStrengthMeter: FC<{ score: number }> = ({ score }) => {
     const levels = [
@@ -36,7 +115,7 @@ const InputField: FC<{ name: string; type: string; label: string; icon: ReactNod
         </span>
         <input
             id={name} name={name} type={type} value={value} onChange={onChange} required
-            className="form-input w-full py-3 rounded-lg text-white placeholder-transparent"
+            className="form-input w-full py-3 rounded-lg text-auth-input-text placeholder-transparent"
             placeholder={label}
             aria-invalid={isInvalid}
             aria-describedby={ariaDescribedBy}
@@ -98,7 +177,7 @@ const AuthForm: FC<{ isLogin: boolean; }> = ({ isLogin }) => {
     const hasError = !!error;
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form onSubmit={handleSubmit} className="space-y-6">
             <AnimatePresence mode="wait">
                 {!isLogin && (
                     <motion.div key="name" variants={formVariants} initial="hidden" animate="visible" exit="exit" transition={{ duration: 0.2 }}>
@@ -126,7 +205,7 @@ const AuthForm: FC<{ isLogin: boolean; }> = ({ isLogin }) => {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 5 }}
                         transition={{ duration: 0.2 }}
-                        className="text-red-400 text-sm flex items-center gap-2 pt-1"
+                        className="text-red-400 text-sm flex items-center gap-2"
                         aria-live="polite"
                     >
                         <AlertCircle size={16} /> {error}
@@ -137,7 +216,6 @@ const AuthForm: FC<{ isLogin: boolean; }> = ({ isLogin }) => {
             <div className="pt-2">
                 <Button type="submit" size="lg" className="w-full h-12 text-base font-semibold auth-button" disabled={isLoading}>
                     {isLoading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div> : (isLogin ? 'Login Securely' : 'Create Account')}
-                    <span className="shine"></span>
                 </Button>
             </div>
         </form>
@@ -155,52 +233,40 @@ const sentenceVariants: Variants = {
 };
 
 const wordVariants: Variants = {
-    hidden: { opacity: 0, y: 20, rotateX: -15 },
+    hidden: { opacity: 0, y: 20 },
     visible: (i: number) => ({
         opacity: 1,
         y: 0,
-        rotateX: 0,
         transition: {
             type: 'spring',
-            damping: 12,
+            damping: 15,
             stiffness: 100,
-            delay: 0.5 + i * 0.1,
+            delay: 0.5 + i * 0.05,
         },
     }),
 };
 
 const AnimatedBrandHeading: FC = () => {
-    const lines = [
-        { text: "Make every decision", isAnimated: false },
-        { text: "Pivotal.", isAnimated: true },
-    ];
+    const line1 = "Make every decision";
+    const line2 = "Pivotal.";
     
-    let wordCounter = 0;
-
     return (
          <motion.h2
             variants={sentenceVariants}
             initial="hidden"
             animate="visible"
-            className="text-7xl font-extrabold leading-tight tracking-tighter headline select-none"
+            className="text-6xl lg:text-7xl font-extrabold leading-tight tracking-tighter text-auth-foreground select-none"
         >
-            {lines.map((line, lineIndex) => (
-                <span className="block" key={lineIndex}>
-                    {line.text.split(" ").map((word, wordIndex) => {
-                        const wordComponent = (
-                            <motion.span
-                                key={`${word}-${wordIndex}`}
-                                custom={wordCounter++}
-                                variants={wordVariants}
-                                className={cn("inline-block pr-4", line.isAnimated && "animated-text")}
-                            >
-                                {word}
-                            </motion.span>
-                        );
-                        return wordComponent;
-                    })}
-                </span>
-            ))}
+            <span className="block">
+                {line1.split(" ").map((word, wordIndex) => (
+                    <motion.span key={`${word}-${wordIndex}`} custom={wordIndex} variants={wordVariants} className="inline-block pr-4">
+                        {word}
+                    </motion.span>
+                ))}
+            </span>
+             <motion.span custom={line1.split(" ").length} variants={wordVariants} className="inline-block pr-4 animated-text">
+                {line2}
+            </motion.span>
         </motion.h2>
     );
 };
@@ -212,28 +278,29 @@ export const AuthView: FC = () => {
     return (
         <div className="auth-container min-h-screen flex items-center justify-center p-4">
             <AnimatedStars isAuth={true} />
-            <div className="content-wrapper w-full max-w-7xl grid lg:grid-cols-2 gap-16 items-center">
-                 <div className="hidden lg:block p-8 space-y-8 relative">
+            <div className="absolute inset-0 bg-aurora animate-aurora -z-10" />
+            <AuthThemeSwitcher />
+            
+            <div className="content-wrapper relative z-10 w-full max-w-7xl grid lg:grid-cols-2 gap-16 items-center">
+                 <div className="hidden lg:block p-8 space-y-8">
                     <motion.div 
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
                         className="flex items-center space-x-3"
                     >
-                        <Zap size={24} className="text-violet-400" />
-                        <h1 className="text-2xl font-bold tracking-wider text-gray-300">Pivotal Pro AI</h1>
+                        <Zap size={24} className="text-primary" />
+                        <h1 className="text-2xl font-bold tracking-wider text-auth-muted-foreground">Pivotal Pro AI</h1>
                     </motion.div>
+
                     <AnimatedBrandHeading />
-                    
+
                     <motion.div 
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 1.5 }}
-                        className="viz-container"
+                        transition={{ delay: 1.5, duration: 0.5 }}
                     >
-                        <div className="chart-card"><AnimatedLineChart /></div>
-                        <div className="chart-card"><AnimatedBarChart /></div>
-                        <div className="chart-card"><AnimatedAreaChart /></div>
+                        <AuthHeroGraphic />
                     </motion.div>
                 </div>
 
@@ -241,16 +308,16 @@ export const AuthView: FC = () => {
                     <motion.div 
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: 1.4, duration: 0.5 }}
+                        transition={{ delay: 0.4, duration: 0.5, ease: 'easeOut' }}
                         className="glass-card rounded-2xl p-8 md:p-12"
                     >
-                        <h3 className="text-3xl font-bold text-white mb-2 text-center">{isLogin ? 'Welcome Back' : 'Create Account'}</h3>
-                        <p className="text-gray-400 mb-10 text-center">Enter the future of BI.</p>
+                        <h3 className="text-3xl font-bold text-auth-foreground mb-2 text-center">{isLogin ? 'Welcome Back' : 'Create Account'}</h3>
+                        <p className="text-auth-muted-foreground mb-10 text-center">Enter the future of BI.</p>
                         
                         <AuthForm isLogin={isLogin} />
 
                         <div className="text-center mt-6">
-                            <button onClick={() => setIsLogin(!isLogin)} className="text-sm font-medium text-violet-400 hover:text-violet-300 transition-colors">
+                            <button onClick={() => setIsLogin(!isLogin)} className="text-sm font-medium text-auth-link hover:text-auth-link-hover transition-colors">
                                 {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Login"}
                             </button>
                         </div>

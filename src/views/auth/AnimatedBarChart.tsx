@@ -1,6 +1,9 @@
 import React, { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
 
+// FIX: Add aliasing for motion component to fix TypeScript errors.
+const MotionRect = motion.rect as any;
+
 export const AnimatedBarChart = memo(() => {
     const bars = [
         { height: 30, delay: 2.2 },
@@ -17,7 +20,7 @@ export const AnimatedBarChart = memo(() => {
                     <linearGradient id="barGradientAuth3" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stopColor="#818CF8" /><stop offset="100%" stopColor="#A78BFA" /></linearGradient>
                 </defs>
                 {bars.map((bar, i) => (
-                    <motion.rect
+                    <MotionRect
                         key={i}
                         x={10 + i * 30}
                         width="20"

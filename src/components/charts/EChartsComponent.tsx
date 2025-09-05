@@ -1,13 +1,12 @@
 import React, { useRef, useEffect, FC, MouseEvent } from 'react';
-import * as echartsForReact from 'echarts-for-react';
+// FIX: Changed to default import for echarts-for-react to resolve module compatibility issue.
+import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
 import { useDashboard } from '../../contexts/DashboardProvider';
 import { WidgetState, ProcessedData, ChartType } from '../../utils/types';
 import { formatValue } from '../../utils/dataProcessing/formatting';
 import { COLOR_PALETTES } from '../../utils/constants';
 import _ from 'lodash';
-
-const ReactECharts = (echartsForReact as any).default;
 
 interface ChartProps {
     widget: WidgetState;
@@ -120,7 +119,7 @@ export const EChartsComponent: FC<ChartProps> = ({ widget, data, onElementClick,
                         const dataValue = Array.isArray(param.data.value) ? param.data.value[1] : param.data.value;
                         tooltipText += `${param.marker} ${seriesName} - <strong>${formatValue(dataValue, formatting, aggregation)}</strong><br/>`;
                     } else { // Standard charts like bar, line, scatter
-                        const displayValue = isHorizontal && Array.isArray(value) ? value[0] : value;
+                        const displayValue = isHorizontal && Array.isArray(value) ? value[0] : Array.isArray(value) ? value[1] : value;
                         tooltipText += `${param.marker} ${seriesName} - <strong>${formatValue(displayValue, formatting, aggregation)}</strong><br/>`;
                     }
                 });
@@ -178,7 +177,7 @@ export const EChartsComponent: FC<ChartProps> = ({ widget, data, onElementClick,
         options.tooltip.trigger = 'axis';
         if (chartType === ChartType.BAR) {
             options.tooltip.axisPointer = { type: 'shadow' };
-        } else if ([ChartType.LINE, ChartType.AREA, ChartType.DUAL_AXIS, ChartType.BOXPLOT].includes(chartType)) {
+        } else if ([ChartType.LINE, ChartType.AREA, ChartType.DUAL_AXIS, ChartType.BOXPLOT, ChartType.SCATTER].includes(chartType)) {
             options.tooltip.axisPointer = { type: 'cross', crossStyle: { color: 'hsl(var(--muted-foreground))' } };
         } else {
              options.tooltip.axisPointer = { type: 'shadow' };

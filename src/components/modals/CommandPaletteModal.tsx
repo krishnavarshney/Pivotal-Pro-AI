@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, FC, ReactNode } from 'react';
 import _ from 'lodash';
 import { 
-    MagnifyingGlass, Plus, Sparkle, CircleHalf, Folder, File, ChartBar, Table, Database, ShareNetwork, Gear, BookOpen, Timer, SlidersHorizontal, ArrowRight, Lightbulb, Command
+    MagnifyingGlass, Plus, Sparkle, CircleHalf, Folder, File, ChartBar, Table, Database, ShareNetwork, Gear, BookOpen, Timer, SlidersHorizontal, ArrowRight, Lightbulb, Command, Palette
 } from 'phosphor-react';
 import { useDashboard } from '../../contexts/DashboardProvider';
 import { SearchableItem } from '../../utils/types';
@@ -9,9 +9,11 @@ import { Dialog, DialogOverlay, DialogContent } from '../ui/Dialog';
 import { cn } from '../ui/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AnimatedStars } from '../../views/auth/AnimatedStars';
+import { COLOR_PALETTES, THEME_DEFINITIONS } from '../../utils/constants';
 
 interface ItemGroup {
-    title: string;
+    // FIX: Correctly type `title` to match `SearchableItem['category']` to resolve the type predicate error.
+    title: SearchableItem['category'];
     items: SearchableItem[];
 }
 
@@ -60,6 +62,9 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
         openPerformanceAnalyzer,
         openAddControlModal,
         dataSources,
+        setThemeConfig,
+        setDashboardDefaults,
+        setChartLibrary,
     } = useDashboard();
     
     const [query, setQuery] = useState('');
@@ -77,15 +82,44 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
     }, [isOpen]);
 
     const allItems = useMemo((): SearchableItem[] => {
-        const items: SearchableItem[] = [
-            // Actions
+        const actionItems: SearchableItem[] = [
             { id: 'action-add-widget', category: 'Actions', title: 'Create new widget', description: 'Open the widget editor to build a new visualization.', icon: <Plus />, action: openWidgetEditorModal },
             { id: 'action-add-control', category: 'Actions', title: 'Add Dashboard Control', description: 'Add a filter or parameter control to the current dashboard.', icon: <SlidersHorizontal />, action: openAddControlModal },
             { id: 'action-open-ai', category: 'Actions', title: 'Open Insight Hub', description: 'Use AI to find proactive insights and analyze your dashboard.', icon: <Lightbulb />, action: openInsightHub },
-            { id: 'action-toggle-theme', category: 'Actions', title: 'Toggle Light/Dark Mode', description: 'Switch between light and dark themes for the application.', icon: <CircleHalf />, action: toggleThemeMode },
             { id: 'action-open-performance', category: 'Actions', title: 'Performance Analyzer', description: 'Check the performance and load times of widgets on the current page.', icon: <Timer />, action: openPerformanceAnalyzer },
-            
-            // Navigation
+        ];
+
+        const quickSettingItems: SearchableItem[] = [
+            ...THEME_DEFINITIONS.flatMap(theme =>
+                (['light', 'dark'] as const).map((mode): SearchableItem => ({
+                    id: `theme-${theme.id}-${mode}`,
+                    category: 'Quick Settings',
+                    title: `Theme: Set to ${theme.name} (${_.capitalize(mode)})`,
+                    description: `Change the application's appearance to the ${theme.name} theme in ${mode} mode.`,
+                    icon: <Palette />,
+                    action: () => setThemeConfig(c => ({ ...c, name: theme.id, mode: mode })),
+                }))
+            ),
+            ...Object.keys(COLOR_PALETTES).map((paletteName): SearchableItem => ({
+                id: `palette-${paletteName}`,
+                category: 'Quick Settings',
+                title: `Colors: Set palette to ${paletteName}`,
+                description: `Change the default color palette for charts to ${paletteName}.`,
+                icon: <Palette />,
+                action: () => setDashboardDefaults(d => ({ ...d, colorPalette: paletteName })),
+            })),
+            ...(['echarts', 'apexcharts', 'recharts'] as const).map((engine): SearchableItem => ({
+                id: `engine-${engine}`,
+                category: 'Quick Settings',
+                title: `Engine: Set charting to ${_.capitalize(engine)}`,
+                description: `Change the underlying chart rendering library to ${_.capitalize(engine)}.`,
+                icon: <ChartBar />,
+                action: () => setChartLibrary(engine),
+            })),
+            { id: 'action-toggle-theme-mode', category: 'Quick Settings', title: 'Toggle Light/Dark Mode', description: 'Switch between light and dark themes for the application.', icon: <CircleHalf />, action: toggleThemeMode },
+        ];
+        
+        const navigationItems: SearchableItem[] = [
             { id: 'view-explorer', category: 'Navigation', title: 'Go to Data Explorer', description: 'Explore, filter, and sort your raw data.', icon: <Table />, action: () => setView('explorer') },
             { id: 'view-studio', category: 'Navigation', title: 'Go to Data Studio', description: 'Prepare and transform your data sources.', icon: <Database />, action: () => dataSources.size > 0 && setView('studio', { sourceId: dataSources.keys().next().value }) },
             { id: 'view-modeler', category: 'Navigation', title: 'Go to Data Modeler', description: 'Create relationships and joins between your data sources.', icon: <ShareNetwork />, action: () => setView('modeler') },
@@ -93,21 +127,23 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
             { id: 'view-settings', category: 'Navigation', title: 'Open Settings', description: 'Configure application settings like theme and AI provider.', icon: <Gear />, action: () => setView('settings') },
         ];
         
+        const dashboardItems: SearchableItem[] = [];
         workspaces.forEach(ws => {
             if(!ws || !ws.pages) return;
             ws.pages.forEach(page => {
-                items.push({ id: `page-${page.id}`, category: 'Dashboards', title: page.name, context: `Workspace: ${ws.name}`, description: `Navigate to the '${page.name}' dashboard.`, icon: <File />, action: () => setActivePageId(page.id) });
+                dashboardItems.push({ id: `page-${page.id}`, category: 'Dashboards', title: page.name, context: `Workspace: ${ws.name}`, description: `Navigate to the '${page.name}' dashboard.`, icon: <File />, action: () => setActivePageId(page.id) });
             });
         });
 
+        const widgetItems: SearchableItem[] = [];
         if(activePage) {
             activePage.widgets.forEach(widget => {
-                items.push({ id: `widget-${widget.id}`, category: 'Widgets', title: `Jump to: ${widget.title}`, context: `Page: ${activePage.name}`, description: 'Scroll to this widget on the current dashboard.', icon: <ChartBar />, action: () => setScrollToWidgetId(widget.id) });
+                widgetItems.push({ id: `widget-${widget.id}`, category: 'Widgets', title: `Jump to: ${widget.title}`, context: `Page: ${activePage.name}`, description: 'Scroll to this widget on the current dashboard.', icon: <ChartBar />, action: () => setScrollToWidgetId(widget.id) });
             });
         }
         
-        return _.uniqBy(items, 'id');
-    }, [workspaces, activePage, dataSources, openWidgetEditorModal, openInsightHub, setView, setActivePageId, setScrollToWidgetId, toggleThemeMode, openPerformanceAnalyzer, openAddControlModal]);
+        return _.uniqBy([...actionItems, ...quickSettingItems, ...navigationItems, ...dashboardItems, ...widgetItems], 'id');
+    }, [workspaces, activePage, dataSources, openWidgetEditorModal, openInsightHub, setView, setActivePageId, setScrollToWidgetId, toggleThemeMode, openPerformanceAnalyzer, openAddControlModal, setThemeConfig, setDashboardDefaults, setChartLibrary]);
     
     const filteredGroups = useMemo((): ItemGroup[] => {
         const itemsToFilter = query ? allItems.filter(item =>
@@ -116,15 +152,17 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
             item.context?.toLowerCase().includes(query.toLowerCase())
         ) : allItems;
 
-        const grouped = _.groupBy(itemsToFilter, 'category');
-        const groupOrder = ['Actions', 'Dashboards', 'Widgets', 'Navigation'];
+        
+        const groupOrder = ['Actions', 'Quick Settings', 'Dashboards', 'Widgets', 'Navigation'] as const;
+        
+        const grouped = _.groupBy(itemsToFilter, 'category') as { [key in SearchableItem['category']]?: SearchableItem[] };
         
         return groupOrder
             .map(title => ({
                 title,
                 items: grouped[title],
             }))
-            .filter(group => group.items && group.items.length > 0);
+            .filter((group): group is ItemGroup => group.items !== undefined && group.items.length > 0);
     }, [query, allItems]);
 
     const flatFilteredItems = useMemo(() => filteredGroups.flatMap(g => g.items), [filteredGroups]);
