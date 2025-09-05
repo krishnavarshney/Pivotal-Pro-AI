@@ -45,7 +45,7 @@ const TemplateCard: React.FC<{ template: Template; onSelect: () => void; onPrevi
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
-            className="group relative bg-card rounded-xl border border-border shadow-sm transition-all duration-300 hover:border-primary hover:shadow-lg hover:-translate-y-1 flex flex-col"
+            className="group bg-card rounded-xl border border-border shadow-sm transition-all duration-300 hover:border-primary hover:shadow-lg hover:-translate-y-1 flex flex-col overflow-hidden"
         >
             <div className="h-40 bg-secondary/30 flex items-center justify-center relative p-4 border-b border-border">
                 <div className="w-full h-full border-2 border-dashed border-border/50 rounded-lg flex items-center justify-center text-muted-foreground">
@@ -76,9 +76,14 @@ const TemplateCard: React.FC<{ template: Template; onSelect: () => void; onPrevi
                     </div>
                 </div>
             </div>
-             <div className="p-4 border-t border-border flex items-center gap-2">
-                <Button variant="outline" className="w-full" onClick={onPreview}>Preview</Button>
-                <Button className="w-full" onClick={onSelect}>Use Template</Button>
+            <div className="border-t border-border flex items-stretch">
+                <Button variant="ghost" className="flex-1 rounded-none rounded-bl-xl h-auto py-3" onClick={onPreview}>
+                    Preview
+                </Button>
+                <div className="w-px bg-border"></div>
+                <Button className="flex-1 rounded-none rounded-br-xl h-auto py-3" onClick={onSelect}>
+                    Use Template
+                </Button>
             </div>
         </MotionDiv>
     );

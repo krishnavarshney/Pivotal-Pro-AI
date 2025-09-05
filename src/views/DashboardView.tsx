@@ -17,10 +17,11 @@ import { inputClasses, cn } from '../components/ui/utils';
 import { Checkbox } from '../components/ui/Checkbox';
 import { Tooltip } from '../components/ui/Tooltip';
 import { DataProcessor } from '../components/common/DataProcessor';
+// FIX: Add aliasing for motion component to fix TypeScript errors.
 import { motion, AnimatePresence } from 'framer-motion';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import Papa from 'papaparse';
+import Papa from 'paparse';
 import * as XLSX from 'xlsx';
 import _ from 'lodash';
 import { useSidebar, SidebarTrigger } from '../components/ui/sidebar.tsx';
@@ -32,6 +33,7 @@ import { ThemeSwitcher } from '../components/dashboard/ThemeSwitcher';
 import Slider from 'rc-slider';
 import { formatValue } from '../utils/dataProcessing/formatting';
 import { BuilderSidebar } from '../components/dashboard/BuilderSidebar';
+import { NotificationBell } from '../components/dashboard/NotificationBell';
 
 // FIX: Add aliasing for motion components to fix TypeScript errors.
 const MotionButton = motion.button as any;
@@ -268,8 +270,9 @@ const SectionHeaderWidget: FC<{ widget: WidgetState }> = ({ widget }) => {
                             onChange={e => setTempTitle(e.target.value)}
                             onBlur={handleTitleSave}
                             onKeyDown={handleTitleKeyDown}
-                            className="font-bold text-lg text-foreground bg-transparent border-b-2 border-primary focus:outline-none w-full cursor-text"
+                            className="font-bold text-lg text-foreground bg-transparent border-b-2 border-primary focus:outline-none cursor-text"
                             autoFocus
+                            size={Math.max(20, tempTitle.length)}
                         />
                     ) : (
                         <div className="flex items-center gap-3 cursor-text w-full truncate" title="Click to edit title">
@@ -581,8 +584,9 @@ const Widget: FC<{ widget: WidgetState }> = ({ widget }) => {
                             onChange={e => setTempTitle(e.target.value)}
                             onBlur={handleTitleSave}
                             onKeyDown={handleTitleKeyDown}
-                            className="font-semibold text-foreground text-sm truncate bg-transparent border-b border-primary focus:outline-none w-full max-w-sm cursor-text"
+                            className="font-semibold text-foreground text-sm truncate bg-transparent border-b border-primary focus:outline-none cursor-text"
                             autoFocus
+                            size={Math.max(20, tempTitle.length)}
                         />
                     ) : (
                         <div className="flex items-center gap-2 cursor-text w-full truncate" title="Click to edit title">
@@ -886,7 +890,7 @@ const DashboardHeader: FC = () => {
                 </div>
                 
                 <div className="p-1 border border-border rounded-lg bg-card">
-                    <ThemeSwitcher />
+                    <NotificationBell />
                 </div>
                 
                 <UserMenu />
@@ -897,7 +901,7 @@ const DashboardHeader: FC = () => {
 
 const FloatingActionButton: FC = () => {
     const { openWidgetEditorModal, dashboardMode, activePage } = useDashboard();
-    const shouldShow = activePage && activePage.widgets.length > 0 && dashboardMode !== 'edit';
+    const shouldShow = activePage && dashboardMode === 'edit';
 
     return (
         <AnimatePresence>
@@ -1033,7 +1037,6 @@ export const DashboardView: FC = () => {
 
     return (
         <div className="h-full w-full flex flex-col bg-transparent p-4 gap-4 relative">
-            {dashboardMode === 'edit' && <BuilderSidebar />}
             <div className="flex-grow flex flex-col gap-4 min-w-0">
                 <DashboardHeader />
                 <GlobalFilterShelf />

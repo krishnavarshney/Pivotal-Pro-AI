@@ -1,7 +1,7 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 // FIX: Corrected import to align with new SDK guidelines.
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI } from "@google/genai";
 import type { Connect, ViteDevServer } from 'vite';
 import type { ServerResponse } from 'http';
 import fetch from 'node-fetch';
@@ -134,7 +134,8 @@ const externalApiProxy = (): Connect.HandleFunction => {
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
-    const apiKey = env.GEMINI_API_KEY || env.API_KEY;
+    // FIX: The API key must be obtained exclusively from the environment variable `process.env.API_KEY`.
+    const apiKey = env.API_KEY;
 
     if (!apiKey) {
         console.warn("API_KEY not found in .env file. AI features will be disabled.");

@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 
 // FIX: Add aliasing for motion component to fix TypeScript errors.
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 const HeatmapComponent: FC<{ data: ProcessedData, theme: 'light' | 'dark' }> = ({ data, theme }) => {
     if (data.type !== 'heatmap') return null;

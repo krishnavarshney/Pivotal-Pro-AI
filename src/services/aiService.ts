@@ -1,5 +1,5 @@
 import { Type } from "@google/genai";
-import { Field, ChartType, AggregationType, Transformation, TransformationType, AiDataSuggestion, AIConfig, AiChatMessage, ProcessedData, AdvancedAnalysisResult, WidgetState, WhatIfResult, AiDashboardSuggestion, ProactiveInsight, PredictiveModelType, PredictiveModelResult, FilterCondition, NlpFilterResult } from '../utils/types';
+import { Field, ChartType, AggregationType, Transformation, TransformationType, AiDataSuggestion, AIConfig, AiChatMessage, ProcessedData, AdvancedAnalysisResult, WidgetState, WhatIfResult, AiDashboardSuggestion, ProactiveInsight, PredictiveModelType, PredictiveModelResult, FilterCondition, NlpFilterResult, InsightType } from '../utils/types';
 import { formatValue } from "../utils/dataProcessing/formatting";
 import { FORMULA_FUNCTION_DEFINITIONS } from "../utils/dataProcessing/formulaEngine";
 import _ from 'lodash';
@@ -961,12 +961,13 @@ const proactiveInsightSchema = {
                 type: Type.OBJECT,
                 properties: {
                     title: { type: Type.STRING, description: "A concise headline for the insight." },
-                    summary: { type: Type.STRING, description: "A one-sentence summary explaining the finding." },
-                    severity: { type: Type.STRING, enum: ['low', 'medium', 'high'], description: "The importance or impact of this finding." },
+                    summary: { type: Type.STRING, description: "A one or two sentence summary explaining the finding in detail." },
+                    type: { type: Type.STRING, enum: Object.values(InsightType), description: "The category of the insight." },
+                    confidence: { type: Type.INTEGER, description: "A confidence score from 0 to 100 indicating the certainty of the finding." },
                     involvedFields: { type: Type.ARRAY, items: { type: Type.STRING }, description: "The simple names of the fields involved in this insight." },
                     suggestedChartPrompt: { type: Type.STRING, description: "A natural language command to generate a chart that visualizes this insight." }
                 },
-                required: ["title", "summary", "severity", "involvedFields", "suggestedChartPrompt"]
+                required: ["title", "summary", "type", "confidence", "involvedFields", "suggestedChartPrompt"]
             }
         }
     },
@@ -977,11 +978,11 @@ export const getProactiveInsights = async (
     config: AIConfig,
     fields: { name: string, type: string }[],
     dataSample: any[]
-): Promise<Omit<ProactiveInsight, 'id'>[]> => {
+): Promise<ProactiveInsight[]> => {
     const systemInstruction = `You are a proactive data analyst. Your task is to scan a dataset and identify interesting anomalies, trends, or outliers without being prompted.
     - Analyze the provided data schema and sample.
     - Find up to 5 significant insights. Focus on relationships that might be unexpected or actionable.
-    - For each insight, provide a clear title, a brief summary, a severity level, the fields involved, and a natural language prompt to create a chart for further investigation.
+    - For each insight, provide a clear title, a detailed summary, a confidence score (0-100), the type of insight (from the provided enum), the fields involved, and a natural language prompt to create a chart for further investigation.
     - Your entire response MUST be a valid JSON object conforming to the provided schema. Do not include any other text or markdown.`;
 
     const fieldsString = fields.map(f => `- "${f.name}" (${f.type})`).join('\n');

@@ -466,14 +466,42 @@ export interface AiInsight {
     nextSteps: AiInsightNextStep[];
 }
 
+export enum InsightType {
+  ANOMALY = 'Anomaly',
+  PREDICTION = 'Prediction',
+  OPTIMIZATION = 'Optimization',
+  FORECAST = 'Forecast',
+  PERFORMANCE = 'Performance',
+  USAGE = 'Usage',
+}
+
+export enum InsightStatus {
+  NEW = 'new',
+  SAVED = 'saved',
+  DISMISSED = 'dismissed',
+}
+
+export interface Insight {
+  id: string;
+  title: string;
+  description: string;
+  type: InsightType;
+  confidence: number;
+  status: InsightStatus;
+  dataSource: string;
+  timestamp: string; // ISO string
+  suggestedChartPrompt: string;
+}
+
 export interface ProactiveInsight {
-    id: string;
     title: string;
     summary: string;
-    severity: 'low' | 'medium' | 'high';
+    type: InsightType;
+    confidence: number;
     involvedFields: string[];
     suggestedChartPrompt: string;
 }
+
 
 export interface AiCalculatedFieldSuggestion {
     fieldName: string;
@@ -565,6 +593,8 @@ export interface ToastNotification {
         label: string;
         onClick: () => void;
     };
+    timestamp: string;
+    read: boolean;
 }
 
 export type ChartLibrary = 'recharts' | 'apexcharts' | 'echarts';
@@ -722,7 +752,7 @@ export interface PredictiveModelResult {
     residuals: { predicted: number; residual: number; }[];
 }
 
-export type CurrentView = 'dashboard' | 'explorer' | 'stories' | 'studio' | 'modeler' | 'settings' | 'admin' | 'templates' | 'predictive' | 'datasources';
+export type CurrentView = 'dashboard' | 'explorer' | 'stories' | 'studio' | 'modeler' | 'settings' | 'admin' | 'templates' | 'predictive' | 'datasources' | 'insightHub';
 
 export type DashboardMode = 'view' | 'comment' | 'edit';
 
@@ -736,7 +766,7 @@ export interface DashboardContextProps {
     performanceTimings: Map<string, number>;
     aiConfig: AIConfig | null;
     aiChatHistory: AiChatMessage[];
-    insightsByPage: Map<string, AiInsight[]>;
+    insights: Insight[];
     isGeneratingInsights: boolean;
     themeConfig: ThemeConfig;
     chartLibrary: ChartLibrary;
@@ -746,7 +776,10 @@ export interface DashboardContextProps {
     explorerState: ExplorerState | null;
     studioSourceId: string | null;
     isDataStudioOnboardingNeeded: boolean;
-    notifications: ToastNotification[];
+    toastNotifications: ToastNotification[];
+    allNotifications: ToastNotification[];
+    unreadNotificationCount: number;
+    isNotificationPanelOpen: boolean;
     loadingState: { isLoading: boolean; message: string; lottieAnimation?: any };
     scrollToWidgetId: string | null;
     dashboardMode: DashboardMode;
@@ -786,10 +819,10 @@ export interface DashboardContextProps {
     createWidgetFromSuggestion: (suggestion: Partial<WidgetState>) => void;
     chatContext: ChatContext;
     setChatContext: Dispatch<SetStateAction<ChatContext>>;
-    proactiveInsights: Map<string, ProactiveInsight[]>;
-    runProactiveAnalysis: () => Promise<void>;
-    hasNewInsights: boolean;
-    setHasNewInsights: Dispatch<SetStateAction<boolean>>;
+    setInsights: Dispatch<SetStateAction<Insight[]>>;
+    generateNewInsights: () => Promise<void>;
+    updateInsightStatus: (id: string, status: InsightStatus) => void;
+    exploreInsight: (prompt: string) => void;
     setThemeConfig: Dispatch<SetStateAction<ThemeConfig>>;
     toggleThemeMode: () => void;
     setThemeName: (name: string) => void;
@@ -800,6 +833,10 @@ export interface DashboardContextProps {
     setView: (view: CurrentView, options?: any) => void;
     completeDataStudioOnboarding: () => void;
     removeToast: (id: string) => void;
+    openNotificationPanel: () => void;
+    closeNotificationPanel: () => void;
+    markAllNotificationsAsRead: () => void;
+    clearAllNotifications: () => void;
     setScrollToWidgetId: Dispatch<SetStateAction<string | null>>;
     setDashboardMode: Dispatch<SetStateAction<DashboardMode>>;
     toggleHelpMode: () => void;
@@ -852,13 +889,12 @@ export interface DashboardContextProps {
     addComment: (widgetId: string, position: { x: number; y: number }) => void;
     updateComment: (commentId: string, messages: DashboardCommentMessage[]) => void;
     deleteComment: (commentId: string) => void;
-    generateDashboardInsights: () => Promise<void>;
     runAdvancedAnalysis: (widgetId: string, analysisType: 'ANOMALY_DETECTION' | 'KEY_INFLUENCERS' | 'CLUSTERING') => Promise<void>;
     runWhatIfAnalysis: (widgetId: string, scenarioConfig: { targetMetric: string; modifiedVariables: { [key: string]: number } }) => Promise<void>;
     runWidgetAnalysis: (widget: WidgetState, tone?: StoryTone) => Promise<void>;
     getWidgetAnalysisText: (widget: WidgetState, tone?: StoryTone) => Promise<string | null>;
     generateStoryFromPage: (pageId: string, title: string, tone: StoryTone) => Promise<void>;
-    generateStoryFromInsights: (insights: ProactiveInsight[]) => Promise<void>;
+    generateStoryFromInsights: (insights: Insight[]) => Promise<void>;
     createPageFromTemplate: (template: Template, mappings: Map<string, string>) => void;
     createTemplateFromPage: (page: DashboardPage, templateDetails: Omit<Template, 'id' | 'page' | 'requiredFields'>) => void;
     handleGenerateAiDashboard: () => Promise<void>;
@@ -874,7 +910,6 @@ export interface DashboardContextProps {
     resolveNlpAmbiguity: (term: string, fieldSimpleName: string) => void;
     handleNlpFilterQuery: (query: string) => Promise<void>;
     setNewlyAddedPillId: Dispatch<SetStateAction<string | null>>;
-    // FIX: Added missing properties to the DashboardContextProps interface.
     toggleWidgetSelection: (widgetId: string) => void;
     deleteSelectedWidgets: () => void;
     duplicateSelectedWidgets: () => void;
@@ -890,7 +925,6 @@ export interface DashboardContextProps {
     filterConfigModalState: { isOpen: boolean; pill: Pill | null; onSave: ((p: Pill) => void) | null; onBack?: () => void };
     isPageFiltersModalOpen: boolean;
     selectFieldModalState: { isOpen: boolean, onSave?: (pill: Pill) => void };
-    isInsightHubOpen: boolean;
     isChatModalOpen: boolean;
     addFieldModalState: { isOpen: boolean; sourceId: string | null; initialStep?: 'formula' | 'grouping' };
     valueFormatModalState: { isOpen: boolean; pill: Pill | null; onSave: ((f: ValueFormat) => void) | null };
@@ -927,8 +961,6 @@ export interface DashboardContextProps {
     closePageFiltersModal: () => void;
     openSelectFieldModal: (onSave?: (pill: Pill) => void) => void;
     closeSelectFieldModal: () => void;
-    openInsightHub: () => void;
-    closeInsightHub: () => void;
     openChatModal: () => void;
     closeChatModal: () => void;
     openAddFieldModal: (sourceId: string, initialStep?: 'formula' | 'grouping') => void;

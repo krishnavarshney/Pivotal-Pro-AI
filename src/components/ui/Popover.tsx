@@ -20,7 +20,7 @@ export const Popover: React.FC<{
     const triggerRef = React.useRef<HTMLDivElement>(null);
     const popoverContentRef = React.useRef<HTMLDivElement>(null);
     const [style, setStyle] = React.useState<React.CSSProperties>({ visibility: 'hidden', position: 'fixed' });
-    const MotionDiv = motion.div as any;
+    const MotionDiv = motion.div;
 
     const updatePosition = React.useCallback(() => {
         if (!triggerRef.current || !popoverContentRef.current) return;
@@ -36,15 +36,12 @@ export const Popover: React.FC<{
                 left: triggerRect.left,
                 right: window.innerWidth - triggerRect.right,
             };
-            const placements: ('right' | 'left' | 'bottom' | 'top')[] = ['right', 'left', 'bottom', 'top'];
-            const bestPlacement = placements.find(p => {
+            const placements: ('top' | 'bottom' | 'left' | 'right')[] = ['top', 'bottom', 'left', 'right'];
+            effectivePlacement = placements.find(p => {
                 if (p === 'top' || p === 'bottom') return space[p] > contentRect.height + offset;
                 if (p === 'left' || p === 'right') return space[p] > contentRect.width + offset;
                 return false;
-            });
-            effectivePlacement = bestPlacement || 'bottom';
-        } else {
-            effectivePlacement = placement as any;
+            }) || 'bottom';
         }
 
         let top: number, left: number;
@@ -54,71 +51,38 @@ export const Popover: React.FC<{
                 top = triggerRect.top - contentRect.height - offset;
                 if (align === 'right' || align === 'end') left = triggerRect.right - contentRect.width;
                 else if (align === 'center') left = triggerRect.left + triggerRect.width / 2 - contentRect.width / 2;
-                else left = triggerRect.left;
+                else left = triggerRect.left; // align 'left' or 'start'
                 break;
             case 'bottom':
                 top = triggerRect.bottom + offset;
                 if (align === 'right' || align === 'end') left = triggerRect.right - contentRect.width;
                 else if (align === 'center') left = triggerRect.left + triggerRect.width / 2 - contentRect.width / 2;
-                else left = triggerRect.left;
+                else left = triggerRect.left; // align 'left' or 'start'
                 break;
             case 'left':
                 left = triggerRect.left - contentRect.width - offset;
                 if (align === 'end') top = triggerRect.bottom - contentRect.height;
                 else if (align === 'center') top = triggerRect.top + triggerRect.height / 2 - contentRect.height / 2;
-                else top = triggerRect.top;
+                else top = triggerRect.top; // 'start'
                 break;
             case 'right':
                 left = triggerRect.right + offset;
                 if (align === 'end') top = triggerRect.bottom - contentRect.height;
                 else if (align === 'center') top = triggerRect.top + triggerRect.height / 2 - contentRect.height / 2;
-                else top = triggerRect.top;
+                else top = triggerRect.top; // 'start'
                 break;
-            default:
+            default: // bottom as fallback
                 top = triggerRect.bottom + offset;
                 left = triggerRect.left;
         }
 
         const finalTop = Math.max(10, Math.min(top, window.innerHeight - contentRect.height - 10));
         const finalLeft = Math.max(10, Math.min(left, window.innerWidth - contentRect.width - 10));
-        
-        let yOrigin: string, xOrigin: string;
 
-        switch (effectivePlacement) {
-            case 'bottom':
-                yOrigin = 'top';
-                xOrigin = (align === 'left' || align === 'start') ? 'left' : (align === 'right' || align === 'end') ? 'right' : 'center';
-                break;
-            case 'top':
-                yOrigin = 'bottom';
-                xOrigin = (align === 'left' || align === 'start') ? 'left' : (align === 'right' || align === 'end') ? 'right' : 'center';
-                break;
-            case 'left':
-                xOrigin = 'right';
-                yOrigin = (align === 'start') ? 'top' : (align === 'end') ? 'bottom' : 'center';
-                break;
-            case 'right':
-                xOrigin = 'left';
-                yOrigin = (align === 'start') ? 'top' : (align === 'end') ? 'bottom' : 'center';
-                break;
-            default:
-                yOrigin = 'top';
-                xOrigin = 'center';
-        }
+        setStyle({ position: 'fixed', top: `${finalTop}px`, left: `${finalLeft}px`, visibility: 'visible', ...contentStyle });
+    }, [align, placement, offset, triggerRef, popoverContentRef, contentStyle]);
 
-        const transformOrigin = `${xOrigin} ${yOrigin}`;
-
-        setStyle({ 
-            position: 'fixed', 
-            top: `${finalTop}px`, 
-            left: `${finalLeft}px`, 
-            visibility: 'visible',
-            transformOrigin: transformOrigin,
-            ...contentStyle
-        });
-    }, [align, placement, offset, contentStyle]);
-
-    React.useLayoutEffect(() => {
+    React.useEffect(() => {
         if (isOpen) {
             setStyle({ position: 'fixed', top: '-9999px', left: '-9999px', visibility: 'hidden' });
             requestAnimationFrame(() => updatePosition());
@@ -127,28 +91,35 @@ export const Popover: React.FC<{
 
     React.useEffect(() => {
         if (!isOpen) return;
+
+        const handleScrollAndResize = () => updatePosition();
         const handleClickOutside = (event: MouseEvent) => {
-            if (popoverContentRef.current && !popoverContentRef.current.contains(event.target as Node) && triggerRef.current && !triggerRef.current.contains(event.target as Node)) {
+            if (
+                triggerRef.current && !triggerRef.current.contains(event.target as Node) &&
+                popoverContentRef.current && !popoverContentRef.current.contains(event.target as Node)
+            ) {
                 onClose();
             }
         };
-        const handleScroll = () => updatePosition();
+
+        window.addEventListener('scroll', handleScrollAndResize, true);
+        window.addEventListener('resize', handleScrollAndResize);
         document.addEventListener('mousedown', handleClickOutside);
-        window.addEventListener('scroll', handleScroll, true);
-        window.addEventListener('resize', handleScroll);
+
         return () => {
+            window.removeEventListener('scroll', handleScrollAndResize, true);
+            window.removeEventListener('resize', handleScrollAndResize);
             document.removeEventListener('mousedown', handleClickOutside);
-            window.removeEventListener('scroll', handleScroll, true);
-            window.removeEventListener('resize', handleScroll);
         };
-    }, [isOpen, onClose, updatePosition]);
+    }, [isOpen, updatePosition, onClose]);
 
-    if (typeof document === 'undefined') return null;
-
+    // FIX: Added missing return statement and JSX structure.
     return (
-        <div ref={triggerRef}>
-            {trigger}
-            {ReactDOM.createPortal(
+        <>
+            <div ref={triggerRef} className="inline-block">
+                {trigger}
+            </div>
+            {typeof document !== 'undefined' && ReactDOM.createPortal(
                 <AnimatePresence>
                     {isOpen && (
                         <MotionDiv
@@ -156,9 +127,9 @@ export const Popover: React.FC<{
                             initial={{ opacity: 0, scale: 0.95 }}
                             animate={{ opacity: 1, scale: 1 }}
                             exit={{ opacity: 0, scale: 0.95 }}
-                            transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                            transition={{ duration: 0.1, ease: 'easeOut' }}
                             style={style}
-                            className={cn("z-50 rounded-lg border border-border dark:border-popover bg-popover p-4 text-popover-foreground shadow-md outline-none", contentClassName)}
+                            className={cn("z-50 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md outline-none", contentClassName)}
                         >
                             {typeof children === 'function' ? children({ close: onClose }) : children}
                         </MotionDiv>
@@ -166,59 +137,17 @@ export const Popover: React.FC<{
                 </AnimatePresence>,
                 document.body
             )}
-        </div>
+        </>
     );
 };
 
-
-// --- Dropdown Menu Implementation ---
-
+// FIX: Export Radix UI Dropdown Menu components
 export const DropdownMenu = DropdownMenuPrimitive.Root
 export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger
-export const DropdownMenuGroup = DropdownMenuPrimitive.Group
 export const DropdownMenuPortal = DropdownMenuPrimitive.Portal
 export const DropdownMenuSub = DropdownMenuPrimitive.Sub
 export const DropdownMenuRadioGroup = DropdownMenuPrimitive.RadioGroup
 
-// FIX: Changed props type from DropdownMenuPrimitive.DropdownMenuSubTriggerProps to React.ComponentPropsWithoutRef to correctly include className and children.
-export const DropdownMenuSubTrigger = React.forwardRef<
-  React.ElementRef<typeof DropdownMenuPrimitive.SubTrigger>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubTrigger> & {
-    inset?: boolean
-  }
->(({ className, inset, children, ...props }, ref) => (
-  <DropdownMenuPrimitive.SubTrigger
-    ref={ref}
-    className={cn(
-      "flex cursor-default select-none items-center rounded-md px-2 py-1.5 text-sm outline-none focus:bg-accent data-[state=open]:bg-accent",
-      inset && "pl-8",
-      className
-    )}
-    {...props}
-  >
-    {children}
-    <ChevronRight className="ml-auto h-4 w-4" />
-  </DropdownMenuPrimitive.SubTrigger>
-))
-DropdownMenuSubTrigger.displayName = DropdownMenuPrimitive.SubTrigger.displayName
-
-// FIX: Changed props type from DropdownMenuPrimitive.DropdownMenuSubContentProps to React.ComponentPropsWithoutRef to correctly include className.
-export const DropdownMenuSubContent = React.forwardRef<
-  React.ElementRef<typeof DropdownMenuPrimitive.SubContent>,
-  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>
->(({ className, ...props }, ref) => (
-  <DropdownMenuPrimitive.SubContent
-    ref={ref}
-    className={cn(
-      "z-50 min-w-[8rem] overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-md glass-panel data-[state=open]:animate-overlay-in data-[state=closed]:animate-overlay-out",
-      className
-    )}
-    {...props}
-  />
-))
-DropdownMenuSubContent.displayName = DropdownMenuPrimitive.SubContent.displayName
-
-// FIX: Changed props type from DropdownMenuPrimitive.DropdownMenuContentProps to React.ComponentPropsWithoutRef to correctly include className.
 export const DropdownMenuContent = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>
@@ -228,8 +157,7 @@ export const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        "z-50 min-w-[8rem] overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-md glass-panel",
-        "data-[state=open]:animate-overlay-in data-[state=closed]:animate-overlay-out",
+        "z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md animate-in data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
         className
       )}
       {...props}
@@ -238,7 +166,18 @@ export const DropdownMenuContent = React.forwardRef<
 ))
 DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName
 
-// FIX: Changed props type from DropdownMenuPrimitive.DropdownMenuItemProps to React.ComponentPropsWithoutRef to correctly include className and children.
+export const DropdownMenuGroup = React.forwardRef<
+  React.ElementRef<typeof DropdownMenuPrimitive.Group>,
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Group>
+>(({ className, ...props }, ref) => (
+  <DropdownMenuPrimitive.Group
+    ref={ref}
+    className={cn("p-1", className)}
+    {...props}
+  />
+))
+DropdownMenuGroup.displayName = DropdownMenuPrimitive.Group.displayName
+
 export const DropdownMenuItem = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
@@ -248,7 +187,7 @@ export const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-md px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       inset && "pl-8",
       className
     )}
@@ -257,7 +196,6 @@ export const DropdownMenuItem = React.forwardRef<
 ))
 DropdownMenuItem.displayName = DropdownMenuPrimitive.Item.displayName
 
-// FIX: Changed props type from DropdownMenuPrimitive.DropdownMenuCheckboxItemProps to React.ComponentPropsWithoutRef to correctly include className and children.
 export const DropdownMenuCheckboxItem = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.CheckboxItem>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem>
@@ -265,7 +203,7 @@ export const DropdownMenuCheckboxItem = React.forwardRef<
   <DropdownMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className
     )}
     checked={checked}
@@ -279,9 +217,9 @@ export const DropdownMenuCheckboxItem = React.forwardRef<
     {children}
   </DropdownMenuPrimitive.CheckboxItem>
 ))
-DropdownMenuCheckboxItem.displayName = DropdownMenuPrimitive.CheckboxItem.displayName
+DropdownMenuCheckboxItem.displayName =
+  DropdownMenuPrimitive.CheckboxItem.displayName
 
-// FIX: Changed props type from DropdownMenuPrimitive.DropdownMenuRadioItemProps to React.ComponentPropsWithoutRef to correctly include className and children.
 export const DropdownMenuRadioItem = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.RadioItem>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioItem>
@@ -289,14 +227,14 @@ export const DropdownMenuRadioItem = React.forwardRef<
   <DropdownMenuPrimitive.RadioItem
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className
     )}
     {...props}
   >
     <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
       <DropdownMenuPrimitive.ItemIndicator>
-        <div className="w-1.5 h-1.5 rounded-full bg-current" />
+        <div className="h-2 w-2 rounded-full bg-primary" />
       </DropdownMenuPrimitive.ItemIndicator>
     </span>
     {children}
@@ -304,7 +242,6 @@ export const DropdownMenuRadioItem = React.forwardRef<
 ))
 DropdownMenuRadioItem.displayName = DropdownMenuPrimitive.RadioItem.displayName
 
-// FIX: Changed props type from DropdownMenuPrimitive.DropdownMenuLabelProps to React.ComponentPropsWithoutRef to correctly include className.
 export const DropdownMenuLabel = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Label>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Label> & {
@@ -313,20 +250,23 @@ export const DropdownMenuLabel = React.forwardRef<
 >(({ className, inset, ...props }, ref) => (
   <DropdownMenuPrimitive.Label
     ref={ref}
-    className={cn("px-2 py-1.5 text-sm font-semibold text-muted-foreground", inset && "pl-8", className)}
+    className={cn(
+      "px-2 py-1.5 text-sm font-semibold",
+      inset && "pl-8",
+      className
+    )}
     {...props}
   />
 ))
 DropdownMenuLabel.displayName = DropdownMenuPrimitive.Label.displayName
 
-// FIX: Changed props type from DropdownMenuPrimitive.DropdownMenuSeparatorProps to React.ComponentPropsWithoutRef to correctly include className.
 export const DropdownMenuSeparator = React.forwardRef<
   React.ElementRef<typeof DropdownMenuPrimitive.Separator>,
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Separator>
 >(({ className, ...props }, ref) => (
   <DropdownMenuPrimitive.Separator
     ref={ref}
-    className={cn("-mx-1 my-1 h-px bg-border", className)}
+    className={cn("-mx-1 my-1 h-px bg-muted", className)}
     {...props}
   />
 ))
@@ -338,9 +278,47 @@ export const DropdownMenuShortcut = ({
 }: React.HTMLAttributes<HTMLSpanElement>) => {
   return (
     <span
-      className={cn("ml-auto text-xs tracking-widest text-muted-foreground", className)}
+      className={cn("ml-auto text-xs tracking-widest opacity-60", className)}
       {...props}
     />
   )
 }
 DropdownMenuShortcut.displayName = "DropdownMenuShortcut"
+
+export const DropdownMenuSubTrigger = React.forwardRef<
+  React.ElementRef<typeof DropdownMenuPrimitive.SubTrigger>,
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubTrigger> & {
+    inset?: boolean
+  }
+>(({ className, inset, children, ...props }, ref) => (
+  <DropdownMenuPrimitive.SubTrigger
+    ref={ref}
+    className={cn(
+      "flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-accent data-[state=open]:bg-accent",
+      inset && "pl-8",
+      className
+    )}
+    {...props}
+  >
+    {children}
+    <ChevronRight className="ml-auto h-4 w-4" />
+  </DropdownMenuPrimitive.SubTrigger>
+))
+DropdownMenuSubTrigger.displayName =
+  DropdownMenuPrimitive.SubTrigger.displayName
+
+export const DropdownMenuSubContent = React.forwardRef<
+  React.ElementRef<typeof DropdownMenuPrimitive.SubContent>,
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.SubContent>
+>(({ className, ...props }, ref) => (
+  <DropdownMenuPrimitive.SubContent
+    ref={ref}
+    className={cn(
+      "z-50 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-lg animate-in data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+      className
+    )}
+    {...props}
+  />
+))
+DropdownMenuSubContent.displayName =
+  DropdownMenuPrimitive.SubContent.displayName

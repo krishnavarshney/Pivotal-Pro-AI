@@ -1,9 +1,7 @@
-
-
 import React, { useState, FC, ReactNode } from 'react';
 import { Palette, Bot, BarChart, Settings, AlertTriangle } from 'lucide-react';
-import { ViewHeader } from '../components/common/ViewHeader';
-import { cn } from '../components/ui/utils';
+import { ViewHeader } from '../../components/common/ViewHeader';
+import { cn } from '../../components/ui/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 
 import { AppearanceSettings } from './settings/AppearanceSettings';

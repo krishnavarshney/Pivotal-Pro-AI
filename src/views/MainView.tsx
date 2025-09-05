@@ -1,4 +1,5 @@
 import React, { FC } from 'react';
+// FIX: Add aliasing for motion component to fix TypeScript errors.
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDashboard } from '../contexts/DashboardProvider';
 import { AppSidebar } from '../components/dashboard/Sidebar';
@@ -14,6 +15,7 @@ import { PredictiveStudioView } from './PredictiveStudioView';
 import { DataSourcesView } from './DataSourcesView';
 import { DashboardHomeView } from './DashboardHomeView';
 import { AdminView } from './AdminView';
+import { InsightHubView } from './InsightHubView';
 import { cn } from '../components/ui/utils';
 
 // FIX: Add aliasing for motion component to fix TypeScript errors.
@@ -25,7 +27,6 @@ export const MainView: FC = () => {
         dataSources,
         workspaces,
         activePage,
-        dashboardMode,
     } = useDashboard();
     
     const renderCurrentView = () => {
@@ -45,6 +46,7 @@ export const MainView: FC = () => {
             case 'settings': return <SettingsView />;
             case 'templates': return <TemplateLibraryView />;
             case 'predictive': return <PredictiveStudioView />;
+            case 'insightHub': return <InsightHubView />;
             default: return <DashboardHomeView />;
         }
     }
@@ -53,8 +55,6 @@ export const MainView: FC = () => {
     const allPages = workspaces.flatMap(ws => ws.pages || []);
     // FIX: The Getting Started view should only show when a specific page is active, not when navigating to the home view.
     const showGettingStarted = !showEmptyState && currentView === 'dashboard' && activePage && allPages.length === 1 && activePage.widgets.length === 0;
-
-    const isBuilderMode = dashboardMode === 'edit' && currentView === 'dashboard' && !!activePage;
 
     if (showEmptyState) {
         return (
@@ -78,7 +78,7 @@ export const MainView: FC = () => {
     return (
         <div className="flex h-screen bg-transparent p-4 gap-4">
             <AppSidebar />
-            <main className={cn("flex-1 relative overflow-hidden rounded-xl transition-all duration-300 ease-in-out", isBuilderMode && "pl-[260px]")}>
+            <main className={cn("flex-1 relative overflow-hidden rounded-xl transition-all duration-300 ease-in-out")}>
                 <AnimatePresence mode="wait">
                     <MotionDiv
                         key={currentView}

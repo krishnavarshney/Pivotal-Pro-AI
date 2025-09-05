@@ -6,6 +6,7 @@ import { inputClasses, cn } from '../ui/utils';
 import { Label } from '../ui/Label';
 import { Connector } from '../../utils/types';
 import { Link, TestTube, RefreshCw } from 'lucide-react';
+// FIX: Add aliasing for motion component to fix TypeScript errors.
 import { motion, AnimatePresence } from 'framer-motion';
 import * as apiService from '../../services/apiService';
 import { notificationService } from '../../services/notificationService';

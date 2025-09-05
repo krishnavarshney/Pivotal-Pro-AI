@@ -51,12 +51,12 @@ const Toast: FC<{ notification: ToastNotification }> = ({ notification }) => {
 };
 
 export const ToastContainer: FC = () => {
-    const { notifications } = useDashboard();
+    const { toastNotifications } = useDashboard();
 
     return (
         <div className="fixed top-4 right-4 z-[200] pointer-events-none flex flex-col gap-3">
             <AnimatePresence>
-                {notifications.map(notification => (
+                {toastNotifications.map(notification => (
                     <Toast key={notification.id} notification={notification} />
                 ))}
             </AnimatePresence>

@@ -1,9 +1,9 @@
 
+
 export * from './WidgetEditorModal';
 export * from './FilterConfigModal';
 export * from './PageFiltersModal';
 export * from './SelectFieldForFilterModal';
-export * from './AiAssistantModal';
 export * from './ConfirmationModal';
 export * from './AddFieldModal';
 export * from './ValueFormatModal';

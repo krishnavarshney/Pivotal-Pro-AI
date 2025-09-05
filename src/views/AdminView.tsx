@@ -229,12 +229,12 @@ export const AdminView: FC = () => {
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                    {/* FIX: Wrapped children in a fragment to satisfy the updated component props. */}
                     <DropdownMenuItem onClick={() => handleUpdateUserRole(user.id, user.role === 'ADMIN' ? 'USER' : 'ADMIN')}>
-{/* FIX: Wrapped children in a fragment to satisfy the updated component props. */}
                         <>{user.role === 'ADMIN' ? 'Make User' : 'Make Admin'}</>
                     </DropdownMenuItem>
+                    {/* FIX: Wrapped children in a fragment to satisfy the updated component props. */}
                     <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteUser(user.id)}>
-{/* FIX: Wrapped children in a fragment to satisfy the updated component props. */}
                         <>Delete User</>
                     </DropdownMenuItem>
                 </DropdownMenuContent>

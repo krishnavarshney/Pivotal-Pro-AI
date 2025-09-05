@@ -11,8 +11,9 @@ import {
     ChartLibrary, DashboardDefaults, ContextMenuItem, ToastNotification, ExplorerState, User, 
     AdvancedAnalysisResult, AiInsight, TransformationType, ChartType, ValueFormat, DashboardComment, StoryPage, DashboardCommentMessage, WhatIfResult, StoryTone, AggregationType, AiDashboardSuggestion,
     ChatContext, ProactiveInsight, PredictiveModelResult, Connector, DataStudioCanvasLayout, ControlFilterState, DashboardMode,
-    // FIX: Imported FilterCondition to resolve reference error.
-    FilterCondition
+    FilterCondition,
+    Insight,
+    InsightStatus
 } from '../utils/types';
 import { SAMPLE_DATA_SALES, SAMPLE_DATA_IRIS, DASHBOARD_TEMPLATES } from '../utils/constants';
 import { blendData } from '../utils/dataProcessing/blending';
@@ -114,10 +115,8 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     const [aiConfig, setAiConfig] = useState<AIConfig | null>(getInitialAiConfig);
     const [aiChatHistory, setAiChatHistory] = useState<AiChatMessage[]>([]);
     const [chatContext, setChatContext] = useState<ChatContext>(null);
-    const [insightsByPage, setInsightsByPage] = useState<Map<string, AiInsight[]>>(new Map());
-    const [proactiveInsights, setProactiveInsights] = useState<Map<string, ProactiveInsight[]>>(new Map());
+    const [insights, setInsights] = useState<Insight[]>(() => getInitialState('pivotalProInsights', []));
     const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
-    const [hasNewInsights, setHasNewInsights] = useState(false);
     
     // --- UI State ---
     const [themeConfig, setThemeConfig] = useState<ThemeConfig>(() => getInitialState('pivotalProTheme', { name: 'pivotal-pro', mode: 'light' }));
@@ -128,7 +127,9 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     const [explorerState, setExplorerState] = useState<ExplorerState | null>(null);
     const [studioSourceId, setStudioSourceId] = useState<string | null>(null);
     const [isDataStudioOnboardingNeeded, setDataStudioOnboardingNeeded] = useState(() => getInitialState('pivotalProStudioOnboarding', true));
-    const [notifications, setNotifications] = useState<ToastNotification[]>([]);
+    const [toastNotifications, setToastNotifications] = useState<ToastNotification[]>([]);
+    const [allNotifications, setAllNotifications] = useState<ToastNotification[]>(() => getInitialState('pivotalProAllNotifications', []));
+    const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
     const [loadingState, setLoadingState] = useState<{ isLoading: boolean; message: string; lottieAnimation?: any }>({ isLoading: false, message: '' });
     const [scrollToWidgetId, setScrollToWidgetId] = useState<string | null>(null);
     const [dashboardMode, setDashboardMode] = useState<DashboardMode>('view');
@@ -152,6 +153,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     
     // Derived State & Refs ---
     const transformations = useMemo(() => new Map(transformationsArray), [transformationsArray]);
+    const unreadNotificationCount = useMemo(() => allNotifications.filter(n => !n.read).length, [allNotifications]);
     
     const transformedDataSources = useMemo(() => {
         const newMap = new Map<string, DataSource>();
@@ -199,9 +201,10 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     
     // --- UI Callbacks ---
     const showToast = useCallback((options: Omit<ToastNotification, 'id'>) => {
-        const id = _.uniqueId('toast_');
-        setNotifications(prev => [...prev, { ...options, id }]);
-        setTimeout(() => removeToast(id), options.duration || 5000);
+        const newNotification: ToastNotification = { ...options, id: _.uniqueId('toast_') };
+        setToastNotifications(prev => [...prev, newNotification]);
+        setAllNotifications(prev => [newNotification, ...prev.slice(0, 99)]); // Keep max 100
+        setTimeout(() => removeToast(newNotification.id), options.duration || 5000);
     }, []);
 
     useEffect(() => {
@@ -219,6 +222,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
             localStorage.setItem('pivotalProDashboardState', JSON.stringify(stateToSave));
             localStorage.setItem('pivotalProActivePageId', JSON.stringify(activePageId));
             localStorage.setItem('pivotalProDataSources', JSON.stringify(Array.from(dataSources.entries())));
+            localStorage.setItem('pivotalProInsights', JSON.stringify(insights));
             localStorage.setItem('pivotalProRelationships', JSON.stringify(relationships));
             localStorage.setItem('pivotalProParameters', JSON.stringify(parameters));
             localStorage.setItem('pivotalProStories', JSON.stringify(stories));
@@ -229,11 +233,12 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
             localStorage.setItem('pivotalProUserTemplates', JSON.stringify(userTemplates));
             localStorage.setItem('pivotalProDataModelerLayout', JSON.stringify(dataModelerLayout));
             localStorage.setItem('pivotalProDataStudioLayout', JSON.stringify(dataStudioCanvasLayout));
+            localStorage.setItem('pivotalProAllNotifications', JSON.stringify(allNotifications));
         } catch (error) {
             console.error("Failed to save state to local storage:", error);
             notificationService.error("Could not save dashboard state.");
         }
-    }, 1000), [workspaces, transformations, relationships, parameters, stories, aiConfig, themeConfig, chartLibrary, dashboardDefaults, userTemplates, dataModelerLayout, dataStudioCanvasLayout, dataSources, activePageId]);
+    }, 1000), [workspaces, transformations, relationships, parameters, stories, aiConfig, themeConfig, chartLibrary, dashboardDefaults, userTemplates, dataModelerLayout, dataStudioCanvasLayout, dataSources, activePageId, insights, allNotifications]);
 
     useEffect(() => {
         saveStateToLocalStorage();
@@ -241,13 +246,34 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
 
     
     const removeToast = (id: string) => {
-        setNotifications(prev => prev.filter(n => n.id !== id));
+        setToastNotifications(prev => prev.filter(n => n.id !== id));
     };
 
     const setView = (view: DashboardContextProps['currentView'], options?: any) => {
         if (options?.initialFilters) setExplorerState(options);
         if (options?.sourceId) setStudioSourceId(options.sourceId);
         setCurrentView(view);
+    };
+    
+    const markAllNotificationsAsRead = useCallback(() => {
+        setAllNotifications(prev => prev.map(n => n.read ? n : { ...n, read: true }));
+    }, []);
+
+    const openNotificationPanel = () => {
+        setIsNotificationPanelOpen(true);
+        markAllNotificationsAsRead();
+    };
+    const closeNotificationPanel = () => setIsNotificationPanelOpen(false);
+    
+    const clearAllNotifications = () => {
+        modalManager.openConfirmationModal({
+            title: "Clear All Notifications?",
+            message: "This will permanently delete all notifications from your history.",
+            onConfirm: () => {
+                setAllNotifications([]);
+                closeNotificationPanel();
+            }
+        });
     };
 
     // --- Dashboard Management Callbacks ---
@@ -711,7 +737,6 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         if(sampleKey === 'sales' || sampleKey === 'both') processSample('sample_sales', 'Sample - Superstore Sales', SAMPLE_DATA_SALES);
         if(sampleKey === 'iris' || sampleKey === 'both') processSample('sample_iris', 'Sample - Iris Dataset', SAMPLE_DATA_IRIS);
         notificationService.success('Sample data loaded!');
-        // FIX: Set the active page after loading sample data to navigate the user.
         if (!activePageId && workspaces[0]?.pages?.[0]) {
             setActivePageId(workspaces[0].pages[0].id);
         }
@@ -815,49 +840,48 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         }
     };
 
-    const generateDashboardInsights = async () => {
-        if (!aiConfig || !activePage) return;
-        setIsGeneratingInsights(true);
-        try {
-            const widgetDataSummaries = await Promise.all(
-                activePage.widgets.map(async (widget) => {
-                    const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, parameters);
-                    if (data.type === 'nodata' || data.type === 'loading' || data.type === 'heatmap') return null;
-                    return `Widget: "${widget.title}" (Type: ${widget.chartType})\nData:\n${JSON.stringify(data)}\n---`;
-                })
-            );
-            const fullSummary = widgetDataSummaries.filter(Boolean).join('\n');
-            if (!fullSummary) { notificationService.info('Not enough data on the dashboard to generate insights.'); return; }
-            const rawResult = await aiService.getAiDashboardAnalysis(aiConfig, fullSummary);
-            const result: AiInsight = { id: _.uniqueId('insight_'), timestamp: new Date().toISOString(), ...JSON.parse(rawResult) };
-            setInsightsByPage(prev => new Map(prev).set(activePage.id, [result]));
-        } catch (e) { notificationService.error(`Failed to generate insights: ${(e as Error).message}`); } 
-        finally { setIsGeneratingInsights(false); }
-    };
-
-    const runProactiveAnalysis = useCallback(async () => {
-        if (!aiConfig || !activePage) return;
+    const generateNewInsights = useCallback(async () => {
+        if (!aiConfig) return;
         setIsGeneratingInsights(true);
         try {
             const allFields = [...blendedFields.dimensions, ...blendedFields.measures];
             const simpleFields = allFields.map(f => ({ name: f.simpleName, type: f.type }));
             const dataSample = blendedData.slice(0, 50);
 
-            const insights = await aiService.getProactiveInsights(aiConfig, simpleFields, dataSample);
+            const proactiveResults = await aiService.getProactiveInsights(aiConfig, simpleFields, dataSample);
             
-            if (insights.length > 0) {
-                const insightsWithIds: ProactiveInsight[] = insights.map(i => ({ ...i, id: _.uniqueId('pi_') }));
-                setProactiveInsights(prev => new Map(prev).set(activePage.id, insightsWithIds));
-                setHasNewInsights(true);
-            } else {
-                 setProactiveInsights(prev => new Map(prev).set(activePage.id, []));
-            }
+            const newInsights: Insight[] = proactiveResults.map(pi => ({
+                id: _.uniqueId('insight_'),
+                title: pi.title,
+                description: pi.summary,
+                type: pi.type,
+                confidence: pi.confidence,
+                status: InsightStatus.NEW,
+                dataSource: dataSources.values().next().value?.name || 'Blended Data',
+                timestamp: new Date().toISOString(),
+                suggestedChartPrompt: pi.suggestedChartPrompt
+            }));
+
+            setInsights(prev => [
+                ...prev.filter(i => i.status !== InsightStatus.NEW),
+                ...newInsights
+            ]);
+            notificationService.success(`${newInsights.length} new insights generated!`);
+
         } catch (e) {
-            notificationService.error(`Failed to get proactive insights: ${(e as Error).message}`);
+            notificationService.error(`Failed to generate insights: ${(e as Error).message}`);
         } finally {
             setIsGeneratingInsights(false);
         }
-    }, [aiConfig, activePage, blendedData, blendedFields]);
+    }, [aiConfig, blendedData, blendedFields, dataSources]);
+
+    const updateInsightStatus = (id: string, status: InsightStatus) => {
+        setInsights(prev => prev.map(i => i.id === id ? { ...i, status } : i));
+    };
+
+    const exploreInsight = (prompt: string) => {
+        openEditorWithAIPrompt(prompt);
+    };
 
     // --- Widget Editor Logic ---
     const openWidgetEditorModal = (widgetId?: string | null) => {
@@ -1077,10 +1101,10 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         } as WidgetState;
     };
 
-    const generateStoryFromInsights = async (insights: ProactiveInsight[]) => {
+    const generateStoryFromInsights = async (insights: Insight[]) => {
         if (!aiConfig) return;
         setLoadingState({ isLoading: true, message: 'Generating story from insights...', lottieAnimation: aiThinkingAnimation });
-        modalManager.closeInsightHub();
+        setView('insightHub');
         try {
             const storyPages: StoryPage[] = [];
             const allFields = [...blendedFields.dimensions, ...blendedFields.measures];
@@ -1097,7 +1121,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                         type: 'insight',
                         title: insight.title,
                         widgetId: newWidget.id, 
-                        annotation: `**${insight.title}**\n\n${insight.summary}`,
+                        annotation: `**${insight.title}**\n\n${insight.description}`,
                         presenterNotes: ''
                     });
                 }
@@ -1591,9 +1615,10 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     const value: DashboardContextProps = {
         // State
         dataSources, relationships, dataModelerLayout, blendedData, blendedFields, performanceTimings,
-        aiConfig, aiChatHistory, insightsByPage, isGeneratingInsights,
+        aiConfig, aiChatHistory, insights, isGeneratingInsights,
         themeConfig, chartLibrary, dashboardDefaults, contextMenu, currentView, explorerState, studioSourceId,
-        isDataStudioOnboardingNeeded, notifications, loadingState, scrollToWidgetId, dashboardMode, isHelpModeActive,
+        isDataStudioOnboardingNeeded, toastNotifications, allNotifications, unreadNotificationCount, isNotificationPanelOpen,
+        loadingState, scrollToWidgetId, dashboardMode, isHelpModeActive,
         workspaces, activePageId, activePage, widgets, layouts, globalFilters, parameters, stories, editingStory,
         userTemplates, crossFilter, controlFilters, canUndo, canRedo, refetchCounter, predictiveModels, dataStudioCanvasLayout,
         newlyAddedPillId, selectedWidgetIds,
@@ -1605,13 +1630,13 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         triggerWidgetRefetch: () => setRefetchCounter(c => c + 1),
         saveAiConfig: setAiConfig, sendAiChatMessage, clearAiChatHistory: () => setAiChatHistory([]),
         createWidgetFromSuggestion: (suggestion) => { modalManager.closeChatModal(); populateEditorFromAI(suggestion); },
-        chatContext, setChatContext, proactiveInsights, runProactiveAnalysis, hasNewInsights, setHasNewInsights,
+        chatContext, setChatContext, setInsights, generateNewInsights, updateInsightStatus, exploreInsight,
         setThemeConfig, toggleThemeMode: () => setThemeConfig(t => ({...t, mode: t.mode === 'dark' ? 'light' : 'dark'})),
         setThemeName: (name: string) => setThemeConfig(t => ({...t, name})),
         setChartLibrary, setDashboardDefaults,
         openContextMenu: (x, y, items) => setContextMenu({ x, y, items }), closeContextMenu: () => setContextMenu(null),
         setView, completeDataStudioOnboarding: () => setDataStudioOnboardingNeeded(false),
-        removeToast,
+        removeToast, openNotificationPanel, closeNotificationPanel, markAllNotificationsAsRead, clearAllNotifications,
         setScrollToWidgetId, setDashboardMode, toggleHelpMode: () => setIsHelpModeActive(p => !p),
         setWorkspaces, setActivePageId, addPage, removePage, updatePage,
         setLayouts, setGlobalFilters, addGlobalFilter, removeWidget, saveWidget, duplicateWidget, duplicatePage,
@@ -1641,7 +1666,6 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         addComment: (widgetId, position) => { if (!activePageId || !currentUser) return; const newComment: DashboardComment = { id: _.uniqueId('comment_'), widgetId, position, messages: [{ id: _.uniqueId('msg_'), author: currentUser.name, text: '', timestamp: new Date().toISOString() }] }; updatePage(activePageId, p => ({ ...p, comments: [...(p.comments || []), newComment] })); modalManager.setActiveCommentThread(newComment); },
         updateComment: (commentId, messages) => { if (!activePageId) return; updatePage(activePageId, p => ({ ...p, comments: (p.comments || []).map(c => c.id === commentId ? { ...c, messages } : c) })); },
         deleteComment: (commentId) => { if (!activePageId) return; updatePage(activePageId, p => ({ ...p, comments: (p.comments || []).filter(c => c.id !== commentId) })); },
-        generateDashboardInsights,
         runAdvancedAnalysis,
         runWhatIfAnalysis,
         runWidgetAnalysis,

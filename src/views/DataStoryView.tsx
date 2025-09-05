@@ -10,7 +10,8 @@ import { FormattedInsight } from '../components/ui/FormattedInsight';
 import { Plus, Presentation, Pencil, Trash, X, ArrowLeft, ArrowRight, BookOpen, Sparkle, Image as ImageIcon, Layout as LayoutIcon, Text, Copy as CopyIcon, FileText, Expand, Shrink, PencilLine, Share2 } from 'lucide-react';
 import { SelectWidgetForStoryModal } from '../components/modals/SelectWidgetForStoryModal';
 import { DataProcessor } from '../components/common/DataProcessor';
-import { motion, AnimatePresence, Reorder, Variants } from 'framer-motion';
+// FIX: Corrected framer-motion import for Variants and aliased motion components.
+import { motion, AnimatePresence, Reorder, type Variants } from 'framer-motion';
 import { ViewHeader } from '../components/common/ViewHeader';
 import { Popover } from '../components/ui/Popover';
 import { Responsive, WidthProvider } from 'react-grid-layout';

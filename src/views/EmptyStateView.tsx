@@ -4,13 +4,13 @@ import { useDashboard } from '../contexts/DashboardProvider';
 import { Database, FileSpreadsheet, Plus, ArrowRight } from 'lucide-react';
 import { cn } from '../components/ui/utils';
 // FIX: Corrected framer-motion import for Variants and aliased motion components.
-import { motion, Variants } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import { AnimatedStars } from './auth/AnimatedStars';
 
 // FIX: Add aliasing for motion components to fix TypeScript errors.
-const MotionDiv = motion.div as any;
-const MotionH1 = motion.h1 as any;
-const MotionP = motion.p as any;
+const MotionDiv = motion.div;
+const MotionH1 = motion.h1;
+const MotionP = motion.p;
 
 
 // Embedded Lottie JSON

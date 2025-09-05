@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef, FC, ReactNode } from 'react';
 import _ from 'lodash';
 import { 
-    MagnifyingGlass, Plus, Sparkle, CircleHalf, Folder, File, ChartBar, Table, Database, ShareNetwork, Gear, BookOpen, Timer, SlidersHorizontal, ArrowRight, Lightbulb, Command, Palette
-} from 'phosphor-react';
+    Search, Plus, Sparkle, SunMoon, Folder, File, BarChart, Table, Database, Share, Settings, BookOpen, Timer, SlidersHorizontal, ArrowRight, Lightbulb, Command, Palette
+} from 'lucide-react';
 import { useDashboard } from '../../contexts/DashboardProvider';
 import { SearchableItem } from '../../utils/types';
 import { Dialog, DialogOverlay, DialogContent } from '../ui/Dialog';
@@ -27,7 +27,7 @@ const CommandPalettePreview: FC<{ item: SearchableItem | null }> = ({ item }) =>
     if (!item) {
         return (
             <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-8">
-                <Command size={48} weight="light" />
+                <Command size={48} />
                 <p className="mt-4 text-sm">Details about the selected command will appear here.</p>
             </div>
         );
@@ -56,7 +56,6 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
         setActivePageId, 
         setView, 
         openWidgetEditorModal, 
-        openInsightHub, 
         setScrollToWidgetId, 
         toggleThemeMode,
         openPerformanceAnalyzer,
@@ -71,7 +70,7 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
     const [activeIndex, setActiveIndex] = useState(0);
     const inputRef = useRef<HTMLInputElement>(null);
     const activeItemRef = useRef<HTMLButtonElement>(null);
-    const MotionDiv = motion.div as any;
+    const MotionDiv = motion.div;
 
     useEffect(() => {
         if (isOpen) {
@@ -85,7 +84,8 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
         const actionItems: SearchableItem[] = [
             { id: 'action-add-widget', category: 'Actions', title: 'Create new widget', description: 'Open the widget editor to build a new visualization.', icon: <Plus />, action: openWidgetEditorModal },
             { id: 'action-add-control', category: 'Actions', title: 'Add Dashboard Control', description: 'Add a filter or parameter control to the current dashboard.', icon: <SlidersHorizontal />, action: openAddControlModal },
-            { id: 'action-open-ai', category: 'Actions', title: 'Open Insight Hub', description: 'Use AI to find proactive insights and analyze your dashboard.', icon: <Lightbulb />, action: openInsightHub },
+            // FIX: Property 'openInsightHub' does not exist on type 'DashboardContextProps'. Changed to use setView.
+            { id: 'action-open-ai', category: 'Actions', title: 'Open Insight Hub', description: 'Use AI to find proactive insights and analyze your dashboard.', icon: <Lightbulb />, action: () => setView('insightHub') },
             { id: 'action-open-performance', category: 'Actions', title: 'Performance Analyzer', description: 'Check the performance and load times of widgets on the current page.', icon: <Timer />, action: openPerformanceAnalyzer },
         ];
 
@@ -113,18 +113,18 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
                 category: 'Quick Settings',
                 title: `Engine: Set charting to ${_.capitalize(engine)}`,
                 description: `Change the underlying chart rendering library to ${_.capitalize(engine)}.`,
-                icon: <ChartBar />,
+                icon: <BarChart />,
                 action: () => setChartLibrary(engine),
             })),
-            { id: 'action-toggle-theme-mode', category: 'Quick Settings', title: 'Toggle Light/Dark Mode', description: 'Switch between light and dark themes for the application.', icon: <CircleHalf />, action: toggleThemeMode },
+            { id: 'action-toggle-theme-mode', category: 'Quick Settings', title: 'Toggle Light/Dark Mode', description: 'Switch between light and dark themes for the application.', icon: <SunMoon />, action: toggleThemeMode },
         ];
         
         const navigationItems: SearchableItem[] = [
             { id: 'view-explorer', category: 'Navigation', title: 'Go to Data Explorer', description: 'Explore, filter, and sort your raw data.', icon: <Table />, action: () => setView('explorer') },
             { id: 'view-studio', category: 'Navigation', title: 'Go to Data Studio', description: 'Prepare and transform your data sources.', icon: <Database />, action: () => dataSources.size > 0 && setView('studio', { sourceId: dataSources.keys().next().value }) },
-            { id: 'view-modeler', category: 'Navigation', title: 'Go to Data Modeler', description: 'Create relationships and joins between your data sources.', icon: <ShareNetwork />, action: () => setView('modeler') },
+            { id: 'view-modeler', category: 'Navigation', title: 'Go to Data Modeler', description: 'Create relationships and joins between your data sources.', icon: <Share />, action: () => setView('modeler') },
             { id: 'view-stories', category: 'Navigation', title: 'Go to Data Stories', description: 'View and create narrative presentations from your dashboards.', icon: <BookOpen />, action: () => setView('stories') },
-            { id: 'view-settings', category: 'Navigation', title: 'Open Settings', description: 'Configure application settings like theme and AI provider.', icon: <Gear />, action: () => setView('settings') },
+            { id: 'view-settings', category: 'Navigation', title: 'Open Settings', description: 'Configure application settings like theme and AI provider.', icon: <Settings />, action: () => setView('settings') },
         ];
         
         const dashboardItems: SearchableItem[] = [];
@@ -138,12 +138,12 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
         const widgetItems: SearchableItem[] = [];
         if(activePage) {
             activePage.widgets.forEach(widget => {
-                widgetItems.push({ id: `widget-${widget.id}`, category: 'Widgets', title: `Jump to: ${widget.title}`, context: `Page: ${activePage.name}`, description: 'Scroll to this widget on the current dashboard.', icon: <ChartBar />, action: () => setScrollToWidgetId(widget.id) });
+                widgetItems.push({ id: `widget-${widget.id}`, category: 'Widgets', title: `Jump to: ${widget.title}`, context: `Page: ${activePage.name}`, description: 'Scroll to this widget on the current dashboard.', icon: <BarChart />, action: () => setScrollToWidgetId(widget.id) });
             });
         }
         
         return _.uniqBy([...actionItems, ...quickSettingItems, ...navigationItems, ...dashboardItems, ...widgetItems], 'id');
-    }, [workspaces, activePage, dataSources, openWidgetEditorModal, openInsightHub, setView, setActivePageId, setScrollToWidgetId, toggleThemeMode, openPerformanceAnalyzer, openAddControlModal, setThemeConfig, setDashboardDefaults, setChartLibrary]);
+    }, [workspaces, activePage, dataSources, openWidgetEditorModal, setView, setActivePageId, setScrollToWidgetId, toggleThemeMode, openPerformanceAnalyzer, openAddControlModal, setThemeConfig, setDashboardDefaults, setChartLibrary]);
     
     const filteredGroups = useMemo((): ItemGroup[] => {
         const itemsToFilter = query ? allItems.filter(item =>
@@ -208,9 +208,9 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
                 <div className="command-palette-container w-full h-full flex relative">
                     <AnimatedStars />
                     <div className="w-full h-full flex z-10">
-                        <div className="w-1/2 flex flex-col border-r border-border/20">
+                        <div className="w-full md:w-1/2 flex flex-col border-r border-border/20">
                             <div className="flex items-center gap-3 p-4 border-b border-border/20 flex-shrink-0">
-                                <MagnifyingGlass size={20} className="text-muted-foreground"/>
+                                <Search size={20} className="text-muted-foreground"/>
                                 <input ref={inputRef} type="text" value={query} onChange={e => setQuery(e.target.value)} placeholder="Type a command or search..." className="w-full bg-transparent focus:outline-none text-base placeholder:text-muted-foreground"/>
                                 <Kbd>esc</Kbd>
                             </div>
@@ -256,7 +256,7 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
                                 </AnimatePresence>
                             </div>
                         </div>
-                         <div className="w-1/2 command-palette-preview">
+                         <div className="hidden md:block w-1/2 command-palette-preview">
                             <CommandPalettePreview item={flatFilteredItems[activeIndex] || null} />
                         </div>
                     </div>

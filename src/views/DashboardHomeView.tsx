@@ -3,6 +3,7 @@ import _ from 'lodash';
 import { useDashboard } from '../contexts/DashboardProvider';
 import { ViewHeader } from '../components/common/ViewHeader';
 import { Home, MoreVertical, Edit, Copy, Trash2, LayoutGrid, FileText, Plus } from 'lucide-react';
+// FIX: Add aliasing for motion component to fix TypeScript errors.
 import { motion } from 'framer-motion';
 import { DashboardPage, WidgetState, Workspace, WidgetLayout } from '../utils/types';
 import { Responsive, WidthProvider } from 'react-grid-layout';
@@ -89,11 +90,11 @@ const DashboardCard: FC<{
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-{/* FIX: Wrapped children in a fragment to satisfy the updated component props. */}
+                        {/* FIX: Wrapped children in a fragment to satisfy the updated component props. */}
                         <DropdownMenuItem onClick={handleRename}><><Edit size={14} className="mr-2" /> Rename</></DropdownMenuItem>
-{/* FIX: Wrapped children in a fragment to satisfy the updated component props. */}
+                        {/* FIX: Wrapped children in a fragment to satisfy the updated component props. */}
                         <DropdownMenuItem onClick={() => duplicatePage(page.id)}><><Copy size={14} className="mr-2" /> Duplicate</></DropdownMenuItem>
-{/* FIX: Wrapped children in a fragment to satisfy the updated component props. */}
+                        {/* FIX: Wrapped children in a fragment to satisfy the updated component props. */}
                         <DropdownMenuItem className="text-destructive" onClick={handleDelete}><><Trash2 size={14} className="mr-2" /> Delete</></DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

@@ -103,7 +103,7 @@ export function DataTable<TData, TValue>({
                       column.toggleVisibility(!!value)
                     }
                   >
-{/* FIX: Wrapped children in a fragment to satisfy the updated component props. */}
+                    {/* FIX: Wrapped children in a fragment to satisfy the updated component props. */}
                     <>{column.id}</>
                   </DropdownMenuCheckboxItem>
                 )

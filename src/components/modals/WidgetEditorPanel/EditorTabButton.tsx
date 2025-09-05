@@ -1,5 +1,3 @@
-
-
 import React, { FC, Dispatch, SetStateAction, ReactNode } from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '../../ui/utils';
@@ -13,7 +11,7 @@ interface EditorTabButtonProps {
 }
 
 // FIX: Add aliasing for motion component to fix TypeScript errors.
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 export const EditorTabButton: FC<EditorTabButtonProps> = ({ tabId, activeTab, setActiveTab, icon, children }) => {
     

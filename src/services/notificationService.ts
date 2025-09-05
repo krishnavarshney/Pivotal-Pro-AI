@@ -11,24 +11,28 @@ export const registerShowToast = (fn: (options: ShowToastOptions) => void) => {
 };
 
 export const notificationService = {
-    show: (options: ShowToastOptions) => {
+    show: (options: Omit<ToastNotification, 'id' | 'read' | 'timestamp'>) => {
         if (showToastFunction) {
-            showToastFunction(options);
+            showToastFunction({ 
+                ...options,
+                read: false,
+                timestamp: new Date().toISOString()
+            });
         } else {
             // Fallback for when the UI isn't ready yet or in non-React contexts
             console.warn('Toast provider not registered. Message:', options.message);
         }
     },
-    success: (message: string, options?: Partial<Omit<ShowToastOptions, 'message' | 'type'>>) => {
+    success: (message: string, options?: Partial<Omit<ShowToastOptions, 'message' | 'type' | 'read' | 'timestamp'>>) => {
         notificationService.show({ ...options, message, type: 'success' });
     },
-    error: (message: string, options?: Partial<Omit<ShowToastOptions, 'message' | 'type'>>) => {
+    error: (message: string, options?: Partial<Omit<ShowToastOptions, 'message' | 'type' | 'read' | 'timestamp'>>) => {
         notificationService.show({ ...options, message, type: 'error' });
     },
-    info: (message: string, options?: Partial<Omit<ShowToastOptions, 'message' | 'type'>>) => {
+    info: (message: string, options?: Partial<Omit<ShowToastOptions, 'message' | 'type' | 'read' | 'timestamp'>>) => {
         notificationService.show({ ...options, message, type: 'info' });
     },
-    warning: (message: string, options?: Partial<Omit<ShowToastOptions, 'message' | 'type'>>) => {
+    warning: (message: string, options?: Partial<Omit<ShowToastOptions, 'message' | 'type' | 'read' | 'timestamp'>>) => {
         notificationService.show({ ...options, message, type: 'warning' });
     },
 };

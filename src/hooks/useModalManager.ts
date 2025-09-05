@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { Pill, ValueFormat, Field, TransformationType, Template, DashboardPage, AdvancedAnalysisResult, DashboardComment, WidgetState, FieldType, AggregationType, Connector } from '../utils/types';
 import _ from 'lodash';
@@ -13,7 +11,6 @@ export const useModalManager = () => {
     const [isPageFiltersModalOpen, setPageFiltersModalOpen] = useState(false);
     // FIX: Changed `selectFieldModalOpen` to `selectFieldModalState` to match the required type in `DashboardContextProps`.
     const [selectFieldModalState, setSelectFieldModalState] = useState<{ isOpen: boolean; onSave?: (pill: Pill) => void }>({ isOpen: false });
-    const [isInsightHubOpen, setInsightHubOpen] = useState(false);
     const [isChatModalOpen, setChatModalOpen] = useState(false);
     const [addFieldModalState, setAddFieldModalState] = useState<{ isOpen: boolean; sourceId: string | null; initialStep?: 'formula' | 'grouping' }>({ isOpen: false, sourceId: null });
     const [valueFormatModalState, setValueFormatModalState] = useState<{ isOpen: boolean; pill: Pill | null; onSave: ((f: ValueFormat) => void) | null }>({ isOpen: false, pill: null, onSave: null });
@@ -100,7 +97,6 @@ export const useModalManager = () => {
         filterConfigModalState,
         isPageFiltersModalOpen,
         selectFieldModalState,
-        isInsightHubOpen,
         isChatModalOpen,
         addFieldModalState,
         valueFormatModalState,
@@ -143,9 +139,6 @@ export const useModalManager = () => {
         openSelectFieldModal: (onSave?: (pill: Pill) => void) => setSelectFieldModalState({ isOpen: true, onSave }),
         closeSelectFieldModal: () => setSelectFieldModalState({ isOpen: false, onSave: undefined }),
         
-        openInsightHub: () => setInsightHubOpen(true),
-        closeInsightHub: () => setInsightHubOpen(false),
-
         openChatModal: () => setChatModalOpen(true),
         closeChatModal: () => setChatModalOpen(false),
 

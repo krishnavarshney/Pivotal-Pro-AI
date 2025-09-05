@@ -4,12 +4,12 @@ import { Pencil, Sparkles, Table, Database, BookOpen, Share2, ArrowRight, Brain 
 import { Button } from '../components/ui/Button';
 import { cn } from '../components/ui/utils';
 // FIX: Corrected framer-motion import for Variants and aliased motion components.
-import { motion, Variants } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 
 // FIX: Add aliasing for motion components to fix TypeScript errors.
-const MotionDiv = motion.div as any;
-const MotionH1 = motion.h1 as any;
-const MotionP = motion.p as any;
+const MotionDiv = motion.div;
+const MotionH1 = motion.h1;
+const MotionP = motion.p;
 
 const containerVariants: Variants = {
     hidden: { opacity: 0 },
@@ -68,7 +68,7 @@ const FeatureCard: FC<{
 )};
 
 export const GettingStartedView: FC = () => {
-    const { openWidgetEditorModal, openInsightHub, setView, dataSources, openAiInsightStarterModal } = useDashboard();
+    const { openWidgetEditorModal, setView, dataSources, openAiInsightStarterModal } = useDashboard();
     const source = dataSources.values().next().value;
     const firstSourceId = source?.id;
 

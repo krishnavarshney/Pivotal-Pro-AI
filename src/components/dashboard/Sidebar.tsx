@@ -13,8 +13,8 @@ import { CurrentView } from '../../utils/types';
 import { useAuth } from '../../contexts/AuthProvider';
 
 // FIX: Add aliasing for motion components to fix TypeScript errors.
-const MotionDiv = motion.div as any;
-const MotionSpan = motion.span as any;
+const MotionDiv = motion.div;
+const MotionSpan = motion.span;
 
 const WorkspaceSwitcher: FC = () => {
     const { user, logout } = useAuth();
@@ -138,7 +138,6 @@ const SidebarInternalContent: FC = () => {
         activePage,
         setActivePageId,
         workspaces,
-        openInsightHub,
         openChatModal,
         openParameterModal,
         openAddDataSourceModal,
@@ -179,7 +178,7 @@ const SidebarInternalContent: FC = () => {
                         <NavItem icon={<Table2 size={20} />} label="Data Explorer" onClick={() => handleNavigation('explorer', { initialFilters: [], initialSearchTerm: '' })} disabled={dataSources.size === 0} isActive={currentView === 'explorer'}/>
                         <NavItem icon={<BookOpen size={20} />} label="Data Stories" onClick={() => handleNavigation('stories')} disabled={dataSources.size === 0} isActive={currentView === 'stories'}/>
                         <NavItem icon={<BrainCircuit size={20} />} label="Predictive Studio" onClick={() => handleNavigation('predictive')} disabled={dataSources.size === 0} isActive={currentView === 'predictive'}/>
-                        <NavItem icon={<Lightbulb size={20} />} label="Insight Hub" onClick={openInsightHub} />
+                        <NavItem icon={<Lightbulb size={20} />} label="Insight Hub" onClick={() => handleNavigation('insightHub')} isActive={currentView === 'insightHub'} />
                         <NavItem icon={<MessageSquare size={20} />} label="Chat with AI" onClick={openChatModal} />
                     </div>
                 </div>

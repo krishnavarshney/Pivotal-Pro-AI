@@ -5,6 +5,7 @@ import { Field, FieldType, Pill, AggregationType, ChartType, DND_ITEM_TYPE, AiCh
 import * as aiService from '../../../services/aiService';
 import { Button, Checkbox, ColorPicker, HelpIcon, Shelf, ToggleSwitch, Tooltip, ChartTypeSelector, cn, inputClasses, textareaClasses } from '../../ui';
 import { Database, Layout, Paintbrush, Settings, Sparkle, Search, RefreshCw, Type, Hash, Clock, Columns, List, Filter, Check } from 'lucide-react';
+// FIX: Add aliasing for motion component to fix TypeScript errors.
 import { motion, AnimatePresence } from 'framer-motion';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import { useDrag } from 'react-dnd';
@@ -246,7 +247,7 @@ const SettingsTab: React.FC = () => {
 
 export const PalettePanel: React.FC = () => {
     const [activeTab, setActiveTab] = useState('data');
-    const MotionDiv = motion.div as any;
+    const MotionDiv = motion.div;
 
     const renderContent = () => {
         switch (activeTab) {

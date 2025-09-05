@@ -29,6 +29,7 @@ export * from './Label';
 export * from './Select';
 export * from './DataTable';
 
+// FIX: Export DropdownMenu components from Popover.tsx
 export {
     DropdownMenu,
     DropdownMenuTrigger,
