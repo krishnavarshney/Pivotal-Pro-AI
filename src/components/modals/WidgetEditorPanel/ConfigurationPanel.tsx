@@ -126,6 +126,13 @@ export const ConfigurationPanel: React.FC = () => {
         updateEditingWidget(update);
     };
 
+     const handleSubtotalsToggle = (enabled: boolean) => {
+        handleUpdate(w => ({
+            ...w,
+            subtotalSettings: { ...w.subtotalSettings, rows: enabled, columns: enabled },
+        }));
+    };
+
     useEffect(() => {
         if (!localWidget || localWidget.displayMode === 'section' || localWidget.displayMode === 'control') return;
 
@@ -340,9 +347,16 @@ export const ConfigurationPanel: React.FC = () => {
                     <label className="text-sm font-medium text-muted-foreground mb-1">Widget Title</label>
                     <input type="text" placeholder="Widget Title" value={localWidget.title} onChange={e => handleUpdate({ title: e.target.value })} className={`${inputClasses} text-base font-semibold`} />
                 </div>
-                <div>
-                    <label className="text-sm font-medium text-muted-foreground mb-1">Chart Type</label>
-                    <ChartTypeSelector chartType={localWidget.chartType} onChartTypeChange={(t) => handleUpdate({ chartType: t, displayMode: t === ChartType.TABLE ? 'table' : 'chart' })} />
+                <div className="flex items-end gap-4">
+                    <div className="flex-grow">
+                        <label className="text-sm font-medium text-muted-foreground mb-1">Chart Type</label>
+                        <ChartTypeSelector chartType={localWidget.chartType} onChartTypeChange={(t) => handleUpdate({ chartType: t, displayMode: t === ChartType.TABLE ? 'table' : 'chart' })} />
+                    </div>
+                     <ToggleSwitch 
+                        label="Show Subtotals"
+                        enabled={!!localWidget.subtotalSettings.rows || !!localWidget.subtotalSettings.columns} 
+                        onChange={handleSubtotalsToggle}
+                    />
                 </div>
             </div>
 
@@ -454,10 +468,6 @@ export const ConfigurationPanel: React.FC = () => {
                                         />
                                     </>
                                 )}
-
-                                <h4 className="text-base font-semibold text-foreground pt-4 border-t border-border">Subtotals</h4>
-                                <ToggleSwitch label="Row Subtotals" enabled={!!localWidget.subtotalSettings.rows} onChange={val => handleUpdate(w => ({...w, subtotalSettings: {...w.subtotalSettings, rows: val}}))} />
-                                <ToggleSwitch label="Column Totals" enabled={!!localWidget.subtotalSettings.columns} onChange={val => handleUpdate(w => ({...w, subtotalSettings: {...w.subtotalSettings, columns: val}}))} />
                             </div>
                         )}
                     </MotionDiv>

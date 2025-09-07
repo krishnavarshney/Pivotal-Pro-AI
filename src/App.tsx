@@ -9,6 +9,7 @@ import { ContextMenu } from './components/ui/ContextMenu';
 import { useAuth } from './contexts/AuthProvider';
 import { AuthView } from './views/AuthView';
 import { AdminView } from './views/AdminView';
+import { OnboardingManager } from './components/common/OnboardingManager';
 
 const UIManagers: FC = () => {
     const { loadingState, contextMenu, closeContextMenu } = useDashboard();
@@ -16,15 +17,17 @@ const UIManagers: FC = () => {
         <>
             <CustomDragLayer />
             <ToastContainer />
-            {loadingState.isLoading && <LoadingOverlay message={loadingState.message} lottieAnimation={loadingState.lottieAnimation} />}
+            <OnboardingManager />
+            {loadingState.isLoading && <LoadingOverlay message={loadingState.message} />}
             {contextMenu && <ContextMenu {...contextMenu} onClose={closeContextMenu} />}
         </>
     )
 }
 
 const App: FC = () => {
-    const { openCommandPalette, currentView, dashboardMode, themeConfig } = useDashboard();
+    const { openCommandPalette, currentView, dashboardMode, themeConfig, dataSources, onboardingState, startOnboardingTour } = useDashboard();
     const { isAuthenticated, user, isLoading } = useAuth();
+    const prevDataSourceCount = React.useRef(dataSources.size);
 
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
@@ -50,6 +53,17 @@ const App: FC = () => {
         document.body.classList.toggle('comment-mode', dashboardMode === 'comment');
         document.body.classList.toggle('edit-mode', dashboardMode === 'edit');
     }, [dashboardMode]);
+    
+     useEffect(() => {
+        // Trigger initial tour when the first data source is added
+        if (dataSources.size > 0 && prevDataSourceCount.current === 0) {
+            if (!onboardingState.completedTours.includes('dashboard')) {
+                startOnboardingTour('dashboard');
+            }
+        }
+        prevDataSourceCount.current = dataSources.size;
+    }, [dataSources.size, onboardingState.completedTours, startOnboardingTour]);
+
 
     if (isLoading) {
         return <LoadingOverlay message="Authenticating..." />;

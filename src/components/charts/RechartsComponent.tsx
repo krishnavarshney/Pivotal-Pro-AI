@@ -1,5 +1,5 @@
 import React, { useMemo, useRef } from 'react';
-import { ResponsiveContainer, BarChart, Bar, LineChart, Line, PieChart, Pie, AreaChart, Area, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell, ZAxis } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, LineChart, Line, PieChart, Pie, AreaChart, Area, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell, ZAxis, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { useDashboard } from '../../contexts/DashboardProvider';
 import { WidgetState, ProcessedData, ChartType } from '../../utils/types';
 import { formatValue } from '../../utils/dataProcessing/formatting';
@@ -201,6 +201,21 @@ export const RechartsComponent: React.FC<ChartProps> = ({ widget, data, onElemen
                         ))}
                     </ScatterChart>
                 );
+            case ChartType.RADAR:
+                return (
+                    <RadarChart cx="50%" cy="50%" outerRadius="80%" data={chartData} {...commonProps}>
+                        <PolarGrid stroke={gridColor} />
+                        <PolarAngleAxis dataKey="name" tick={{ fill: tickColor, fontSize: 12 }} />
+                        <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={{ fill: tickColor, fontSize: 12 }}/>
+                        <Tooltip content={<CustomTooltip widget={widget} />} />
+                        <Legend wrapperStyle={{color: legendColor}}/>
+                        {datasets.map((ds, i) => (
+                            <Radar key={ds.label} name={ds.label} dataKey={ds.label} stroke={chartColors[i % chartColors.length]} fill={chartColors[i % chartColors.length]} fillOpacity={0.6} />
+                        ))}
+                    </RadarChart>
+                );
+            case ChartType.GAUGE:
+                return <div className="text-center text-muted-foreground p-4">Gauge charts are not yet supported by Recharts.</div>;
             default:
                 return <div className="text-center text-muted-foreground p-4">This chart type is not yet supported by Recharts.</div>;
         }

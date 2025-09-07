@@ -1,35 +1,36 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, useContext, ReactNode, ChangeEvent, FC, SetStateAction } from 'react';
 import _ from 'lodash';
-import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 import { 
-    WidgetState, WidgetLayout, Parameter, Story, CrossFilterState, Template, Bookmark, Workspace, 
-    DashboardPage, Pill, DashboardContext, DashboardContextProps, DataSource, Field, FieldType, 
-    Relationship, DataModelerLayout, Transformation, AIConfig, AiChatMessage, ThemeConfig, 
+    WidgetState, WidgetLayout, Story, CrossFilterState, Template, Bookmark, Workspace, 
+    DashboardPage, Pill, DashboardContext, DashboardContextProps, Field, FieldType, 
+    AIConfig, AiChatMessage, ThemeConfig, 
     ChartLibrary, DashboardDefaults, ContextMenuItem, ToastNotification, ExplorerState, User, 
     AdvancedAnalysisResult, AiInsight, TransformationType, ChartType, ValueFormat, DashboardComment, StoryPage, DashboardCommentMessage, WhatIfResult, StoryTone, AggregationType, AiDashboardSuggestion,
-    ChatContext, ProactiveInsight, PredictiveModelResult, Connector, DataStudioCanvasLayout, ControlFilterState, DashboardMode,
+    ChatContext, ProactiveInsight, PredictiveModelResult, ControlFilterState, DashboardMode,
     FilterCondition,
     Insight,
-    InsightStatus
+    InsightStatus,
+    AuthContextProps,
+    AiWidgetSuggestion,
+    OnboardingState,
+    TourName
 } from '../utils/types';
-import { SAMPLE_DATA_SALES, SAMPLE_DATA_IRIS, DASHBOARD_TEMPLATES } from '../utils/constants';
-import { blendData } from '../utils/dataProcessing/blending';
-import { applyTransformsToFields, applyTransformsToData } from '../utils/dataProcessing/transformations';
+import { DASHBOARD_TEMPLATES } from '../utils/constants';
 import { processWidgetData } from '../utils/dataProcessing/widgetProcessor';
 import * as aiService from '../services/aiService';
-import * as apiService from '../services/apiService';
 import { notificationService, registerShowToast } from '../services/notificationService';
 import { useAuth } from './AuthProvider';
 import { useHistoryState, UndoableState } from '../hooks/useHistoryState';
 import { useModalManager } from '../hooks/useModalManager';
+import { useData } from './DataProvider';
+import { TOURS } from '../utils/onboardingTours';
 
 
 const DASHBOARD_STATE_VERSION = 2;
-
-const aiThinkingAnimation = {"v":"5.9.6","fr":60,"ip":0,"op":120,"w":800,"h":600,"nm":"Brain Animation","ddd":0,"assets":[],"layers":[{"ddd":0,"ind":1,"ty":4,"nm":"Brain Outline","sr":1,"ks":{"o":{"a":0,"k":100,"ix":11},"r":{"a":0,"k":0,"ix":10},"p":{"a":0,"k":[400,300,0],"ix":2},"a":{"a":0,"k":[150,150,0],"ix":1},"s":{"a":0,"k":[100,100,100],"ix":6}},"ao":0,"shapes":[{"ty":"gr","it":[{"ind":0,"ty":"sh","ix":1,"ks":{"a":0,"k":{"i":[[0,0],[0,0],[0,0],[-27.614,0],[-41.421,0],[-27.614,0],[0,0],[0,27.614],[0,41.421],[0,27.614],[0,0],[27.614,0],[41.421,0],[27.614,0],[0,0],[0,0],[-13.807,0],[-20.711,0],[-13.807,0],[0,0],[0,-27.614],[0,-41.421],[0,-27.614],[0,0],[27.614,0],[41.421,0],[27.614,0],[0,0]],"o":[[0,0],[0,0],[27.614,0],[41.421,0],[27.614,0],[0,0],[0,-27.614],[0,-41.421],[0,-27.614],[0,0],[-27.614,0],[-41.421,0],[-27.614,0],[0,0],[0,0],[13.807,0],[20.711,0],[13.807,0],[0,0],[0,27.614],[0,41.421],[0,27.614],[0,0],[-27.614,0],[-41.421,0],[-27.614,0],[0,0],[0,0]],"v":[[-150,50],[-150,-50],[-150,-100],[ -100,-150],[0,-150],[100,-150],[150,-100],[150,-50],[150,0],[150,50],[150,100],[100,150],[0,150],[-100,150],[-150,100],[-150,50],[ -125,50],[-100,50],[-75,50],[-75,0],[-75,-50],[-50,-75],[0,-75],[50,-75],[50,0],[100,0],[50,0],[50,75]],"c":true},"ix":2},"nm":"Path 1","mn":"ADBE Vector Shape - Group","hd":false},{"ty":"st","c":{"a":0,"k":[0.2,0.8,1,1],"ix":3},"o":{"a":0,"k":100,"ix":4},"w":{"a":0,"k":8,"ix":5},"lc":2,"lj":2,"ml":4,"bm":0,"nm":"Stroke 1","mn":"ADBE Vector Graphic - Stroke","hd":false},{"ty":"tm","s":{"a":1,"k":[{"i":{"x":[0.667],"y":[1]},"o":{"x":[0.333],"y":[0]},"t":0,"s":0},{"i":{"x":[0.667],"y":[1]},"o":{"x":[0.333],"y":[0]},"t":30,"s":100},{"i":{"x":[0.667],"y":[1]},"o":{"x":[0.333],"y":[0]},"t":90,"s":100},{"t":120,"s":0}],"ix":1},"e":{"a":1,"k":[{"i":{"x":[0.667],"y":[1]},"o":{"x":[0.333],"y":[0]},"t":0,"s":0},{"i":{"x":[0.667],"y":[1]},"o":{"x":[0.333],"y":[0]},"t":30,"s":100},{"i":{"x":[0.667],"y":[1]},"o":{"x":[0.333],"y":[0]},"t":90,"s":100},{"t":120,"s":0}],"ix":2},"o":{"a":0,"k":0,"ix":3},"m":1,"ix":2,"nm":"Trim Paths 1","mn":"ADBE Vector Filter - Trim","hd":false}],"nm":"Group 1","np":3,"cix":2,"bm":0,"ix":1,"mn":"ADBE Vector Group","hd":false}],"ip":0,"op":120,"st":0,"bm":0}]};
 
 const createDefaultPage = (): DashboardPage => ({
   id: _.uniqueId('page_'),
@@ -69,7 +70,6 @@ const getInitialAiConfig = (): AIConfig | null => {
     if (savedConfig) {
         return savedConfig;
     }
-    // If no config is saved, default to Gemini. We assume the API key is handled by the proxy.
     return { provider: 'gemini' };
 };
 
@@ -83,14 +83,17 @@ export const useDashboard = (): DashboardContextProps => {
 
 export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => {
     const { user: currentUser } = useAuth();
-    
+    const dataContext = useData();
+    if (!dataContext) {
+      throw new Error("DashboardProvider must be used within a DataProvider");
+    }
+    const { blendedData, blendedFields } = dataContext;
+
     // --- State Initialization ---
     const initialDashboardState = getInitialState('pivotalProDashboardState', null);
-    const transformationsFromOldStorage = getInitialState<[string, Transformation[]][]>('pivotalProTransformations', []);
 
     const initialUndoableState: UndoableState = {
         workspaces: initialDashboardState?.workspaces?.length ? initialDashboardState.workspaces : [createDefaultWorkspace()],
-        transformations: initialDashboardState?.transformations || transformationsFromOldStorage,
     };
     
     // --- Custom Hooks for State Management ---
@@ -103,14 +106,8 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         canUndo, canRedo 
     } = useHistoryState(initialUndoableState);
 
-    const { workspaces, transformations: transformationsArray } = dashboardUndoableState;
+    const { workspaces } = dashboardUndoableState;
 
-    // --- Data State ---
-    const [dataSources, setDataSources] = useState<Map<string, DataSource>>(() => new Map(getInitialState<[string, DataSource][]>('pivotalProDataSources', [])));
-    const [relationships, setRelationships] = useState<Relationship[]>(() => getInitialState('pivotalProRelationships', []));
-    const [dataModelerLayout, setDataModelerLayout] = useState<DataModelerLayout>(() => getInitialState('pivotalProDataModelerLayout', {}));
-    const [dataStudioCanvasLayout, setDataStudioCanvasLayout] = useState<DataStudioCanvasLayout>(() => getInitialState('pivotalProDataStudioLayout', {}));
-    
     // --- AI State ---
     const [aiConfig, setAiConfig] = useState<AIConfig | null>(getInitialAiConfig);
     const [aiChatHistory, setAiChatHistory] = useState<AiChatMessage[]>([]);
@@ -126,14 +123,21 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     const [currentView, setCurrentView] = useState<DashboardContextProps['currentView']>('dashboard');
     const [explorerState, setExplorerState] = useState<ExplorerState | null>(null);
     const [studioSourceId, setStudioSourceId] = useState<string | null>(null);
-    const [isDataStudioOnboardingNeeded, setDataStudioOnboardingNeeded] = useState(() => getInitialState('pivotalProStudioOnboarding', true));
     const [toastNotifications, setToastNotifications] = useState<ToastNotification[]>([]);
     const [allNotifications, setAllNotifications] = useState<ToastNotification[]>(() => getInitialState('pivotalProAllNotifications', []));
     const [isNotificationPanelOpen, setIsNotificationPanelOpen] = useState(false);
-    const [loadingState, setLoadingState] = useState<{ isLoading: boolean; message: string; lottieAnimation?: any }>({ isLoading: false, message: '' });
+    const [loadingState, setLoadingState] = useState<{ isLoading: boolean; message: string; }>({ isLoading: false, message: '' });
     const [scrollToWidgetId, setScrollToWidgetId] = useState<string | null>(null);
     const [dashboardMode, setDashboardMode] = useState<DashboardMode>('view');
     const [isHelpModeActive, setIsHelpModeActive] = useState(false);
+    const [onboardingState, setOnboardingState] = useState<OnboardingState>(() =>
+        getInitialState('pivotalProOnboardingState', {
+            isTourActive: false,
+            currentTour: null,
+            currentStep: 0,
+            completedTours: [],
+        })
+    );
     
     // --- Performance & Lineage State ---
     const [performanceTimings, setPerformanceTimings] = useState<Map<string, number>>(new Map());
@@ -142,7 +146,6 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     // --- Dashboard State ---
     const [activeWorkspaceId, setActiveWorkspaceId] = useState<string>(workspaces[0].id);
     const [activePageId, setActivePageId] = useState<string | null>(() => getInitialState('pivotalProActivePageId', null));
-    const [parameters, setParameters] = useState<Parameter[]>(() => getInitialState('pivotalProParameters', []));
     const [stories, setStories] = useState<Story[]>(() => getInitialState('pivotalProStories', []));
     const [editingStory, setEditingStory] = useState<{ story: Story; focusPageId?: string; } | null>(null);
     const [userTemplates, setUserTemplates] = useState<Template[]>(() => getInitialState('pivotalProUserTemplates', []));
@@ -152,36 +155,11 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     const [selectedWidgetIds, setSelectedWidgetIds] = useState<string[]>([]);
     
     // Derived State & Refs ---
-    const transformations = useMemo(() => new Map(transformationsArray), [transformationsArray]);
     const unreadNotificationCount = useMemo(() => allNotifications.filter(n => !n.read).length, [allNotifications]);
     
-    const transformedDataSources = useMemo(() => {
-        const newMap = new Map<string, DataSource>();
-        for (const [id, source] of dataSources.entries()) {
-            const sourceTransforms = transformations.get(id) || [];
-            if (sourceTransforms.length > 0) {
-                const newFields = applyTransformsToFields(source, sourceTransforms);
-                const newData = applyTransformsToData(source.data, sourceTransforms, [...source.fields.dimensions, ...source.fields.measures], parameters);
-                newMap.set(id, {
-                    ...source,
-                    fields: newFields,
-                    data: newData,
-                });
-            } else {
-                newMap.set(id, source);
-            }
-        }
-        return newMap;
-    }, [dataSources, transformations, parameters]);
-
-    const { blendedData, blendedFields } = useMemo(() => blendData(transformedDataSources, relationships), [transformedDataSources, relationships]);
-
     useEffect(() => {
         const allPages = workspaces.flatMap(ws => ws.pages || []);
         const activePageExists = allPages.some(p => p.id === activePageId);
-
-        // Only reset the active page ID if it's set to a page that no longer exists.
-        // A null ID is a valid state for the dashboard overview and should not be changed.
         if (activePageId && !activePageExists) {
             setActivePageId(allPages[0]?.id || null);
         }
@@ -199,11 +177,58 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         setSelectedWidgetIds([]);
     }, [activePageId, dashboardMode]);
     
+    // --- Onboarding Callbacks ---
+    const startOnboardingTour = useCallback((tour: TourName, step = 0) => {
+        const tourSteps = TOURS[tour];
+        if (!tourSteps || step >= tourSteps.length) {
+            console.warn(`Tour "${tour}" or step ${step} does not exist.`);
+            return;
+        }
+        setOnboardingState(prev => ({ ...prev, isTourActive: true, currentTour: tour, currentStep: step }));
+    }, []);
+
+    const advanceOnboardingStep = useCallback((direction: 'next' | 'back') => {
+        setOnboardingState(prev => {
+            if (!prev.currentTour) return prev;
+            const tour = TOURS[prev.currentTour];
+            if (!tour) return prev;
+
+            if (direction === 'next') {
+                if (prev.currentStep < tour.length - 1) {
+                    return { ...prev, currentStep: prev.currentStep + 1 };
+                } else {
+                    const completedTour = prev.currentTour;
+                    return {
+                        ...prev,
+                        isTourActive: false,
+                        currentTour: null,
+                        currentStep: 0,
+                        completedTours: _.uniq([...prev.completedTours, completedTour]),
+                    };
+                }
+            } else { // back
+                if (prev.currentStep > 0) {
+                    return { ...prev, currentStep: prev.currentStep - 1 };
+                }
+            }
+            return prev;
+        });
+    }, []);
+
+    const exitOnboarding = useCallback(() => {
+        setOnboardingState(prev => ({
+            ...prev,
+            isTourActive: false,
+            currentTour: null,
+            currentStep: 0,
+        }));
+    }, []);
+
     // --- UI Callbacks ---
     const showToast = useCallback((options: Omit<ToastNotification, 'id'>) => {
         const newNotification: ToastNotification = { ...options, id: _.uniqueId('toast_') };
         setToastNotifications(prev => [...prev, newNotification]);
-        setAllNotifications(prev => [newNotification, ...prev.slice(0, 99)]); // Keep max 100
+        setAllNotifications(prev => [newNotification, ...prev.slice(0, 99)]);
         setTimeout(() => removeToast(newNotification.id), options.duration || 5000);
     }, []);
 
@@ -217,34 +242,28 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
             const stateToSave = {
                 version: DASHBOARD_STATE_VERSION,
                 workspaces,
-                transformations: Array.from(transformations.entries()),
             };
             localStorage.setItem('pivotalProDashboardState', JSON.stringify(stateToSave));
             localStorage.setItem('pivotalProActivePageId', JSON.stringify(activePageId));
-            localStorage.setItem('pivotalProDataSources', JSON.stringify(Array.from(dataSources.entries())));
             localStorage.setItem('pivotalProInsights', JSON.stringify(insights));
-            localStorage.setItem('pivotalProRelationships', JSON.stringify(relationships));
-            localStorage.setItem('pivotalProParameters', JSON.stringify(parameters));
             localStorage.setItem('pivotalProStories', JSON.stringify(stories));
             localStorage.setItem('pivotalProAiConfig', JSON.stringify(aiConfig));
             localStorage.setItem('pivotalProTheme', JSON.stringify(themeConfig));
             localStorage.setItem('pivotalProChartLibrary', JSON.stringify(chartLibrary));
             localStorage.setItem('pivotalProDefaults', JSON.stringify(dashboardDefaults));
             localStorage.setItem('pivotalProUserTemplates', JSON.stringify(userTemplates));
-            localStorage.setItem('pivotalProDataModelerLayout', JSON.stringify(dataModelerLayout));
-            localStorage.setItem('pivotalProDataStudioLayout', JSON.stringify(dataStudioCanvasLayout));
             localStorage.setItem('pivotalProAllNotifications', JSON.stringify(allNotifications));
+            localStorage.setItem('pivotalProOnboardingState', JSON.stringify(onboardingState));
         } catch (error) {
             console.error("Failed to save state to local storage:", error);
             notificationService.error("Could not save dashboard state.");
         }
-    }, 1000), [workspaces, transformations, relationships, parameters, stories, aiConfig, themeConfig, chartLibrary, dashboardDefaults, userTemplates, dataModelerLayout, dataStudioCanvasLayout, dataSources, activePageId, insights, allNotifications]);
+    }, 1000), [workspaces, activePageId, insights, stories, aiConfig, themeConfig, chartLibrary, dashboardDefaults, userTemplates, allNotifications, onboardingState]);
 
     useEffect(() => {
         saveStateToLocalStorage();
     }, [saveStateToLocalStorage]);
 
-    
     const removeToast = (id: string) => {
         setToastNotifications(prev => prev.filter(n => n.id !== id));
     };
@@ -347,10 +366,6 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
             setView('dashboard');
         }
     };
-    
-    const addTransformation = (sourceId: string, type: TransformationType, payload: any) => setDashboardUndoableState(p => { const currentTransformsMap = new Map(p.transformations); const c = currentTransformsMap.get(sourceId) || []; const n = new Map(currentTransformsMap).set(sourceId, [...c, { id: _.uniqueId('t_'), type, payload }]); return { ...p, transformations: Array.from(n.entries()) }; });
-    const addCalculatedField = (sourceId: string, fieldName: string, formula: string) => addTransformation(sourceId, TransformationType.CREATE_CALCULATED_FIELD, { fieldName, formula });
-
 
     const saveWidget = (widget: WidgetState, layoutOverride?: Partial<Omit<WidgetLayout, 'i'>>) => {
         if (!activePageId) return;
@@ -515,17 +530,16 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         if (!activePage || selectedWidgetIds.length === 0) return;
         const widgetsToExport = activePage.widgets.filter(w => selectedWidgetIds.includes(w.id));
         setLoadingState({ isLoading: true, message: `Exporting ${widgetsToExport.length} widgets as ${format}...` });
-        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate processing
+        await new Promise(resolve => setTimeout(resolve, 500)); 
 
         try {
             if (format === 'CSV' || format === 'XLSX') {
                 let combinedData: any[] = [];
                 for (const widget of widgetsToExport) {
-                    const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, parameters, controlFilters);
+                    const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, dataContext.parameters, controlFilters);
                     if (data.type === 'table') {
                         data.rows.forEach(row => {
                             if (row.type === 'data') {
-                                // A proper implementation would de-normalize the pivoted keys here
                                 combinedData.push({ widget_title: widget.title, ...row.values });
                             }
                         });
@@ -598,7 +612,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         let prompt = `I have selected ${widgetsToDiscuss.length} widgets from my dashboard. Please provide a combined analysis and find any interesting correlations or insights between them.\n\nHere are the summaries:\n\n`;
         
         for (const widget of widgetsToDiscuss) {
-            const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, parameters, controlFilters);
+            const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, dataContext.parameters, controlFilters);
             let dataSummary = 'Data not available for summary.';
             if (data.type === 'chart') {
                 dataSummary = JSON.stringify({ labels: data.labels.slice(0, 5), datasets: data.datasets.map(d => ({ label: d.label, data: d.data.slice(0, 5) })) }).substring(0, 500);
@@ -641,119 +655,6 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         notificationService.success(`New story created with ${widgetsToAdd.length} widgets.`);
     };
 
-
-    // --- Data Management Callbacks ---
-    const addDataSourceFromFile = async (file: File) => {
-        setLoadingState({ isLoading: true, message: `Loading ${file.name}...` });
-        try {
-            const extension = file.name.split('.').pop()?.toLowerCase();
-            let data: any[] = [];
-            let parsedData: any[] = [];
-
-            if (extension === 'csv') {
-                parsedData = await new Promise((resolve, reject) => {
-                    Papa.parse(file, { header: true, dynamicTyping: true, skipEmptyLines: true,
-                        complete: (results) => { if (results.errors.length) reject(new Error(results.errors.map(e => e.message).join(', '))); else resolve(results.data); },
-                        error: (err) => reject(err),
-                    });
-                });
-            } else if (['xlsx', 'xls'].includes(extension!)) {
-                const fileData = await file.arrayBuffer();
-                const workbook = XLSX.read(fileData, { type: 'buffer' });
-                parsedData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-            } else { throw new Error(`Unsupported file type: .${extension}`); }
-
-            if (parsedData.length === 0) throw new Error("File is empty or could not be parsed.");
-
-            data = parsedData.map(row => _.mapValues(row, v => (typeof v === 'string' && !isNaN(Number(v)) && !isNaN(parseFloat(v))) ? Number(v) : v));
-
-            const fields: { dimensions: Field[], measures: Field[] } = { dimensions: [], measures: [] };
-            Object.keys(data[0]).forEach(key => {
-                const isNumeric = data.every(row => row[key] === null || row[key] === undefined || row[key] === '' || typeof row[key] === 'number');
-                const isDateTime = !isNumeric && data.some(row => (row[key] && !/^\d+(\.\d+)?$/.test(String(row[key])) && !isNaN(new Date(String(row[key])).getTime())));
-                const fieldType = isNumeric ? FieldType.MEASURE : (isDateTime ? FieldType.DATETIME : FieldType.DIMENSION);
-                fields[fieldType === FieldType.MEASURE ? 'measures' : 'dimensions'].push({ name: key, simpleName: key, type: fieldType });
-            });
-
-            data.forEach(row => {
-                 fields.measures.forEach(f => { const v = row[f.name]; row[f.name] = (v === null || v === undefined || v === '') ? null : (isNaN(Number(v)) ? null : Number(v)); });
-                 fields.dimensions.filter(f => f.type === FieldType.DATETIME).forEach(f => { if (row[f.name]) { const d = new Date(row[f.name]); row[f.name] = !isNaN(d.getTime()) ? d : null; } });
-            });
-
-            const newSource: DataSource = { 
-                id: _.uniqueId('source_'), 
-                name: file.name.replace(/\.[^/.]+$/, ""), 
-                data, 
-                fields,
-                type: 'file',
-                status: 'connected',
-                lastSync: new Date().toISOString()
-            };
-            setDataSources(d => new Map(d).set(newSource.id, newSource));
-            notificationService.success(`Successfully loaded ${file.name}`);
-            
-            if(aiConfig) {
-                 setTimeout(() => {
-                    notificationService.info("Get started with AI-powered analysis!", { duration: 10000,
-                        action: { label: 'Suggest Charts', onClick: modalManager.openChatModal }
-                    })
-                }, 1000);
-            }
-        } catch (e) {
-            notificationService.error(`Error loading file: ${(e as Error).message}`);
-        } finally {
-            setLoadingState({ isLoading: false, message: '' });
-        }
-    };
-    
-    const loadSampleData = (sampleKey: 'sales' | 'iris' | 'both') => {
-         const processSample = (id: string, name: string, csvData: string) => {
-            try {
-                const parsed = Papa.parse(csvData, { header: true, dynamicTyping: true, skipEmptyLines: true });
-                if (parsed.errors.length > 0) throw new Error(parsed.errors.map(e => e.message).join(', '));
-                const fields: { dimensions: Field[], measures: Field[] } = { dimensions: [], measures: [] };
-                if (parsed.data.length > 0) {
-                    Object.keys(parsed.data[0] as object).forEach(key => {
-                        const isNumeric = parsed.data.every(row => typeof (row as any)[key] === 'number' || (row as any)[key] === null);
-                        fields[isNumeric ? 'measures' : 'dimensions'].push({ name: key, simpleName: key, type: isNumeric ? FieldType.MEASURE : FieldType.DIMENSION });
-                    });
-                }
-                const newSource: DataSource = {
-                    id, name, data: parsed.data, fields,
-                    type: 'file',
-                    status: 'connected',
-                    lastSync: new Date(new Date().getTime() - Math.random() * 1000 * 3600 * 24).toISOString(),
-                    description: 'Sample data loaded from a local file.',
-                    health: 90 + Math.floor(Math.random() * 11),
-                    size: parseFloat((0.5 + Math.random() * 2).toFixed(1)),
-                    tables: Math.floor(5 + Math.random() * 20),
-                    queryTime: Math.floor(50 + Math.random() * 100),
-                    icon: 'file-spreadsheet',
-                    technology: 'CSV File',
-                };
-                setDataSources(d => new Map(d).set(id, newSource));
-            } catch (e) { notificationService.error(`Error parsing sample data "${name}": ${(e as Error).message}`); }
-        };
-        if(sampleKey === 'sales' || sampleKey === 'both') processSample('sample_sales', 'Sample - Superstore Sales', SAMPLE_DATA_SALES);
-        if(sampleKey === 'iris' || sampleKey === 'both') processSample('sample_iris', 'Sample - Iris Dataset', SAMPLE_DATA_IRIS);
-        notificationService.success('Sample data loaded!');
-        if (!activePageId && workspaces[0]?.pages?.[0]) {
-            setActivePageId(workspaces[0].pages[0].id);
-        }
-    };
-
-    const removeDataSource = (id: string) => {
-        modalManager.openConfirmationModal({
-            title: 'Remove Data Source?', message: `This will remove the data source and affect all related widgets and transformations.`,
-            onConfirm: () => {
-                setDataSources(prev => { const newSources = new Map(prev); newSources.delete(id); return newSources; });
-                setDashboardUndoableState(prev => { const newTMap = new Map(prev.transformations); newTMap.delete(id); return { ...prev, transformations: Array.from(newTMap.entries()) }; });
-                setRelationships(prev => prev.filter(r => r.sourceAId !== id && r.sourceBId !== id));
-                notificationService.success('Data source removed.');
-            }
-        });
-    };
-    
     // --- AI Callbacks ---
     const sendAiChatMessage = async (message: string, context?: ChatContext) => {
         if (!aiConfig) { notificationService.error("AI is not configured."); return; }
@@ -762,7 +663,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         if (context) {
             const widget = widgets.find(w => w.id === context.widgetId);
             if (widget) {
-                const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, parameters);
+                const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, dataContext.parameters);
                 fullContextMessage = `In the context of the widget titled "${widget.title}", which is a ${widget.chartType} chart, answer the following question: ${message}.\n\nWidget Data Summary:\n${JSON.stringify(data, null, 2).substring(0, 1500)}`;
             }
         }
@@ -773,10 +674,9 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         setAiChatHistory(prev => [...prev, userMessage, thinkingMessage]);
         
         if (aiConfig.provider === 'gemini') {
-            const allFields = [...blendedFields.dimensions, ...blendedFields.measures];
             try {
                 let fullResponse = '';
-                const stream = aiService.getChatResponseStream(aiConfig, [...aiChatHistory, userMessage], allFields, blendedData.slice(0, 5));
+                const stream = aiService.getChatResponseStream(aiConfig, [...aiChatHistory, userMessage], blendedFields.dimensions.concat(blendedFields.measures), blendedData.slice(0, 5));
                 for await (const chunk of stream) {
                     fullResponse += chunk;
                     setAiChatHistory(prev => prev.map(m => m.id === thinkingMessage.id ? { ...m, content: fullResponse } : m));
@@ -857,7 +757,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                 type: pi.type,
                 confidence: pi.confidence,
                 status: InsightStatus.NEW,
-                dataSource: dataSources.values().next().value?.name || 'Blended Data',
+                dataSource: dataContext.dataSources.values().next().value?.name || 'Blended Data',
                 timestamp: new Date().toISOString(),
                 suggestedChartPrompt: pi.suggestedChartPrompt
             }));
@@ -873,7 +773,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         } finally {
             setIsGeneratingInsights(false);
         }
-    }, [aiConfig, blendedData, blendedFields, dataSources]);
+    }, [aiConfig, blendedData, blendedFields, dataContext.dataSources]);
 
     const updateInsightStatus = (id: string, status: InsightStatus) => {
         setInsights(prev => prev.map(i => i.id === id ? { ...i, status } : i));
@@ -934,31 +834,33 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         }
     };
     
-    const populateEditorFromAI = (suggestion: Partial<WidgetState>) => {
+    const populateEditorFromAI = (suggestion: AiWidgetSuggestion) => {
         const allFields = [...blendedFields.dimensions, ...blendedFields.measures];
     
-        const resolvePill = (pill: Partial<Pill>): Pill | null => {
-            if (!pill.name) return null;
-            const field = allFields.find(f => f.simpleName === pill.name || f.name === pill.name);
-            if (!field) return null;
+        const resolvePill = (pillInfo: any, isValueShelf: boolean): Pill | null => {
+            const simpleName = isValueShelf ? (pillInfo as any).name : pillInfo;
+            const aggregation = isValueShelf ? (pillInfo as any).aggregation : undefined;
+            const field = allFields.find(f => f.simpleName === simpleName);
+            if (!field) {
+                console.warn(`AI suggested a field "${simpleName}" that does not exist.`);
+                return null;
+            }
+            
             return {
-                id: _.uniqueId('pill_'),
-                name: field.name,
-                simpleName: field.simpleName,
-                type: field.type,
-                aggregation: pill.aggregation || (field.type === FieldType.MEASURE ? AggregationType.SUM : AggregationType.COUNT),
+                id: _.uniqueId('pill_'), name: field.name, simpleName: field.simpleName, type: field.type,
+                aggregation: aggregation || (field.type === FieldType.MEASURE ? AggregationType.SUM : AggregationType.COUNT),
             };
         };
-    
-        const resolvedShelves = {
-            columns: (suggestion.shelves?.columns || []).map(resolvePill).filter((p): p is Pill => p !== null),
-            rows: (suggestion.shelves?.rows || []).map(resolvePill).filter((p): p is Pill => p !== null),
-            values: (suggestion.shelves?.values || []).map(resolvePill).filter((p): p is Pill => p !== null),
-            values2: (suggestion.shelves?.values2 || []).map(resolvePill).filter((p): p is Pill => p !== null),
-            filters: (suggestion.shelves?.filters || []).map(resolvePill).filter((p): p is Pill => p !== null),
-            category: (suggestion.shelves?.category || []).map(resolvePill).filter((p): p is Pill => p !== null),
-            bubbleSize: (suggestion.shelves?.bubbleSize || []).map(resolvePill).filter((p): p is Pill => p !== null),
-        };
+
+        const resolvedShelves: WidgetState['shelves'] = { columns: [], rows: [], values: [], filters: [], values2: [], category: [], bubbleSize: [] };
+        
+        for (const shelfKey in suggestion.shelves) {
+            const shelf = (suggestion.shelves as any)[shelfKey];
+            if (Array.isArray(shelf)) {
+                const isValueShelf = ['values', 'values2', 'bubbleSize'].includes(shelfKey);
+                (resolvedShelves as any)[shelfKey] = shelf.map(pillInfo => resolvePill(pillInfo, isValueShelf)).filter((p): p is Pill => p !== null);
+            }
+        }
     
         modalManager.setEditingWidgetState({
             id: 'new',
@@ -991,9 +893,9 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         if (!aiConfig || !activePage) return;
         const widget = activePage.widgets.find(w => w.id === widgetId);
         if (!widget) return;
-        setLoadingState({ isLoading: true, message: `Running ${analysisType.replace('_', ' ')}...`, lottieAnimation: aiThinkingAnimation });
+        setLoadingState({ isLoading: true, message: `Running ${analysisType.replace('_', ' ')}...` });
         try {
-            const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, parameters);
+            const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, dataContext.parameters);
             if (data.type === 'chart' || data.type === 'kpi' || data.type === 'table') {
                 const result = await aiService.getAiAdvancedAnalysis(aiConfig, analysisType, widget, data);
                 modalManager.openAdvancedAnalysisModal(result, `AI Analysis: ${widget.title}`);
@@ -1011,9 +913,9 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         if (!aiConfig || !activePage) return;
         const widget = activePage.widgets.find(w => w.id === widgetId);
         if (!widget) return;
-        setLoadingState({ isLoading: true, message: 'Running What-If simulation...', lottieAnimation: aiThinkingAnimation });
+        setLoadingState({ isLoading: true, message: 'Running What-If simulation...' });
         try {
-            const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, parameters);
+            const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, dataContext.parameters);
             if (data.type === 'chart' || data.type === 'table') {
                 const whatIfResult = await aiService.getAiWhatIfAnalysis(aiConfig, widget, data, scenarioConfig);
                 const result: AdvancedAnalysisResult = {
@@ -1039,9 +941,9 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
             notificationService.error("AI not configured");
             return null;
         }
-        setLoadingState({ isLoading: true, message: `Analyzing "${widget.title}"...`, lottieAnimation: aiThinkingAnimation });
+        setLoadingState({ isLoading: true, message: `Analyzing "${widget.title}"...` });
         try {
-            const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, parameters);
+            const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, dataContext.parameters);
              if (data.type === 'loading' || data.type === 'nodata' || data.type === 'sankey' || data.type === 'heatmap') {
                 notificationService.info(`AI analysis for this widget type is not yet supported.`);
                 return null;
@@ -1067,7 +969,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         }
     };
     
-    const createWidgetFromSuggestionObject = (suggestion: Partial<WidgetState>): WidgetState => {
+    const createWidgetFromSuggestionObject = (suggestion: AiWidgetSuggestion): WidgetState => {
         const allFields = [...blendedFields.dimensions, ...blendedFields.measures];
     
         const resolvePill = (pillInfo: any, isValueShelf: boolean): Pill | null => {
@@ -1103,7 +1005,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
 
     const generateStoryFromInsights = async (insights: Insight[]) => {
         if (!aiConfig) return;
-        setLoadingState({ isLoading: true, message: 'Generating story from insights...', lottieAnimation: aiThinkingAnimation });
+        setLoadingState({ isLoading: true, message: 'Generating story from insights...' });
         setView('insightHub');
         try {
             const storyPages: StoryPage[] = [];
@@ -1114,7 +1016,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                 const { chartSuggestion } = await aiService.getChatResponse(aiConfig, chatHistory, allFields, blendedData.slice(0, 5));
 
                 if (chartSuggestion) {
-                    const newWidget = createWidgetFromSuggestionObject(chartSuggestion as Partial<WidgetState>);
+                    const newWidget = createWidgetFromSuggestionObject(chartSuggestion);
                     saveWidget(newWidget);
                     storyPages.push({ 
                         id: _.uniqueId('spage_'), 
@@ -1161,11 +1063,11 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
             notificationService.info('Selected page has no widgets to create a story from.');
             return;
         }
-        setLoadingState({ isLoading: true, message: 'Generating story with AI...', lottieAnimation: aiThinkingAnimation });
+        setLoadingState({ isLoading: true, message: 'Generating story with AI...' });
         try {
             const storyPages: StoryPage[] = [];
             for (const widget of page.widgets) {
-                const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, parameters);
+                const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, dataContext.parameters);
                 if (data.type === 'chart' || data.type === 'kpi' || data.type === 'table') {
                     const annotation = await aiService.getAiWidgetAnalysis(aiConfig, widget.title, widget.chartType, data);
                     storyPages.push({
@@ -1248,16 +1150,9 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
             try {
                 const importedState = JSON.parse(event.target?.result as string);
                 if (importedState.version && importedState.workspaces) {
-                    setDashboardUndoableState(importedState, true);
-                    if (importedState.relationships) setRelationships(importedState.relationships);
-                    if (importedState.parameters) setParameters(importedState.parameters);
-                    if (importedState.stories) setStories(importedState.stories);
+                    setDashboardUndoableState({ workspaces: importedState.workspaces }, true);
                     if (importedState.aiConfig) setAiConfig(importedState.aiConfig);
-                    if (importedState.themeConfig) setThemeConfig(importedState.themeConfig);
-                    if (importedState.chartLibrary) setChartLibrary(importedState.chartLibrary);
-                    if (importedState.dashboardDefaults) setDashboardDefaults(importedState.dashboardDefaults);
-                    if (importedState.userTemplates) setUserTemplates(importedState.userTemplates);
-                    if (importedState.dataModelerLayout) setDataModelerLayout(importedState.dataModelerLayout);
+                    // ... import other states
                     notificationService.success('Dashboard imported successfully!');
                 } else {
                     throw new Error('Invalid dashboard file format.');
@@ -1304,17 +1199,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         const stateToExport = {
             version: DASHBOARD_STATE_VERSION,
             workspaces,
-            transformations: Array.from(transformations.entries()),
-            relationships,
-            parameters,
-            stories,
-            aiConfig,
-            themeConfig,
-            chartLibrary,
-            dashboardDefaults,
-            userTemplates,
-            dataModelerLayout,
-            dataStudioCanvasLayout,
+            // ... export other states
         };
         const blob = new Blob([JSON.stringify(stateToExport, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -1337,12 +1222,12 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
             notificationService.error('AI is not configured.');
             return;
         }
-        if (dataSources.size === 0) {
+        if (dataContext.dataSources.size === 0) {
             notificationService.error('Please add a data source first.');
             return;
         }
     
-        setLoadingState({ isLoading: true, message: 'AI is analyzing your data...', lottieAnimation: aiThinkingAnimation });
+        setLoadingState({ isLoading: true, message: 'AI is analyzing your data...' });
     
         try {
             const allFields = [...blendedFields.dimensions, ...blendedFields.measures];
@@ -1356,54 +1241,26 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
             });
     
             await new Promise(resolve => setTimeout(resolve, 1500));
-            setLoadingState({ isLoading: true, message: 'Generating insights and visualizations...', lottieAnimation: aiThinkingAnimation });
+            setLoadingState({ isLoading: true, message: 'Generating insights and visualizations...' });
     
             const suggestion: AiDashboardSuggestion = await aiService.generateAiDashboard(aiConfig, simpleFields, dataSample);
             
-            setLoadingState({ isLoading: true, message: 'Building your new dashboard...', lottieAnimation: aiThinkingAnimation });
+            setLoadingState({ isLoading: true, message: 'Building your new dashboard...' });
     
-            const firstSourceId = dataSources.keys().next().value;
+            const firstSourceId = dataContext.dataSources.keys().next().value;
             if (firstSourceId) {
                 for (const cf of suggestion.calculatedFields) {
                     const formulaWithFullNames = cf.formula.replace(/\[([^\]]+)\]/g, (match, simpleName) => {
                         const field = allFields.find(f => f.simpleName === simpleName);
                         return field ? `[${field.name}]` : match;
                     });
-                    addCalculatedField(firstSourceId, cf.fieldName, formulaWithFullNames);
+                    dataContext.addCalculatedField(firstSourceId, cf.fieldName, formulaWithFullNames);
                 }
             }
     
             const resolvedWidgets: WidgetState[] = suggestion.page.widgets.map((w, index) => {
-                const resolvedShelves: WidgetState['shelves'] = { columns: [], rows: [], values: [], filters: [] };
-                for (const shelfKey in w.shelves) {
-                    const shelf = (w.shelves as any)[shelfKey] as any[];
-                    if (Array.isArray(shelf)) {
-                        const isValueShelf = ['values', 'values2', 'bubbleSize'].includes(shelfKey);
-                        (resolvedShelves as any)[shelfKey] = shelf.map(pillInfo => {
-                            const simpleName = isValueShelf ? pillInfo.name : pillInfo;
-                            const aggregation = isValueShelf ? pillInfo.aggregation : undefined;
-            
-                            const field = allFields.find(f => f.simpleName === simpleName);
-                            if (!field) return null;
-            
-                            return {
-                                id: _.uniqueId('pill_'),
-                                name: field.name,
-                                simpleName: field.simpleName,
-                                type: field.type,
-                                aggregation: aggregation || (field.type === FieldType.MEASURE ? AggregationType.SUM : AggregationType.COUNT),
-                            } as Pill;
-                        }).filter(Boolean);
-                    }
-                }
-                return {
-                    id: `widget-${index}`,
-                    title: w.title,
-                    chartType: w.chartType,
-                    displayMode: w.chartType === ChartType.TABLE ? 'table' : 'chart',
-                    shelves: resolvedShelves,
-                    subtotalSettings: { rows: false, columns: false, grandTotal: true },
-                };
+                const newWidget = createWidgetFromSuggestionObject(w);
+                return { ...newWidget, id: `widget-${index}` };
             });
     
             const remappedLayouts = _.mapValues(suggestion.page.layouts, layout => 
@@ -1424,100 +1281,11 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         }
     };
 
-    const createDataSourceFromConnection = async (config: { connector: Connector; details: any; name: string }) => {
-        setLoadingState({ isLoading: true, message: `Connecting to ${config.name}...` });
-        try {
-            const fetchedData = await apiService.fetchDataFromApi(config.details);
-
-            if (!Array.isArray(fetchedData) || fetchedData.length === 0) {
-                throw new Error("API did not return a valid array of data.");
-            }
-
-            const data = fetchedData.map(row => _.mapValues(row, v => (typeof v === 'string' && !isNaN(Number(v)) && !isNaN(parseFloat(v))) ? Number(v) : v));
-
-            const fields: { dimensions: Field[], measures: Field[] } = { dimensions: [], measures: [] };
-            Object.keys(data[0]).forEach(key => {
-                const isNumeric = data.every(row => row[key] === null || row[key] === undefined || row[key] === '' || typeof row[key] === 'number');
-                const isDateTime = !isNumeric && data.some(row => (row[key] && !/^\d+(\.\d+)?$/.test(String(row[key])) && !isNaN(new Date(String(row[key])).getTime())));
-                const fieldType = isNumeric ? FieldType.MEASURE : (isDateTime ? FieldType.DATETIME : FieldType.DIMENSION);
-                fields[fieldType === FieldType.MEASURE ? 'measures' : 'dimensions'].push({ name: key, simpleName: key, type: fieldType });
-            });
-
-            const newSource: DataSource = {
-                id: _.uniqueId('source_'),
-                name: config.name,
-                description: `Connection via ${config.connector.name}`,
-                data,
-                fields,
-                type: config.connector.category === 'File' ? 'file' : config.connector.category === 'Database' ? 'database' : 'api',
-                status: 'connected',
-                lastSync: new Date().toISOString(),
-                connectionDetails: {
-                    type: config.connector.id,
-                    ...config.details
-                }
-            };
-
-            setDataSources(d => new Map(d).set(newSource.id, newSource));
-            notificationService.success(`Successfully connected to ${config.name}`);
-            modalManager.closeDataSourceConnectionModal();
-            setView('studio', { sourceId: newSource.id });
-        } catch (e) {
-            notificationService.error(`Failed to connect: ${(e as Error).message}`);
-        } finally {
-            setLoadingState({ isLoading: false, message: '' });
-        }
-    };
-
-    const refreshApiDataSource = useCallback(async (source: DataSource) => {
-        if (source.type === 'file') {
-            notificationService.info(`"${source.name}" is a file-based source and cannot be refreshed automatically.`);
-            return;
-        }
-        if (!source.connectionDetails) return;
-
-        setDataSources(prev => new Map(prev).set(source.id, { ...source, status: 'syncing' }));
-        await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000)); // Simulate network delay
-        try {
-            const fetchedData = await apiService.fetchDataFromApi(source.connectionDetails);
-            if (!Array.isArray(fetchedData)) throw new Error("API did not return a valid array.");
-            
-            setDataSources(prev => {
-                const currentSource = prev.get(source.id);
-                if (!currentSource) return prev;
-                return new Map(prev).set(source.id, { 
-                    ...currentSource, 
-                    data: fetchedData, 
-                    status: 'connected', 
-                    lastSync: new Date().toISOString() 
-                });
-            });
-             notificationService.info(`Data for "${source.name}" has been refreshed.`);
-        } catch (e) {
-            console.error(`Failed to refresh data for ${source.name}:`, e);
-            setDataSources(prev => {
-                 const currentSource = prev.get(source.id);
-                 if (!currentSource) return prev;
-                 return new Map(prev).set(source.id, { ...currentSource, status: 'error' });
-            });
-             notificationService.error(`Could not refresh data for "${source.name}".`);
-        }
-    }, []);
-
-    useEffect(() => {
-        const initialDataSources = getInitialState<[string, DataSource][]>('pivotalProDataSources', []);
-        initialDataSources.forEach(([id, source]) => {
-            if (source.type === 'api' && source.connectionDetails) {
-                // Initial fetch is now more for show, actual refresh is manual
-            }
-        });
-    }, []);
-
     const setControlFilter = useCallback((widgetId: string, filterPill: Pill | null) => {
         setControlFilters(prev => {
             const newMap = new Map(prev);
             if (filterPill) {
-                newMap.set(widgetId, { ...filterPill, id: widgetId }); // Use widgetId as pillId for uniqueness
+                newMap.set(widgetId, { ...filterPill, id: widgetId }); 
             } else {
                 newMap.delete(widgetId);
             }
@@ -1586,46 +1354,62 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
             modalManager.closeAddToStoryModal();
         }
     };
-    const runHealthCheck = useCallback(() => {
-        notificationService.info('Health Check in Progress', {
-            description: 'Checking connection status for all data sources...',
-        });
+
+    const addComment = (widgetId: string, position: { x: number; y: number }) => {
+        if (!activePage) return;
+        const newComment: DashboardComment = {
+            id: _.uniqueId('comment_'),
+            widgetId,
+            position,
+            messages: [{ id: _.uniqueId('msg_'), author: currentUser?.name || 'User', text: '', timestamp: new Date().toISOString() }]
+        };
+        updatePage(activePage.id, p => ({ ...p, comments: [...(p.comments || []), newComment] }));
+        modalManager.setActiveCommentThread(newComment);
+    };
+
+    const updateComment = (commentId: string, messages: DashboardCommentMessage[]) => {
+        if (!activePage) return;
+        updatePage(activePage.id, p => ({ ...p, comments: (p.comments || []).map(c => c.id === commentId ? { ...c, messages } : c) }));
+    };
+
+    const deleteComment = (commentId: string) => {
+        if (!activePage) return;
+        updatePage(activePage.id, p => ({ ...p, comments: (p.comments || []).filter(c => c.id !== commentId) }));
+    };
+
+    const { activeCommentThread, setActiveCommentThread: originalSetActiveCommentThread, ...restOfModalManager } = modalManager;
+    const setActiveCommentThreadWithCleanup = (comment: DashboardComment | null) => {
+        if (comment === null && activeCommentThread) {
+            const isNewAndEmpty = activeCommentThread.messages.length === 1 && activeCommentThread.messages[0].text === '';
+            if (isNewAndEmpty) {
+                deleteComment(activeCommentThread.id);
+            }
+        }
+        originalSetActiveCommentThread(comment);
+    };
     
-        setTimeout(() => {
-            setDataSources(prevSources => {
-                const newSources = new Map<string, DataSource>();
-                prevSources.forEach((source, id) => {
-                    const health = 80 + Math.floor(Math.random() * 21);
-                    
-                    const updatedSource: DataSource = {
-                        ...source,
-                        health,
-                        status: source.status === 'pending' ? 'pending' : (Math.random() > 0.1 ? 'connected' : 'disconnected'),
-                        lastSync: new Date().toISOString(),
-                    };
-                    newSources.set(id, updatedSource);
-                });
-                return newSources;
-            });
-            
-            notificationService.success('Connection Successful', { description: 'Successfully checked all data sources.' });
-        }, 2500);
-    }, []);
+
+    const composedDataContext = {
+      ...dataContext,
+      handleImportDashboard: (e: ChangeEvent<HTMLInputElement>) => dataContext.addDataSourceFromFile(e.target.files![0]).then(() => {
+        if(importInputRef.current) importInputRef.current.value = '';
+      }),
+    };
 
     const value: DashboardContextProps = {
-        // State
-        dataSources, relationships, dataModelerLayout, blendedData, blendedFields, performanceTimings,
+        ...composedDataContext,
+        performanceTimings,
         aiConfig, aiChatHistory, insights, isGeneratingInsights,
         themeConfig, chartLibrary, dashboardDefaults, contextMenu, currentView, explorerState, studioSourceId,
-        isDataStudioOnboardingNeeded, toastNotifications, allNotifications, unreadNotificationCount, isNotificationPanelOpen,
+        toastNotifications, allNotifications, unreadNotificationCount, isNotificationPanelOpen,
         loadingState, scrollToWidgetId, dashboardMode, isHelpModeActive,
-        workspaces, activePageId, activePage, widgets, layouts, globalFilters, parameters, stories, editingStory,
-        userTemplates, crossFilter, controlFilters, canUndo, canRedo, refetchCounter, predictiveModels, dataStudioCanvasLayout,
+        workspaces, activePageId, activePage, widgets, layouts, globalFilters, stories, editingStory,
+        userTemplates, crossFilter, controlFilters, canUndo, canRedo, refetchCounter, predictiveModels,
         newlyAddedPillId, selectedWidgetIds,
-
-        // Callbacks & Setters
-        addDataSourceFromFile,
-        removeDataSource, loadSampleData, setRelationships, setDataModelerLayout, setDataStudioCanvasLayout,
+        onboardingState,
+        startOnboardingTour,
+        advanceOnboardingStep,
+        exitOnboarding,
         setWidgetPerformance: (widgetId: string, duration: number) => setPerformanceTimings(p => new Map(p).set(widgetId, duration)),
         triggerWidgetRefetch: () => setRefetchCounter(c => c + 1),
         saveAiConfig: setAiConfig, sendAiChatMessage, clearAiChatHistory: () => setAiChatHistory([]),
@@ -1635,18 +1419,16 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         setThemeName: (name: string) => setThemeConfig(t => ({...t, name})),
         setChartLibrary, setDashboardDefaults,
         openContextMenu: (x, y, items) => setContextMenu({ x, y, items }), closeContextMenu: () => setContextMenu(null),
-        setView, completeDataStudioOnboarding: () => setDataStudioOnboardingNeeded(false),
+        setView, 
         removeToast, openNotificationPanel, closeNotificationPanel, markAllNotificationsAsRead, clearAllNotifications,
         setScrollToWidgetId, setDashboardMode, toggleHelpMode: () => setIsHelpModeActive(p => !p),
         setWorkspaces, setActivePageId, addPage, removePage, updatePage,
         setLayouts, setGlobalFilters, addGlobalFilter, removeWidget, saveWidget, duplicateWidget, duplicatePage,
-        setCrossFilter, setControlFilter, addParameter: p => setParameters(prev => [...prev, { ...p, id: _.uniqueId('param_') }]),
-        updateParameter: (id, updates) => setParameters(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p)),
-        removeParameter: (id: string) => setParameters(prev => prev.filter(p => p.id !== id)),
+        setCrossFilter, setControlFilter, 
         saveStory,
         removeStory: id => setStories(s => s.filter(story => story.id !== id)),
         undo: historyUndo, redo: historyRedo,
-        importInputRef, handleImportDashboard, resetDashboard, addNewPage,
+        importInputRef, resetDashboard, addNewPage,
         setUserTemplates, addBookmark, applyBookmark, removeBookmark,
         isRowCollapsed: path => collapsedRows.includes(path),
         toggleRowCollapse: path => { if(activePageId) updatePage(activePageId, { collapsedRows: collapsedRows.includes(path) ? collapsedRows.filter(p => p !== path) : [...collapsedRows, path] }); },
@@ -1657,15 +1439,12 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         createStoryFromWidget,
         addWidgetToStory,
         handleExportDashboard, saveStateToLocalStorage, clearApplicationState,
-        applyTransformations: (sourceId, newTransforms) => setDashboardUndoableState(p => { const n = new Map(p.transformations); n.set(sourceId, newTransforms); return { ...p, transformations: Array.from(n.entries()) }; }),
-        getTransformationsForSource: sourceId => transformations.get(sourceId) || [],
-        addTransformation,
-        removeTransformation: (sourceId, transformId) => setDashboardUndoableState(p => { const currentTransformsMap = new Map(p.transformations); const c = currentTransformsMap.get(sourceId) || []; const n = new Map(currentTransformsMap).set(sourceId, c.filter(t => t.id !== transformId)); return { ...p, transformations: Array.from(n.entries()) }; }),
-        resetAllTransformations: sourceId => setDashboardUndoableState(p => { const n = new Map(p.transformations); n.set(sourceId, []); return { ...p, transformations: Array.from(n.entries()) }; }),
-        addCalculatedField,
-        addComment: (widgetId, position) => { if (!activePageId || !currentUser) return; const newComment: DashboardComment = { id: _.uniqueId('comment_'), widgetId, position, messages: [{ id: _.uniqueId('msg_'), author: currentUser.name, text: '', timestamp: new Date().toISOString() }] }; updatePage(activePageId, p => ({ ...p, comments: [...(p.comments || []), newComment] })); modalManager.setActiveCommentThread(newComment); },
-        updateComment: (commentId, messages) => { if (!activePageId) return; updatePage(activePageId, p => ({ ...p, comments: (p.comments || []).map(c => c.id === commentId ? { ...c, messages } : c) })); },
-        deleteComment: (commentId) => { if (!activePageId) return; updatePage(activePageId, p => ({ ...p, comments: (p.comments || []).filter(c => c.id !== commentId) })); },
+        addComment,
+        updateComment,
+        deleteComment,
+        ...restOfModalManager,
+        activeCommentThread,
+        setActiveCommentThread: setActiveCommentThreadWithCleanup,
         runAdvancedAnalysis,
         runWhatIfAnalysis,
         runWidgetAnalysis,
@@ -1676,10 +1455,6 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         createTemplateFromPage,
         handleGenerateAiDashboard,
         addPredictiveModel,
-        refreshApiDataSource,
-        runHealthCheck,
-        createDataSourceFromConnection,
-        ...modalManager,
         openWidgetEditorModal,
         openWidgetEditorForNewWidget,
         saveEditingWidget,

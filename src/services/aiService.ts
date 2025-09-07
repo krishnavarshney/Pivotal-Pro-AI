@@ -1,3 +1,4 @@
+
 import { Type } from "@google/genai";
 import { Field, ChartType, AggregationType, Transformation, TransformationType, AiDataSuggestion, AIConfig, AiChatMessage, ProcessedData, AdvancedAnalysisResult, WidgetState, WhatIfResult, AiDashboardSuggestion, ProactiveInsight, PredictiveModelType, PredictiveModelResult, FilterCondition, NlpFilterResult, InsightType } from '../utils/types';
 import { formatValue } from "../utils/dataProcessing/formatting";
@@ -88,7 +89,7 @@ const valueShelfSchemaForChat = {
     },
 };
 
-const chartConfigSchema = {
+const chartSuggestionSchema = {
     type: Type.OBJECT,
     properties: {
         title: { type: Type.STRING, description: "A concise, descriptive title for the chart." },
@@ -107,6 +108,22 @@ const chartConfigSchema = {
     required: ["title", "chartType", "shelves"]
 };
 
+const aiChatResponseSchema = {
+    type: Type.OBJECT,
+    properties: {
+        responseText: { type: Type.STRING, description: "The conversational text response to the user's query." },
+        chartSuggestion: { ...chartSuggestionSchema, nullable: true },
+        followUpSuggestions: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING },
+            description: "An array of 2-3 short, relevant follow-up questions the user might ask next.",
+            nullable: true
+        }
+    },
+    required: ["responseText"]
+};
+
+
 const getSystemInstruction = (fields: Field[], dataSample?: object[]): string => {
     const fieldsString = fields.map(f => `- "${f.simpleName}" (${f.type})`).join('\n');
     const sampleString = dataSample && dataSample.length > 0
@@ -118,13 +135,11 @@ const getSystemInstruction = (fields: Field[], dataSample?: object[]): string =>
 You have access to the following fields (use the simple names provided):
 ${fieldsString}${sampleString}
 
-There are two modes of response:
+Your entire response MUST be a single, valid JSON object that conforms to the provided schema. Do not include any other text, greetings, or markdown formatting like \`\`\`json.
 
-1.  **Chart Generation Mode**: If the user's LATEST message explicitly asks to create a chart, table, or visualization (e.g., "show me sales by country", "create a bar chart of profit by segment"), you MUST respond ONLY with a valid JSON object that conforms to the provided schema. Do not include any other text, greetings, or markdown formatting like \`\`\`json. Your entire response must be the JSON object itself. Pick the best chart type and aggregation for the request.
-
-2.  **Insight Mode**: For any other questions or conversations (e.g., "what are the key trends?", "tell me about my data", "which category is most profitable?"), provide a concise, insightful, and easy-to-understand summary in Markdown format. Use bold text for emphasis and bullet points for lists. Be helpful and conversational.
-
-Analyze the user's last message to decide which mode to use. If the user asks for a chart, ALWAYS use Chart Generation Mode.`;
+- If the user asks to create a chart, table, or visualization (e.g., "show me sales by country"), populate the 'chartSuggestion' object. The 'responseText' should be a confirmation like "Certainly, here is the chart you requested."
+- If the user asks a general question (e.g., "what are the key trends?"), provide a concise, insightful answer in Markdown format in the 'responseText' field and leave 'chartSuggestion' as null.
+- After every response, whether it's a chart or text, provide 2-3 relevant follow-up questions in the 'followUpSuggestions' array to guide the user's analysis.`;
 };
 
 export const getChatResponse = async (
@@ -132,13 +147,11 @@ export const getChatResponse = async (
     chatHistory: AiChatMessage[],
     fields: Field[],
     dataSample: object[]
-): Promise<{ text: string, chartSuggestion?: object }> => {
+): Promise<Partial<AiChatMessage>> => {
     const systemInstruction = getSystemInstruction(fields, dataSample);
 
     try {
         let responseText: string;
-        const latestUserMessage = chatHistory[chatHistory.length - 1].content;
-        const isChartRequest = /generate a visualization for:|chart|plot|graph|show me|visualize|table|list|map|diagram/i.test(latestUserMessage);
 
         if (config.provider === 'gemini') {
             const result = await proxyGenerateContent({
@@ -149,8 +162,8 @@ export const getChatResponse = async (
                 })),
                 config: {
                     systemInstruction,
-                    responseMimeType: isChartRequest ? "application/json" : "text/plain",
-                    ...(isChartRequest && { responseSchema: chartConfigSchema }),
+                    responseMimeType: "application/json",
+                    responseSchema: aiChatResponseSchema,
                     temperature: 0.3
                 }
             });
@@ -158,28 +171,17 @@ export const getChatResponse = async (
         } else {
             throw new Error("AI provider is not configured correctly.");
         }
-
-        if (isChartRequest) {
-             try {
-                const chartSuggestion = JSON.parse(responseText);
-                // Basic validation
-                if (chartSuggestion.chartType && chartSuggestion.shelves) {
-                    return {
-                        text: `Sure, here is the chart you requested: "${chartSuggestion.title}".`,
-                        chartSuggestion
-                    };
-                }
-            } catch (e) {
-                // The model failed to produce valid JSON for a chart request, return its text response as an explanation.
-                return { text: responseText, chartSuggestion: undefined };
-            }
-        }
-
-        return { text: responseText, chartSuggestion: undefined };
+        
+        const parsedResponse = JSON.parse(responseText);
+        return {
+            content: parsedResponse.responseText,
+            chartSuggestion: parsedResponse.chartSuggestion,
+            followUpSuggestions: parsedResponse.followUpSuggestions,
+        };
 
     } catch (error) {
         console.error("Error communicating with AI:", error);
-        return { text: `An error occurred while communicating with the AI: ${(error as Error).message}` };
+        return { content: `An error occurred while communicating with the AI: ${(error as Error).message}` };
     }
 };
 
@@ -191,7 +193,12 @@ export async function* getChatResponseStream(
     fields: Field[],
     dataSample: object[]
 ): AsyncGenerator<string> {
-    const systemInstruction = getSystemInstruction(fields, dataSample);
+    // This is now a simplified text-only stream for better UX. Rich objects are handled by getChatResponse.
+    const systemInstruction = `You are 'Pivotal Pro', an AI assistant. Provide a concise, helpful answer to the user's last question based on the chat history and available data fields. Respond in Markdown format.
+
+    Available Fields:
+    ${fields.map(f => `- "${f.simpleName}" (${f.type})`).join('\n')}
+    `;
 
     if (config.provider === 'gemini') {
         const stream = proxyGenerateContentStream({
@@ -208,11 +215,7 @@ export async function* getChatResponseStream(
         });
 
         for await (const chunk of stream) {
-            const words = chunk.text.split(/(\s+)/); // Split by space, keeping spaces
-            for (const word of words) {
-                yield word;
-                await delay(30); // Small delay for word-by-word effect
-            }
+            yield chunk.text;
         }
     } else {
         throw new Error("AI provider is not configured correctly for streaming.");
@@ -319,7 +322,7 @@ export const getAiChartSuggestion = async (
         config: {
             systemInstruction,
             responseMimeType: "application/json",
-            responseSchema: chartConfigSchema,
+            responseSchema: chartSuggestionSchema,
             temperature: 0.2
         }
     });

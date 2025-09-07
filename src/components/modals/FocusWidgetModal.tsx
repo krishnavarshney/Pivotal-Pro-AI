@@ -14,6 +14,7 @@ import Papa from 'papaparse';
 import _ from 'lodash';
 import { WidgetSkeleton } from '../ui/WidgetSkeleton';
 import { notificationService } from '../../services/notificationService';
+import { formatValue } from '../../utils/dataProcessing/formatting';
 
 const InspectorTabButton: FC<{ icon: React.ReactNode; label: string; isActive: boolean; onClick: () => void; }> = ({ icon, label, isActive, onClick }) => (
     <button
@@ -48,22 +49,51 @@ const AiSummaryTab: React.FC<{ widget: WidgetState }> = ({ widget }) => {
         }
     };
 
-    useEffect(() => {
-        generateSummary();
-    }, [widget.id]);
+    if (isLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center text-muted-foreground p-8 space-y-2">
+                <RefreshCw size={24} className="animate-spin text-primary" />
+                <p className="font-semibold">AI is analyzing...</p>
+            </div>
+        );
+    }
 
+    if (error) {
+        return (
+            <div className="space-y-4 text-center">
+                <p className="text-destructive text-sm p-4 bg-destructive/10 rounded-lg">{error}</p>
+                <Button variant="outline" size="sm" onClick={generateSummary} disabled={isLoading} className="w-full">
+                    <RefreshCw size={14} /> Try Again
+                </Button>
+            </div>
+        );
+    }
+
+    if (summary) {
+        return (
+            <div className="space-y-4">
+                <FormattedInsight text={summary} />
+                <Button variant="outline" size="sm" onClick={generateSummary} disabled={isLoading} className="w-full">
+                    <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> Regenerate
+                </Button>
+            </div>
+        );
+    }
+    
+    // Initial state
     return (
-        <div className="space-y-4">
-            {isLoading && (
-                <div className="flex flex-col items-center justify-center text-muted-foreground p-8 space-y-2">
-                    <RefreshCw size={24} className="animate-spin text-primary" />
-                    <p className="font-semibold">AI is analyzing...</p>
-                </div>
-            )}
-            {error && <p className="text-destructive text-sm">{error}</p>}
-            {summary && <FormattedInsight text={summary} />}
-            <Button variant="outline" size="sm" onClick={generateSummary} disabled={isLoading} className="w-full">
-                <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} /> Regenerate
+        <div className="flex flex-col items-center justify-center text-center p-4">
+            <Sparkle size={32} className="mb-4 text-primary opacity-50"/>
+            <h4 className="font-semibold text-foreground">Unlock AI Insights</h4>
+            <p className="text-sm mt-1 mb-6 text-muted-foreground">Generate a summary and find key observations about this widget's data.</p>
+            <Button 
+                size="lg" 
+                onClick={generateSummary} 
+                disabled={isLoading} 
+                className="w-full animate-border-glow"
+                style={{'--glow-color': 'hsl(var(--primary-values))'} as React.CSSProperties}
+            >
+                <Sparkle size={16} /> Generate AI Insights
             </Button>
         </div>
     );
@@ -76,7 +106,12 @@ const DataTab: React.FC<{ widget: WidgetState }> = ({ widget }) => {
         const allFilters = [...globalFilters, ...(widget.shelves.filters || []), ...(crossFilter ? [crossFilter.filter] : []), ...Array.from(controlFilters.values())];
         const filteredData = applyFilters(blendedData, allFilters);
         
-        const allPillNames = new Set(_.flatMap(Object.values(widget.shelves), shelf => (shelf || []).map(pill => pill.name)));
+        // FIX: Explicitly filter out undefined shelves and ensure type safety to resolve 'unknown' type errors.
+        const allPillNames = new Set(
+            Object.values(widget.shelves)
+                .filter((shelf): shelf is Pill[] => Array.isArray(shelf))
+                .flatMap(shelf => shelf.map(pill => pill.name))
+        );
         const allFields = [...blendedFields.dimensions, ...blendedFields.measures];
 
         const displayHeaders = Array.from(allPillNames).map(name => {
@@ -104,7 +139,8 @@ const DataTab: React.FC<{ widget: WidgetState }> = ({ widget }) => {
                 <tbody>
                     {data.map((row, i) => (
                         <tr key={i} className="border-b border-border/50">
-                            {headers.map(h => <td key={h.key} className="p-2 truncate">{String(row[h.key] ?? '–')}</td>)}
+                            {/* FIX: Use `formatValue` for robust type handling and correct display of cell content. */}
+                            {headers.map(h => <td key={h.key} className="p-2 truncate">{formatValue((row as any)[h.key])}</td>)}
                         </tr>
                     ))}
                 </tbody>

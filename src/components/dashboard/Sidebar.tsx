@@ -209,7 +209,7 @@ const SidebarInternalContent: FC = () => {
 
 export const AppSidebar: FC = () => {
     return (
-        <Sidebar>
+        <Sidebar id="onboarding-sidebar">
             <SidebarInternalContent />
         </Sidebar>
     );

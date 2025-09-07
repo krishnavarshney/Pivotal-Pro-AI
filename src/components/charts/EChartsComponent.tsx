@@ -53,7 +53,7 @@ export const EChartsComponent: FC<ChartProps> = ({ widget, data, onElementClick,
 
     const allValuePills = [...widget.shelves.values, ...(widget.shelves.values2 || [])];
     
-    const isCartesian = ![ChartType.PIE, ChartType.TREEMAP, ChartType.FUNNEL, ChartType.SANKEY, ChartType.MAP].includes(chartType);
+    const isCartesian = ![ChartType.PIE, ChartType.TREEMAP, ChartType.FUNNEL, ChartType.SANKEY, ChartType.MAP, ChartType.GAUGE, ChartType.RADAR].includes(chartType);
     const isHorizontal = chartType === ChartType.BAR && (widget.shelves.rows || []).length > 0 && (widget.shelves.columns || []).length === 0;
 
     const baseOptions = {
@@ -115,7 +115,7 @@ export const EChartsComponent: FC<ChartProps> = ({ widget, data, onElementClick,
                     
                     if (Array.isArray(value) && value.length >= 5) { // Boxplot
                         tooltipText += `${param.marker} ${seriesName}<br/>Max: <strong>${formatValue(value[4], formatting)}</strong><br/>Q3: <strong>${formatValue(value[3], formatting)}</strong><br/>Median: <strong>${formatValue(value[2], formatting)}</strong><br/>Q1: <strong>${formatValue(value[1], formatting)}</strong><br/>Min: <strong>${formatValue(value[0], formatting)}</strong><br/>`;
-                    } else if (typeof param.data === 'object' && param.data !== null && 'value' in param.data) { // Pie, Treemap, Funnel
+                    } else if (typeof param.data === 'object' && param.data !== null && 'value' in param.data) { // Pie, Treemap, Funnel, Gauge
                         const dataValue = Array.isArray(param.data.value) ? param.data.value[1] : param.data.value;
                         tooltipText += `${param.marker} ${seriesName} - <strong>${formatValue(dataValue, formatting, aggregation)}</strong><br/>`;
                     } else { // Standard charts like bar, line, scatter
@@ -277,6 +277,34 @@ export const EChartsComponent: FC<ChartProps> = ({ widget, data, onElementClick,
                         data: ds.data.map((d: any) => d ? [d.min, d.q1, d.median, d.q3, d.max] : null)
                     };
                     break;
+                case ChartType.RADAR:
+                    chartSpecificProps = { type: 'radar' };
+                    break;
+                case ChartType.GAUGE:
+                    chartSpecificProps = {
+                        type: 'gauge',
+                        data: [{
+                            value: ds.data[0],
+                            name: ds.label
+                        }],
+                        detail: {
+                            formatter: (value: number) => {
+                                const pill = widget.shelves.values[0];
+                                return pill ? formatValue(value, pill.formatting, pill.aggregation) : formatValue(value);
+                            },
+                            fontSize: 24,
+                            fontWeight: 'bold',
+                            color: 'auto'
+                        },
+                        progress: { show: true, width: 18 },
+                        axisLine: { lineStyle: { width: 18 } },
+                        axisTick: { show: false },
+                        splitLine: { show: false },
+                        axisLabel: { show: false },
+                        pointer: { show: false },
+                        title: { show: true, offsetCenter: [0, '80%'], fontSize: 14 }
+                    };
+                    break;
                 default: chartSpecificProps = { type: 'bar' };
             }
 
@@ -289,7 +317,17 @@ export const EChartsComponent: FC<ChartProps> = ({ widget, data, onElementClick,
             return { name: ds.label, data: seriesData, ...chartSpecificProps };
         }) : [];
         
-        options.series = series;
+        if (chartType === ChartType.RADAR) {
+            const maxValues = datasets.map((ds: any) => Math.max(...ds.data.filter((v: any) => v !== null).map((v: any) => Number(v))));
+            const overallMax = Math.max(...maxValues, 0);
+            options.radar = { indicator: labels.map((l: string) => ({ name: l, max: overallMax > 0 ? overallMax * 1.1 : 100 })) };
+            options.series = [{
+                type: 'radar',
+                data: datasets.map((ds: any) => ({ value: ds.data, name: ds.label })),
+            }];
+        } else {
+            options.series = series;
+        }
 
         if (chartType === ChartType.DUAL_AXIS && widget.shelves.values2?.length > 0) {
             options.yAxis.push({

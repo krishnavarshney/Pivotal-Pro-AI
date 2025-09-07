@@ -211,6 +211,36 @@ export const ApexChartsComponent: FC<ChartProps> = ({ widget, data, onElementCli
                 }
             ];
             break;
+        case ChartType.RADAR:
+            apexChartType = 'radar';
+            series = datasets.map(ds => ({ name: ds.label, data: ds.data }));
+            break;
+        case ChartType.GAUGE:
+            apexChartType = 'radialBar';
+            series = datasets[0]?.data || [];
+            options.plotOptions = {
+                radialBar: {
+                    hollow: {
+                        size: '70%',
+                    },
+                    dataLabels: {
+                        name: {
+                            show: false,
+                        },
+                        value: {
+                            formatter: (val: number) => {
+                                const pill = widget.shelves.values[0];
+                                return pill ? formatValue(val, pill.formatting, pill.aggregation) : formatValue(val);
+                            },
+                            fontSize: '2rem',
+                            fontWeight: 'bold',
+                            color: themeConfig.mode === 'dark' ? '#e2e8f0' : '#334155',
+                        }
+                    }
+                }
+            };
+            options.labels = [datasets[0]?.label || ''];
+            break;
         default:
             apexChartType = 'bar';
             series = datasets.map(ds => ({ name: ds.label, data: ds.data }));

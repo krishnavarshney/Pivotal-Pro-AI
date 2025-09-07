@@ -1,20 +1,21 @@
 import React, { useState, FC } from 'react';
 import { useDashboard } from '../../contexts/DashboardProvider';
 import { Button } from '../ui/Button';
+import { Dialog, DialogContent, DialogOverlay } from '../ui/Dialog';
 import { Sheet, SheetContent } from '../ui/Sheet';
 import { FieldsPanel } from './WidgetEditorPanel/FieldsPanel';
 import { ConfigurationPanel } from './WidgetEditorPanel/ConfigurationPanel';
 import { LivePreviewPanel } from './WidgetEditorPanel/LivePreviewPanel';
 import { Save, X, Columns3, Settings, Pencil } from 'lucide-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
-import { DataProcessor } from '../common/DataProcessor';
+import { AiPromptBar } from './WidgetEditorPanel/AiPromptBar';
 
 const DesktopLayout: FC = () => {
     const { editingWidgetState } = useDashboard();
     if (editingWidgetState?.displayMode === 'section') {
         return (
             <div className="flex-grow flex min-h-0">
-                <section className="w-full flex-shrink-0 flex flex-col">
+                <section id="onboarding-widget-editor-properties" className="w-full flex-shrink-0 flex flex-col">
                     <ConfigurationPanel />
                 </section>
             </div>
@@ -23,13 +24,13 @@ const DesktopLayout: FC = () => {
 
     return (
         <div className="flex-grow flex min-h-0">
-            <section className="w-[300px] flex-shrink-0 bg-secondary/50 border-r border-border flex flex-col">
+            <section id="onboarding-widget-editor-fields" className="w-[300px] flex-shrink-0 bg-secondary/50 border-r border-border flex flex-col">
                 <FieldsPanel />
             </section>
-            <section className="w-[384px] flex-shrink-0 border-r border-border flex flex-col">
+            <section id="onboarding-widget-editor-properties" className="w-[384px] flex-shrink-0 border-r border-border flex flex-col">
                 <ConfigurationPanel />
             </section>
-            <section className="flex-grow bg-background">
+            <section id="onboarding-widget-editor-preview" className="flex-grow bg-background">
                  <LivePreviewPanel />
             </section>
         </div>
@@ -90,30 +91,35 @@ export const WidgetEditorModal: FC = () => {
     const isSectionEditor = editingWidgetState.displayMode === 'section';
     
     const title = editingWidgetState.id === 'new' 
-        ? (isSectionEditor ? 'Create New Section' : 'Create New Widget')
+        ? (isSectionEditor ? 'Create New Section' : 'Create Widget')
         : (isSectionEditor ? 'Edit Section' : 'Edit Widget');
     
-    const sheetClassName = isSectionEditor
-        ? "w-full max-w-md p-0 flex flex-col gap-0 border-none"
-        : "w-full max-w-none sm:max-w-[calc(100%-4rem)] p-0 flex flex-col gap-0 border-none";
+    const containerClassName = isSectionEditor
+        ? "w-full max-w-xl"
+        : "w-full max-w-6xl";
+        
+    const contentClassName = isSectionEditor
+        ? "h-auto max-h-[80vh] flex flex-col p-0 gap-0"
+        : "h-[85vh] flex flex-col p-0 gap-0";
 
     return (
-        <Sheet open={isWidgetEditorModalOpen} onOpenChange={closeWidgetEditorModal}>
-            <SheetContent side="right" className={sheetClassName}>
-                <header className="flex-shrink-0 flex items-center justify-between p-4 h-[65px] border-b border-border glass-header">
-                    <div className="flex items-center gap-3">
-                        <span className="p-2 bg-primary/10 rounded-lg text-primary"><Pencil size={20} /></span>
-                        <div>
-                            <h2 className="text-lg font-semibold text-foreground font-display">{title}</h2>
-                        </div>
+        <Dialog open={isWidgetEditorModalOpen} onOpenChange={closeWidgetEditorModal}>
+            <DialogOverlay />
+            <DialogContent containerClassName={containerClassName} className={contentClassName} hideCloseButton>
+                <header className="flex-shrink-0 grid grid-cols-3 items-center p-4 h-[65px] border-b border-border glass-header rounded-t-xl">
+                    <div className="justify-self-start">
+                        <h2 className="text-lg font-semibold text-foreground font-display">{title}</h2>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Button variant="outline" onClick={closeWidgetEditorModal}><X /> Cancel</Button>
-                        <Button onClick={saveEditingWidget}><Save /> Save Widget</Button>
+                    <div className="justify-self-center w-full">
+                        {!isSectionEditor && <AiPromptBar />}
+                    </div>
+                    <div className="justify-self-end flex items-center gap-2">
+                        <Button variant="outline" onClick={closeWidgetEditorModal}>Cancel</Button>
+                        <Button onClick={saveEditingWidget}>Save Widget</Button>
                     </div>
                 </header>
                 {isMobile ? <MobileLayout mobilePanel={mobilePanel} setMobilePanel={setMobilePanel} /> : <DesktopLayout />}
-            </SheetContent>
-        </Sheet>
+            </DialogContent>
+        </Dialog>
     );
 };

@@ -6,6 +6,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { DashboardProvider } from './src/contexts/DashboardProvider';
 import { SidebarProvider } from './src/components/ui/sidebar.tsx';
 import { AuthProvider } from './src/contexts/AuthProvider';
+import { DataProvider } from './src/contexts/DataProvider';
 import './src/styles.css';
 
 const rootElement = document.getElementById('root');
@@ -18,11 +19,13 @@ root.render(
   <React.StrictMode>
     <AuthProvider>
         <DndProvider backend={HTML5Backend}>
+          <DataProvider>
             <DashboardProvider>
                 <SidebarProvider>
                     <App />
                 </SidebarProvider>
             </DashboardProvider>
+          </DataProvider>
         </DndProvider>
     </AuthProvider>
   </React.StrictMode>

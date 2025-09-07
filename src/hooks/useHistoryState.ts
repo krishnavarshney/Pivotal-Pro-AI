@@ -4,7 +4,6 @@ import { Workspace, Transformation } from '../utils/types';
 
 export type UndoableState = {
     workspaces: Workspace[];
-    transformations: [string, Transformation[]][];
 };
 
 export const useHistoryState = <T extends UndoableState>(initialState: T, maxHistory = 50) => {

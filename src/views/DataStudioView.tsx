@@ -14,7 +14,6 @@ import * as aiService from '../services/aiService';
 import { ViewHeader } from '../components/common/ViewHeader';
 import { useSidebar } from '../components/ui/sidebar';
 import { HelpIcon } from '../components/ui/HelpIcon';
-import { DataStudioOnboarding } from './datastudios';
 import { notificationService } from '../services/notificationService';
 
 const formatTransformPayload = (transform: Transformation): string => {
@@ -220,7 +219,7 @@ const StudioSidebar: React.FC<{
     );
 
     return (
-        <div id="onboarding-sidebar" className="bg-card rounded-xl border border-border flex flex-col overflow-hidden">
+        <div id="onboarding-datastudio-sidebar" className="bg-card rounded-xl border border-border flex flex-col overflow-hidden">
             <div className="p-4 border-b border-border flex-shrink-0">
                 <div className="flex border-b border-border -mx-4 -mt-4 mb-4">
                     <TabButton tabId="sources"><Database/> Sources</TabButton>
@@ -275,7 +274,7 @@ const StudioSidebar: React.FC<{
                     </MotionDiv>
                 </AnimatePresence>
             </div>
-            <div id="onboarding-actions" className="p-4 border-t border-border flex-shrink-0 space-y-2">
+            <div id="onboarding-datastudio-actions" className="p-4 border-t border-border flex-shrink-0 space-y-2">
                  <Button variant="outline" className="w-full ai-feature-style" onClick={handleGenerateSuggestions} disabled={!aiConfig || isGenerating || !source}>
                     <Lightbulb size={16} /> {isGenerating ? 'Analyzing...' : 'Get AI Suggestions'}
                 </Button>
@@ -384,8 +383,6 @@ export const DataStudioView: React.FC = () => {
         openInputModal, 
         openSplitColumnModal, 
         parameters, 
-        isDataStudioOnboardingNeeded, 
-        completeDataStudioOnboarding,
         importInputRef,
         removeDataSource,
     } = useDashboard();
@@ -525,7 +522,6 @@ export const DataStudioView: React.FC = () => {
                     </div>
                 )}
             </main>
-            {isDataStudioOnboardingNeeded && <DataStudioOnboarding onComplete={completeDataStudioOnboarding} />}
         </div>
     );
 };

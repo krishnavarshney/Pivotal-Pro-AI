@@ -6,7 +6,7 @@ import {
     Users, Aperture, Search, Puzzle, Share2, LogOut, BarChart, Timer, 
     GripVertical, ShieldCheck, Bookmark, MessageSquare, ChevronDown, LineChart, AreaChart,
     PieChart, AppWindow, Grid, Construction, BarChartHorizontal, Box, Dot, Eye, Info, Plus,
-    SlidersHorizontal, FileText
+    SlidersHorizontal, FileText, Radar, GaugeCircle
 } from 'lucide-react';
 import { useDashboard } from '../contexts/DashboardProvider';
 import { WidgetState, WidgetLayout, ChartType, Pill, FilterCondition, AggregationType, DND_ITEM_TYPE, FieldType, Bookmark as BookmarkType, ContextMenuItem, Field } from '../utils/types';
@@ -17,11 +17,10 @@ import { inputClasses, cn } from '../components/ui/utils';
 import { Checkbox } from '../components/ui/Checkbox';
 import { Tooltip } from '../components/ui/Tooltip';
 import { DataProcessor } from '../components/common/DataProcessor';
-// FIX: Add aliasing for motion component to fix TypeScript errors.
 import { motion, AnimatePresence } from 'framer-motion';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import Papa from 'paparse';
+import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import _ from 'lodash';
 import { useSidebar, SidebarTrigger } from '../components/ui/sidebar.tsx';
@@ -34,9 +33,10 @@ import Slider from 'rc-slider';
 import { formatValue } from '../utils/dataProcessing/formatting';
 import { BuilderSidebar } from '../components/dashboard/BuilderSidebar';
 import { NotificationBell } from '../components/dashboard/NotificationBell';
+import { CommentModeBanner } from '../components/dashboard/CommentModeBanner';
 
-// FIX: Add aliasing for motion components to fix TypeScript errors.
-const MotionButton = motion.button as any;
+const MotionButton = motion.button;
+const MotionDiv = motion.div;
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -54,6 +54,8 @@ const chartIcons: Record<string, ReactElement> = {
     [ChartType.BOXPLOT]: <Box size={20} />,
     [ChartType.FUNNEL]: <Filter size={20} />,
     [ChartType.SANKEY]: <Share2 size={20} />,
+    [ChartType.RADAR]: <Radar size={20} />,
+    [ChartType.GAUGE]: <GaugeCircle size={20} />,
 };
 
 const CompactChartTypeSelector: FC<{
@@ -149,8 +151,6 @@ const NlpFilterBar: FC = () => {
 const GlobalFilterShelf: FC = () => {
     const { activePage, setGlobalFilters, openPageFiltersModal, crossFilter, setCrossFilter, openFilterConfigModal, newlyAddedPillId } = useDashboard();
     
-    // FIX: Add aliasing for motion component to fix TypeScript errors.
-    const MotionDiv = motion.div as any;
     const globalFilters = activePage?.globalFilters || [];
 
     const handleRemovePill = (index: number) => {
@@ -169,7 +169,7 @@ const GlobalFilterShelf: FC = () => {
     
 
     return (
-        <div className="glass-panel rounded-lg px-3 py-2 border border-border">
+        <div id="onboarding-filters" className="glass-panel rounded-lg px-3 py-2 border border-border">
             <div className="flex items-center gap-4 flex-wrap">
                 <div className="flex items-center gap-2 flex-shrink-0">
                      <Button variant="outline" size="sm" onClick={openPageFiltersModal} title="Add or edit filters that affect all widgets on this page.">
@@ -477,14 +477,13 @@ const FilterControlWidget: FC<{ widget: WidgetState }> = ({ widget }) => {
 const Widget: FC<{ widget: WidgetState }> = ({ widget }) => {
     const { 
         openWidgetEditorModal, openContextMenu, openDataLineageModal, 
-        handleWidgetAddToStory, runWidgetAnalysis, runAdvancedAnalysis, saveWidget, 
+        handleWidgetAddToStory, 
+        runWidgetAnalysis, 
+        runAdvancedAnalysis, saveWidget, 
         removeWidget, duplicateWidget, openWhatIfConfigModal, setFocusedWidgetId,
         dashboardMode, addComment, setActiveCommentThread, activePage,
         setChatContext, openChatModal
     } = useDashboard();
-    // FIX: Add aliasing for motion component to fix TypeScript errors.
-    const MotionDiv = motion.div as any;
-    const MotionButton = motion.button as any;
 
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isChartTypePopoverOpen, setChartTypePopoverOpen] = useState(false);
@@ -661,28 +660,33 @@ const Widget: FC<{ widget: WidgetState }> = ({ widget }) => {
                 }
             </div>
              <AnimatePresence>
-            {commentsForWidget.map(comment => (
-                <MotionButton
-                    key={comment.id}
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0, opacity: 0 }}
-                    whileHover={{ scale: 1.2, boxShadow: '0 0 10px hsl(var(--primary))' }}
-                    onClick={(e: MouseEvent) => {
-                        e.stopPropagation(); // prevent creating a new comment
-                        setActiveCommentThread(comment);
-                    }}
-                    className="absolute z-10 w-6 h-6 rounded-full bg-primary shadow-lg flex items-center justify-center text-primary-foreground"
-                    style={{
-                        left: `${comment.position.x}%`,
-                        top: `${comment.position.y}%`,
-                        transform: 'translate(-50%, -50%)'
-                    }}
-                    aria-label="View comment thread"
-                >
-                    <MessageSquare size={14} />
-                </MotionButton>
-            ))}
+            {commentsForWidget.map(comment => {
+                const author = comment.messages[0]?.author || '??';
+                const initials = author.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+                return (
+                    <motion.button
+                        key={comment.id}
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        whileHover={{ scale: 1.2, zIndex: 11, boxShadow: '0 0 10px hsl(var(--primary))' }}
+                        onClick={(e: MouseEvent) => {
+                            e.stopPropagation();
+                            setActiveCommentThread(comment);
+                        }}
+                        className="absolute z-10 w-8 h-8 rounded-full bg-primary shadow-lg flex items-center justify-center text-primary-foreground font-bold text-xs"
+                        style={{
+                            left: `${comment.position.x}%`,
+                            top: `${comment.position.y}%`,
+                            transform: 'translate(-50%, -50%)'
+                        }}
+                        aria-label={`View comment thread from ${author}`}
+                    >
+                        {initials}
+                    </motion.button>
+                )
+            })}
             </AnimatePresence>
         </MotionDiv>
     );
@@ -907,6 +911,7 @@ const FloatingActionButton: FC = () => {
         <AnimatePresence>
             {shouldShow && (
                 <motion.div
+                    id="onboarding-fab"
                     initial={{ scale: 0, y: 50, opacity: 0 }}
                     animate={{ scale: 1, y: 0, opacity: 1 }}
                     exit={{ scale: 0, y: 50, opacity: 0 }}
@@ -961,9 +966,9 @@ const BulkActionsBar: FC = () => {
                             <Button variant="ghost" size="sm"><FileText size={16} /> Export</Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
-                            <DropdownMenuItem onClick={() => exportSelectedWidgets('PDF')}><>PDF</></DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => exportSelectedWidgets('CSV')}><>CSV</></DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => exportSelectedWidgets('XLSX')}><>Excel (XLSX)</></DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportSelectedWidgets('PDF')}>PDF</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportSelectedWidgets('CSV')}>CSV</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportSelectedWidgets('XLSX')}>Excel (XLSX)</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
 
@@ -993,7 +998,6 @@ export const DashboardView: FC = () => {
         selectedWidgetIds,
         toggleWidgetSelection,
     } = useDashboard();
-    const MotionDiv = motion.div as any;
 
     useEffect(() => {
         if (scrollToWidgetId) {
@@ -1037,6 +1041,9 @@ export const DashboardView: FC = () => {
 
     return (
         <div className="h-full w-full flex flex-col bg-transparent p-4 gap-4 relative">
+             <AnimatePresence>
+                {dashboardMode === 'comment' && <CommentModeBanner />}
+            </AnimatePresence>
             <div className="flex-grow flex flex-col gap-4 min-w-0">
                 <DashboardHeader />
                 <GlobalFilterShelf />

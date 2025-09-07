@@ -102,6 +102,23 @@ export const processWidgetData = (
     }
 
     switch (effectiveChartType) {
+        case ChartType.GAUGE: {
+            const valuePill = (widget.shelves.values || [])[0];
+            if (!valuePill) return { type: 'nodata', message: 'Please add a measure to the Gauge chart.' };
+
+            const value = aggregate(filteredData.map(row => row[valuePill.name]), valuePill.aggregation);
+            
+            return {
+                type: 'chart',
+                labels: [valuePill.simpleName],
+                datasets: [{
+                    label: valuePill.simpleName,
+                    data: [value],
+                    valuePillName: valuePill.name
+                }],
+                chartType: ChartType.GAUGE
+            };
+        }
         case ChartType.SANKEY: {
             const dimensionPills = widget.shelves.rows || [];
             const valuePill = (widget.shelves.values || [])[0];

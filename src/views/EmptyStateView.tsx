@@ -33,14 +33,16 @@ const itemVariants: Variants = {
 };
 
 const ActionCard: FC<{
+    id?: string;
     icon: ReactNode;
     title: string;
     description: string;
     onClick: () => void;
     className?: string;
-}> = ({ icon, title, description, onClick, className }) => {
+}> = ({ id, icon, title, description, onClick, className }) => {
     return (
         <MotionDiv
+            id={id}
             variants={itemVariants}
             whileHover={{ y: -8, scale: 1.02, boxShadow: '0 20px 25px -5px hsl(var(--primary-values) / 0.1), 0 8px 10px -6px hsl(var(--primary-values) / 0.1)' }}
             className={cn("glass-panel rounded-2xl p-4 sm:p-6 text-left flex flex-col items-start gap-4 cursor-pointer relative overflow-hidden group", className)}
@@ -98,6 +100,7 @@ export const EmptyStateView: FC = () => {
                     className="mt-16 grid grid-cols-1 lg:grid-cols-5 gap-8"
                 >
                     <ActionCard 
+                        id="onboarding-upload-file"
                         icon={<FileSpreadsheet size={32} />}
                         title="Upload a File"
                         description="Get started quickly by uploading a CSV, Excel, or Parquet file."

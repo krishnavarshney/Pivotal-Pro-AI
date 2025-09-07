@@ -1,5 +1,7 @@
 import React, { useState, FC, ReactElement } from 'react';
-import { ChartBar, ChartLine, ChartLineUp, ChartPie, DotsNine, TextT, NumberSquareOne, GridFour, MapTrifold, Barricade, ChartBarHorizontal, Robot, User, Sparkle, CheckCircle, Info, WarningCircle, LinkSimpleHorizontal, SlidersHorizontal, Package, Funnel, Plus, CirclesFour, ArrowsHorizontal, Clock, CaretDown, ShareNetwork } from 'phosphor-react';
+// FIX: The 'Radar' icon is not available in 'phosphor-react'. It is imported from 'lucide-react' instead to resolve the module export error.
+import { ChartBar, ChartLine, ChartLineUp, ChartPie, DotsNine, TextT, NumberSquareOne, GridFour, MapTrifold, Barricade, ChartBarHorizontal, Robot, User, Sparkle, CheckCircle, Info, WarningCircle, LinkSimpleHorizontal, SlidersHorizontal, Package, Funnel, Plus, CirclesFour, ArrowsHorizontal, Clock, CaretDown, ShareNetwork, Gauge } from 'phosphor-react';
+import { Radar } from 'lucide-react';
 import { ChartType } from '../../utils/types';
 import { Popover } from './Popover';
 import { cn, inputClasses } from './utils';
@@ -27,6 +29,8 @@ export const ChartTypeSelector: FC<{
         [ChartType.FUNNEL]: <Funnel size={20} />,
         [ChartType.CONTROL]: <SlidersHorizontal size={20} />,
         [ChartType.SANKEY]: <ShareNetwork size={20} />,
+        [ChartType.RADAR]: <Radar size={20} />,
+        [ChartType.GAUGE]: <Gauge size={20} />,
     };
 
     return (

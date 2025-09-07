@@ -199,7 +199,7 @@ export interface WidgetState {
     values: Pill[];
     values2?: Pill[]; // For Dual Axis charts
     filters: Pill[];
-    category?: Pill[]; // For bubble charts
+    category?: Pill[]; // for bubble charts
     bubbleSize?: Pill[]; // for bubble charts
   };
   subtotalSettings: {
@@ -439,12 +439,14 @@ export interface AiChatMessage {
     id: string;
     role: 'user' | 'assistant';
     content: string;
-    chartSuggestion?: Partial<WidgetState>;
+    // FIX: Changed chartSuggestion to AiWidgetSuggestion to match the AI service response schema.
+    chartSuggestion?: AiWidgetSuggestion;
     isStreaming?: boolean;
     widgetContext?: {
         widgetId: string;
         widgetTitle: string;
     };
+    followUpSuggestions?: string[];
 }
 
 export interface AiDataSuggestion {
@@ -679,6 +681,7 @@ export interface AdvancedAnalysisResult {
         heading: string;
         content: string;
     }[];
+    // FIX: Added 'whatIfResult' property to the interface to allow for what-if analysis results.
     whatIfResult?: WhatIfResult;
 }
 
@@ -756,13 +759,63 @@ export type CurrentView = 'dashboard' | 'explorer' | 'stories' | 'studio' | 'mod
 
 export type DashboardMode = 'view' | 'comment' | 'edit';
 
-export interface DashboardContextProps {
-    // State
+export type TourName = 'dashboard' | 'widgetEditor' | 'dataStudio' | 'dataModeler' | 'stories' | 'predictive';
+
+export interface OnboardingStep {
+    elementId: string;
+    title: string;
+    content: string;
+    placement: 'top' | 'bottom' | 'left' | 'right';
+    preAction?: (actions: { startOnboardingTour: (tour: TourName, step?: number) => void }) => void;
+}
+
+export interface OnboardingState {
+    isTourActive: boolean;
+    currentTour: TourName | null;
+    currentStep: number;
+    completedTours: TourName[];
+}
+
+export interface GettingStartedGuideItem {
+    id: TourName;
+    title: string;
+    description: string;
+    icon: ReactNode;
+    view: CurrentView;
+}
+
+
+// FIX: Added the missing `DataContextProps` interface and updated `DashboardContextProps` to extend it, which resolves a circular dependency and type export error between the data and dashboard providers.
+export interface DataContextProps {
     dataSources: Map<string, DataSource>;
     relationships: Relationship[];
     dataModelerLayout: DataModelerLayout;
+    dataStudioCanvasLayout: DataStudioCanvasLayout;
+    parameters: Parameter[];
     blendedData: any[];
     blendedFields: { dimensions: Field[]; measures: Field[] };
+    addDataSourceFromFile: (file: File) => Promise<void>;
+    loadSampleData: (sampleKey: 'sales' | 'iris' | 'both') => void;
+    removeDataSource: (id: string) => void;
+    setRelationships: Dispatch<SetStateAction<Relationship[]>>;
+    setDataModelerLayout: Dispatch<SetStateAction<DataModelerLayout>>;
+    setDataStudioCanvasLayout: Dispatch<SetStateAction<DataStudioCanvasLayout>>;
+    getTransformationsForSource: (sourceId: string) => Transformation[];
+    applyTransformations: (sourceId: string, newTransforms: Transformation[]) => void;
+    addTransformation: (sourceId: string, type: TransformationType, payload: any) => void;
+    removeTransformation: (sourceId: string, transformId: string) => void;
+    resetAllTransformations: (sourceId: string) => void;
+    addCalculatedField: (sourceId: string, fieldName: string, formula: string) => void;
+    addParameter: (p: Omit<Parameter, 'id'>) => void;
+    updateParameter: (id: string, updates: Partial<Parameter>) => void;
+    removeParameter: (id: string) => void;
+    refreshApiDataSource: (source: DataSource) => Promise<void>;
+    runHealthCheck: () => void;
+    createDataSourceFromConnection: (config: { connector: Connector; details: any; name: string }) => Promise<void>;
+}
+
+export interface DashboardContextProps extends DataContextProps {
+    // State
     performanceTimings: Map<string, number>;
     aiConfig: AIConfig | null;
     aiChatHistory: AiChatMessage[];
@@ -775,12 +828,11 @@ export interface DashboardContextProps {
     currentView: CurrentView;
     explorerState: ExplorerState | null;
     studioSourceId: string | null;
-    isDataStudioOnboardingNeeded: boolean;
     toastNotifications: ToastNotification[];
     allNotifications: ToastNotification[];
     unreadNotificationCount: number;
     isNotificationPanelOpen: boolean;
-    loadingState: { isLoading: boolean; message: string; lottieAnimation?: any };
+    loadingState: { isLoading: boolean; message: string; };
     scrollToWidgetId: string | null;
     dashboardMode: DashboardMode;
     isHelpModeActive: boolean;
@@ -790,7 +842,6 @@ export interface DashboardContextProps {
     widgets: WidgetState[];
     layouts: { [breakpoint: string]: WidgetLayout[] };
     globalFilters: Pill[];
-    parameters: Parameter[];
     stories: Story[];
     editingStory: { story: Story; focusPageId?: string } | null;
     userTemplates: Template[];
@@ -800,23 +851,21 @@ export interface DashboardContextProps {
     canRedo: boolean;
     refetchCounter: number;
     predictiveModels: PredictiveModelResult[];
-    dataStudioCanvasLayout: DataStudioCanvasLayout;
     newlyAddedPillId: string | null;
     selectedWidgetIds: string[];
+    onboardingState: OnboardingState;
 
     // Callbacks & Setters
-    addDataSourceFromFile: (file: File) => Promise<void>;
-    removeDataSource: (id: string) => void;
-    loadSampleData: (sampleKey: 'sales' | 'iris' | 'both') => void;
-    setRelationships: Dispatch<SetStateAction<Relationship[]>>;
-    setDataModelerLayout: Dispatch<SetStateAction<DataModelerLayout>>;
-    setDataStudioCanvasLayout: Dispatch<SetStateAction<DataStudioCanvasLayout>>;
+    startOnboardingTour: (tour: TourName, step?: number) => void;
+    advanceOnboardingStep: (direction: 'next' | 'back') => void;
+    exitOnboarding: () => void;
     setWidgetPerformance: (widgetId: string, duration: number) => void;
     triggerWidgetRefetch: () => void;
     saveAiConfig: Dispatch<SetStateAction<AIConfig | null>>;
     sendAiChatMessage: (message: string, context?: ChatContext) => Promise<void>;
     clearAiChatHistory: () => void;
-    createWidgetFromSuggestion: (suggestion: Partial<WidgetState>) => void;
+    // FIX: Changed suggestion type to AiWidgetSuggestion.
+    createWidgetFromSuggestion: (suggestion: AiWidgetSuggestion) => void;
     chatContext: ChatContext;
     setChatContext: Dispatch<SetStateAction<ChatContext>>;
     setInsights: Dispatch<SetStateAction<Insight[]>>;
@@ -831,7 +880,6 @@ export interface DashboardContextProps {
     openContextMenu: (x: number, y: number, items: ContextMenuItem[]) => void;
     closeContextMenu: () => void;
     setView: (view: CurrentView, options?: any) => void;
-    completeDataStudioOnboarding: () => void;
     removeToast: (id: string) => void;
     openNotificationPanel: () => void;
     closeNotificationPanel: () => void;
@@ -854,9 +902,6 @@ export interface DashboardContextProps {
     duplicatePage: (pageId: string) => void;
     setCrossFilter: Dispatch<SetStateAction<CrossFilterState>>;
     setControlFilter: (widgetId: string, filterPill: Pill | null) => void;
-    addParameter: (p: Omit<Parameter, 'id'>) => void;
-    updateParameter: (id: string, updates: Partial<Parameter>) => void;
-    removeParameter: (id: string) => void;
     saveStory: (story: Story) => void;
     removeStory: (id: string) => void;
     undo: () => void;
@@ -880,32 +925,26 @@ export interface DashboardContextProps {
     handleExportDashboard: () => void;
     saveStateToLocalStorage: () => void;
     clearApplicationState: () => void;
-    applyTransformations: (sourceId: string, newTransforms: Transformation[]) => void;
-    getTransformationsForSource: (sourceId: string) => Transformation[];
-    addTransformation: (sourceId: string, type: TransformationType, payload: any) => void;
-    removeTransformation: (sourceId: string, transformId: string) => void;
-    resetAllTransformations: (sourceId: string) => void;
-    addCalculatedField: (sourceId: string, fieldName: string, formula: string) => void;
     addComment: (widgetId: string, position: { x: number; y: number }) => void;
     updateComment: (commentId: string, messages: DashboardCommentMessage[]) => void;
     deleteComment: (commentId: string) => void;
     runAdvancedAnalysis: (widgetId: string, analysisType: 'ANOMALY_DETECTION' | 'KEY_INFLUENCERS' | 'CLUSTERING') => Promise<void>;
-    runWhatIfAnalysis: (widgetId: string, scenarioConfig: { targetMetric: string; modifiedVariables: { [key: string]: number } }) => Promise<void>;
-    runWidgetAnalysis: (widget: WidgetState, tone?: StoryTone) => Promise<void>;
+    // FIX: Added 'runWhatIfAnalysis' to the interface.
+    runWhatIfAnalysis: (widgetId: string, scenarioConfig: { targetMetric: string, modifiedVariables: { [key: string]: number } }) => Promise<void>;
     getWidgetAnalysisText: (widget: WidgetState, tone?: StoryTone) => Promise<string | null>;
+    // FIX: Added 'runWidgetAnalysis' to the interface.
+    runWidgetAnalysis: (widget: WidgetState, tone?: StoryTone) => Promise<void>;
     generateStoryFromPage: (pageId: string, title: string, tone: StoryTone) => Promise<void>;
     generateStoryFromInsights: (insights: Insight[]) => Promise<void>;
     createPageFromTemplate: (template: Template, mappings: Map<string, string>) => void;
     createTemplateFromPage: (page: DashboardPage, templateDetails: Omit<Template, 'id' | 'page' | 'requiredFields'>) => void;
     handleGenerateAiDashboard: () => Promise<void>;
     addPredictiveModel: (model: PredictiveModelResult) => void;
-    refreshApiDataSource: (source: DataSource) => Promise<void>;
-    runHealthCheck: () => void;
-    createDataSourceFromConnection: (config: { connector: Connector; details: any; name: string }) => Promise<void>;
     openWidgetEditorModal: (widgetId?: string | null) => void;
     openWidgetEditorForNewWidget: (chartType: ChartType) => void;
     saveEditingWidget: () => void;
-    populateEditorFromAI: (suggestion: Partial<WidgetState>) => void;
+    // FIX: Changed suggestion type to AiWidgetSuggestion.
+    populateEditorFromAI: (suggestion: AiWidgetSuggestion) => void;
     openEditorWithAIPrompt: (prompt: string) => void;
     resolveNlpAmbiguity: (term: string, fieldSimpleName: string) => void;
     handleNlpFilterQuery: (query: string) => Promise<void>;
