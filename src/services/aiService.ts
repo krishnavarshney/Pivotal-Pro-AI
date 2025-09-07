@@ -1067,7 +1067,8 @@ const predictiveModelSchema = {
                     feature: { type: Type.STRING, description: "Feature name or '(Intercept)'." },
                     coefficient: { type: Type.NUMBER },
                     stdError: { type: Type.NUMBER },
-                    pValue: { type: Type.NUMBER }
+                    // FIX: Changed pValue to a STRING type to handle extremely small numbers from the model without causing JSON parsing errors.
+                    pValue: { type: Type.STRING, description: "The p-value as a string to handle scientific notation or very small numbers." }
                 },
                 required: ["feature", "coefficient", "stdError", "pValue"]
             }
@@ -1150,10 +1151,17 @@ export const runPredictiveModel = async (
     try {
         const parsed = JSON.parse(responseText);
         if (parsed.summary && parsed.performanceMetrics && parsed.featureImportance && parsed.coefficients) {
+            // FIX: Manually convert pValue from string to number after parsing to maintain type consistency.
+            const cleanedCoefficients = parsed.coefficients.map((coef: any) => ({
+                ...coef,
+                pValue: Number(coef.pValue) || 0,
+            }));
+
             return {
                 id: _.uniqueId('pm_'),
                 timestamp: new Date().toISOString(),
-                ...parsed
+                ...parsed,
+                coefficients: cleanedCoefficients,
             } as PredictiveModelResult;
         }
         throw new Error("AI response did not match the expected predictive model schema.");

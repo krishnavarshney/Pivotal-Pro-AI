@@ -72,39 +72,39 @@ export const DataLineageModal: FC = () => {
                     
                     <LineageNode icon={<Database size={20} />} title="Data Sources">
                         {widgetSources.length > 0 ? widgetSources.map(ds => ds && (
-                            <p key={ds.id}><Badge variant="secondary">{ds.name}</Badge></p>
+                            <div key={ds.id}><Badge variant="secondary">{ds.name}</Badge></div>
                         )) : <p className="text-muted-foreground">No direct data sources found.</p>}
                     </LineageNode>
                     <LineageConnector />
 
                     <LineageNode icon={<PuzzlePiece size={20} />} title="Transformations">
                         {relevantTransforms.length > 0 ? relevantTransforms.map((t: Transformation) => (
-                            <p key={t.id}><Badge>{t.type}</Badge></p>
+                            <div key={t.id}><Badge>{t.type}</Badge></div>
                         )) : <p className="text-muted-foreground">No transformations applied.</p>}
                     </LineageNode>
                     <LineageConnector />
                     
                     <LineageNode icon={<GitBranch size={20} />} title="Joins / Relationships">
                         {relevantRelationships.length > 0 ? relevantRelationships.map(rel => (
-                            <p key={rel.id}>
+                            <div key={rel.id} className="flex items-center flex-wrap gap-2">
                                 <Badge variant="secondary">{dataSources.get(rel.sourceAId)?.name}</Badge>
                                 <span className="mx-2 font-mono text-xs">{rel.type}</span>
                                 <Badge variant="secondary">{dataSources.get(rel.sourceBId)?.name}</Badge>
-                            </p>
+                            </div>
                         )) : <p className="text-muted-foreground">No relationships defined.</p>}
                     </LineageNode>
                     <LineageConnector />
 
                     <LineageNode icon={<Funnel size={20} />} title="Filters Applied">
-                        {globalFilters.map(f => <p key={f.id}><Badge>Global:</Badge> {f.simpleName} {f.filter?.condition} {formatFilterValue(f.filter?.values || [])}</p>)}
-                        {crossFilter && <p><Badge>Cross-Filter:</Badge> {crossFilter.filter.simpleName} {crossFilter.filter.filter?.condition} {formatFilterValue(crossFilter.filter.filter?.values || [])}</p>}
-                        {(widget.shelves.filters || []).map(f => <p key={f.id}><Badge>Local:</Badge> {f.simpleName} {f.filter?.condition} {formatFilterValue(f.filter?.values || [])}</p>)}
+                        {globalFilters.map(f => <div key={f.id} className="flex items-center gap-2"><Badge>Global:</Badge> <span>{f.simpleName} {f.filter?.condition} {formatFilterValue(f.filter?.values || [])}</span></div>)}
+                        {crossFilter && <div className="flex items-center gap-2"><Badge>Cross-Filter:</Badge> <span>{crossFilter.filter.simpleName} {crossFilter.filter.filter?.condition} {formatFilterValue(crossFilter.filter.filter?.values || [])}</span></div>}
+                        {(widget.shelves.filters || []).map(f => <div key={f.id} className="flex items-center gap-2"><Badge>Local:</Badge> <span>{f.simpleName} {f.filter?.condition} {formatFilterValue(f.filter?.values || [])}</span></div>)}
                         {allFilters.length === 0 && <p className="text-muted-foreground">No filters applied.</p>}
                     </LineageNode>
                     <LineageConnector />
                     
                      <LineageNode icon={<Table size={20} />} title="Final Widget">
-                        <p><Badge variant="outline">{widget.title}</Badge></p>
+                        <div><Badge variant="outline">{widget.title}</Badge></div>
                         <p className="text-muted-foreground">Type: {widget.chartType}</p>
                     </LineageNode>
                 </div>

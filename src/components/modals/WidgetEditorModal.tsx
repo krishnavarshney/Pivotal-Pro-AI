@@ -96,11 +96,11 @@ export const WidgetEditorModal: FC = () => {
     
     const containerClassName = isSectionEditor
         ? "w-full max-w-xl"
-        : "w-full max-w-6xl";
+        : "w-[95vw] max-w-[1600px]";
         
     const contentClassName = isSectionEditor
         ? "h-auto max-h-[80vh] flex flex-col p-0 gap-0"
-        : "h-[85vh] flex flex-col p-0 gap-0";
+        : "h-[90vh] flex flex-col p-0 gap-0";
 
     return (
         <Dialog open={isWidgetEditorModalOpen} onOpenChange={closeWidgetEditorModal}>

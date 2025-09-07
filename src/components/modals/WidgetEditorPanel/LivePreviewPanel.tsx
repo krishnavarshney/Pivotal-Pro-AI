@@ -19,7 +19,7 @@ export const LivePreviewPanel: FC = () => {
         );
     }
     return (
-        <div className="w-full h-full p-4">
+        <div className="w-full h-full p-4 overflow-auto">
             <DataProcessor widget={editingWidgetState} />
         </div>
     );

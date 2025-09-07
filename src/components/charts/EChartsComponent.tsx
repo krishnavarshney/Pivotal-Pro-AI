@@ -51,7 +51,8 @@ export const EChartsComponent: FC<ChartProps> = ({ widget, data, onElementClick,
     const paletteName = colorPalette as keyof typeof COLOR_PALETTES || 'Pivotal Pro';
     const { colors: chartColors } = COLOR_PALETTES[paletteName];
 
-    const allValuePills = [...widget.shelves.values, ...(widget.shelves.values2 || [])];
+    // FIX: Ensure widget.shelves.values is always an array to prevent "not iterable" error.
+    const allValuePills = [...(widget.shelves.values || []), ...(widget.shelves.values2 || [])];
     
     const isCartesian = ![ChartType.PIE, ChartType.TREEMAP, ChartType.FUNNEL, ChartType.SANKEY, ChartType.MAP, ChartType.GAUGE, ChartType.RADAR].includes(chartType);
     const isHorizontal = chartType === ChartType.BAR && (widget.shelves.rows || []).length > 0 && (widget.shelves.columns || []).length === 0;
@@ -156,7 +157,7 @@ export const EChartsComponent: FC<ChartProps> = ({ widget, data, onElementClick,
                 rotate: isHorizontal ? 0 : 30, 
                 interval: 'auto', 
                 hideOverlap: true,
-                ...(isHorizontal && { formatter: (val: number) => formatValue(val, widget.shelves.values[0]?.formatting) })
+                ...(isHorizontal && { formatter: (val: number) => formatValue(val, (widget.shelves.values || [])[0]?.formatting) })
             },
         } : undefined,
         yAxis: isCartesian ? [
@@ -165,7 +166,7 @@ export const EChartsComponent: FC<ChartProps> = ({ widget, data, onElementClick,
                 data: isHorizontal ? labels : undefined,
                 axisLabel: { 
                     color: themeConfig.mode === 'dark' ? '#a0aec0' : '#4a5568', 
-                    ...(!isHorizontal && { formatter: (val: number) => formatValue(val, widget.shelves.values[0]?.formatting) })
+                    ...(!isHorizontal && { formatter: (val: number) => formatValue(val, (widget.shelves.values || [])[0]?.formatting) })
                 },
                 splitLine: { lineStyle: { color: themeConfig.mode === 'dark' ? 'rgba(113, 113, 122, 0.3)' : '#e2e8f0' } },
             },
@@ -305,7 +306,7 @@ export const EChartsComponent: FC<ChartProps> = ({ widget, data, onElementClick,
                         }],
                         detail: {
                             formatter: (value: number) => {
-                                const pill = widget.shelves.values[0];
+                                const pill = (widget.shelves.values || [])[0];
                                 return pill ? formatValue(value, pill.formatting, pill.aggregation) : formatValue(value);
                             },
                             fontSize: 24,
@@ -353,8 +354,8 @@ export const EChartsComponent: FC<ChartProps> = ({ widget, data, onElementClick,
             });
             
             options.series = [
-                ...widget.shelves.values.map((_pill, i) => _.omit({ ...series[i], type: 'bar' }, 'stack')),
-                ...widget.shelves.values2.map((_, i) => ({ ...series[widget.shelves.values.length + i], type: 'line', yAxisIndex: 1, smooth: true })),
+                ...(widget.shelves.values || []).map((_pill, i) => _.omit({ ...series[i], type: 'bar' }, 'stack')),
+                ...widget.shelves.values2.map((_, i) => ({ ...series[(widget.shelves.values || []).length + i], type: 'line', yAxisIndex: 1, smooth: true })),
             ];
         }
     }
