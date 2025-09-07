@@ -42,7 +42,7 @@ export const EChartsComponent: FC<ChartProps> = ({ widget, data, onElementClick,
         };
     }, []);
 
-    const { chartType, colorPalette, isStacked } = widget;
+    const { chartType, colorPalette, isStacked, chartSettings } = widget;
 
     const isChartData = data.type === 'chart';
     const labels = isChartData ? (data as any).labels : [];
@@ -55,6 +55,27 @@ export const EChartsComponent: FC<ChartProps> = ({ widget, data, onElementClick,
     
     const isCartesian = ![ChartType.PIE, ChartType.TREEMAP, ChartType.FUNNEL, ChartType.SANKEY, ChartType.MAP, ChartType.GAUGE, ChartType.RADAR].includes(chartType);
     const isHorizontal = chartType === ChartType.BAR && (widget.shelves.rows || []).length > 0 && (widget.shelves.columns || []).length === 0;
+    
+    const getEchartsLegendOptions = () => {
+        const position = chartSettings?.legendPosition || 'bottom';
+        const baseOptions = {
+            show: chartSettings?.showLegend !== false,
+            type: 'scroll',
+            textStyle: { color: themeConfig.mode === 'dark' ? '#e2e8f0' : '#334155' },
+        };
+
+        switch(position) {
+            case 'top':
+                return { ...baseOptions, top: '5%', left: 'center' };
+            case 'left':
+                return { ...baseOptions, left: 10, top: 'center', orient: 'vertical' };
+            case 'right':
+                return { ...baseOptions, right: 10, top: 'center', orient: 'vertical' };
+            case 'bottom':
+            default:
+                return { ...baseOptions, bottom: '2%', left: 'center' };
+        }
+    }
 
     const baseOptions = {
         color: chartColors,
@@ -126,12 +147,7 @@ export const EChartsComponent: FC<ChartProps> = ({ widget, data, onElementClick,
                 return tooltipText;
             },
         },
-        legend: {
-            show: true,
-            bottom: '2%',
-            type: 'scroll',
-            textStyle: { color: themeConfig.mode === 'dark' ? '#e2e8f0' : '#334155' },
-        },
+        legend: getEchartsLegendOptions(),
         xAxis: isCartesian ? {
             type: isHorizontal ? 'value' : 'category',
             data: isHorizontal ? undefined : labels,

@@ -25,9 +25,16 @@ const UIManagers: FC = () => {
 }
 
 const App: FC = () => {
-    const { openCommandPalette, currentView, dashboardMode, themeConfig, dataSources, onboardingState, startOnboardingTour } = useDashboard();
+    const { openCommandPalette, currentView, dashboardMode, themeConfig, dataSources, onboardingState, startOnboardingTour, openGettingStartedModal } = useDashboard();
     const { isAuthenticated, user, isLoading } = useAuth();
     const prevDataSourceCount = React.useRef(dataSources.size);
+
+    useEffect(() => {
+        const hasSeen = localStorage.getItem('hasSeenGettingStartedModal');
+        if (!hasSeen) {
+            openGettingStartedModal();
+        }
+    }, [openGettingStartedModal]);
 
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
@@ -58,7 +65,7 @@ const App: FC = () => {
         // Trigger initial tour when the first data source is added
         if (dataSources.size > 0 && prevDataSourceCount.current === 0) {
             if (!onboardingState.completedTours.includes('dashboard')) {
-                startOnboardingTour('dashboard');
+                // startOnboardingTour('dashboard'); // Disabled in favor of the new welcome modal
             }
         }
         prevDataSourceCount.current = dataSources.size;

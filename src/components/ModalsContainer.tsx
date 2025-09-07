@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import React, { FC } from 'react';
 import { useDashboard } from '../contexts/DashboardProvider';
 import { FilterConfigModal } from './modals/FilterConfigModal';
@@ -36,6 +30,7 @@ import { AddDataSourceModal } from './modals/AddDataSourceModal';
 import { DataSourceConnectionModal } from './modals/DataSourceConnectionModal';
 import { WidgetEditorModal } from './modals/WidgetEditorModal';
 import { NlpDisambiguationModal } from './modals/NlpDisambiguationModal';
+import { GettingStartedGuideModal } from './modals/GettingStartedGuideModal';
 
 
 export const ModalsContainer: FC = () => {
@@ -96,11 +91,14 @@ export const ModalsContainer: FC = () => {
         closeDataSourceConnectionModal,
         nlpDisambiguationModalState,
         closeNlpDisambiguationModal,
-        resolveNlpAmbiguity
+        resolveNlpAmbiguity,
+        isGettingStartedModalOpen,
+        closeGettingStartedModal
     } = useDashboard();
 
     return (
         <>
+            <GettingStartedGuideModal isOpen={isGettingStartedModalOpen} onClose={closeGettingStartedModal} />
             <WidgetEditorModal />
             <FilterConfigModal 
                  isOpen={filterConfigModalState.isOpen}

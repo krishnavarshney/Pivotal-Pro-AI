@@ -836,6 +836,7 @@ export interface DashboardContextProps extends DataContextProps {
     scrollToWidgetId: string | null;
     dashboardMode: DashboardMode;
     isHelpModeActive: boolean;
+    isGettingStartedModalOpen: boolean;
     workspaces: Workspace[];
     activePageId: string | null;
     activePage: DashboardPage | undefined;
@@ -856,6 +857,8 @@ export interface DashboardContextProps extends DataContextProps {
     onboardingState: OnboardingState;
 
     // Callbacks & Setters
+    openGettingStartedModal: () => void;
+    closeGettingStartedModal: () => void;
     startOnboardingTour: (tour: TourName, step?: number) => void;
     advanceOnboardingStep: (direction: 'next' | 'back') => void;
     exitOnboarding: () => void;

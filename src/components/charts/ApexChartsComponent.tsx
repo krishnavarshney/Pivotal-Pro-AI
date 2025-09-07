@@ -35,7 +35,7 @@ export const ApexChartsComponent: FC<ChartProps> = ({ widget, data, onElementCli
         };
     }, [onElementContextMenu]);
     
-    const { chartType, colorPalette, isStacked } = widget;
+    const { chartType, colorPalette, isStacked, chartSettings } = widget;
     const { labels, datasets } = data;
 
     const paletteName = colorPalette as keyof typeof COLOR_PALETTES || 'Pivotal Pro';
@@ -47,6 +47,7 @@ export const ApexChartsComponent: FC<ChartProps> = ({ widget, data, onElementCli
     // --- Intelligent Configuration ---
     const isHorizontal = chartType === ChartType.BAR && (widget.shelves.rows || []).length > 0 && (widget.shelves.columns || []).length === 0;
     const shouldStack = isStacked && [ChartType.BAR, ChartType.AREA].includes(chartType);
+    const isHorizontalLegend = !chartSettings?.legendPosition || ['top', 'bottom'].includes(chartSettings.legendPosition);
 
     // --- Base Options ---
     const options: ApexOptions = {
@@ -74,8 +75,9 @@ export const ApexChartsComponent: FC<ChartProps> = ({ widget, data, onElementCli
             strokeDashArray: 4
         },
         legend: {
-            position: 'bottom',
-            horizontalAlign: 'center',
+            show: chartSettings?.showLegend !== false,
+            position: chartSettings?.legendPosition || 'bottom',
+            horizontalAlign: isHorizontalLegend ? 'center' : 'left',
             offsetY: 5,
         },
         xaxis: {

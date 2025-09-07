@@ -94,7 +94,7 @@ export const OnboardingManager: FC = () => {
             window.removeEventListener('scroll', debouncedCalc, true);
             debouncedCalc.cancel();
         };
-    }, [onboardingState.isTourActive, step, calculatePositions]);
+    }, [onboardingState.isTourActive, step, calculatePositions, startOnboardingTour]);
     
     if (!onboardingState.isTourActive || !step) return null;
 

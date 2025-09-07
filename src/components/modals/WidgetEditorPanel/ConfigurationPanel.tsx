@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import _ from 'lodash';
 import { Settings, Paintbrush, Sliders, Columns, List, Hash, Filter, Check, Type, AreaChart } from 'lucide-react';
 import { useDashboard } from '../../../contexts/DashboardProvider';
-import { WidgetState, TableSettings, FieldDragItem, Pill, FieldType, AggregationType, ChartType, ContextMenuItem, SectionSettings } from '../../../utils/types';
+import { WidgetState, TableSettings, FieldDragItem, Pill, FieldType, AggregationType, ChartType, ContextMenuItem, SectionSettings, ChartSettings } from '../../../utils/types';
 import { inputClasses, labelClasses } from '../../ui/utils';
 import { ChartTypeSelector } from '../../ui/ChartTypeSelector';
 import { ToggleSwitch } from '../../ui/ToggleSwitch';
@@ -131,6 +131,10 @@ export const ConfigurationPanel: React.FC = () => {
             ...w,
             subtotalSettings: { ...w.subtotalSettings, rows: enabled, columns: enabled },
         }));
+    };
+
+    const handleChartSettingsUpdate = (update: Partial<ChartSettings>) => {
+        handleUpdate(w => ({ ...w, chartSettings: { ...w.chartSettings, ...update } }));
     };
 
     useEffect(() => {
@@ -400,6 +404,33 @@ export const ConfigurationPanel: React.FC = () => {
                                         {Object.keys(COLOR_PALETTES).map(name => <option key={name} value={name}>{name}</option>)}
                                     </select>
                                 </div>
+                                {localWidget.displayMode === 'chart' && (
+                                    <>
+                                        <div className="pt-4 border-t border-border/50">
+                                            <h4 className="font-semibold text-foreground">Chart Options</h4>
+                                        </div>
+                                        <ToggleSwitch 
+                                            label="Show Legend" 
+                                            enabled={localWidget.chartSettings?.showLegend !== false} 
+                                            onChange={val => handleChartSettingsUpdate({ showLegend: val })} 
+                                        />
+                                        {localWidget.chartSettings?.showLegend !== false && (
+                                            <div>
+                                                <label className={labelClasses}>Legend Position</label>
+                                                <select 
+                                                    value={localWidget.chartSettings?.legendPosition || 'bottom'} 
+                                                    onChange={e => handleChartSettingsUpdate({ legendPosition: e.target.value as any })} 
+                                                    className={`${inputClasses} mt-1`}
+                                                >
+                                                    <option value="top">Top</option>
+                                                    <option value="bottom">Bottom</option>
+                                                    <option value="left">Left</option>
+                                                    <option value="right">Right</option>
+                                                </select>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                                 {localWidget.displayMode === 'table' && (
                                     <>
                                         <h4 className="text-base font-semibold text-foreground pt-4 border-t border-border">Table Formatting</h4>

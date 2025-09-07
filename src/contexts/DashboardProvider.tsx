@@ -138,6 +138,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
             completedTours: [],
         })
     );
+    const [isGettingStartedModalOpen, setGettingStartedModalOpen] = useState(false);
     
     // --- Performance & Lineage State ---
     const [performanceTimings, setPerformanceTimings] = useState<Map<string, number>>(new Map());
@@ -178,6 +179,12 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     }, [activePageId, dashboardMode]);
     
     // --- Onboarding Callbacks ---
+    const openGettingStartedModal = useCallback(() => setGettingStartedModalOpen(true), []);
+    const closeGettingStartedModal = useCallback(() => {
+        setGettingStartedModalOpen(false);
+        localStorage.setItem('hasSeenGettingStartedModal', 'true');
+    }, []);
+
     const startOnboardingTour = useCallback((tour: TourName, step = 0) => {
         const tourSteps = TOURS[tour];
         if (!tourSteps || step >= tourSteps.length) {
@@ -1403,6 +1410,7 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         themeConfig, chartLibrary, dashboardDefaults, contextMenu, currentView, explorerState, studioSourceId,
         toastNotifications, allNotifications, unreadNotificationCount, isNotificationPanelOpen,
         loadingState, scrollToWidgetId, dashboardMode, isHelpModeActive,
+        isGettingStartedModalOpen, openGettingStartedModal, closeGettingStartedModal,
         workspaces, activePageId, activePage, widgets, layouts, globalFilters, stories, editingStory,
         userTemplates, crossFilter, controlFilters, canUndo, canRedo, refetchCounter, predictiveModels,
         newlyAddedPillId, selectedWidgetIds,

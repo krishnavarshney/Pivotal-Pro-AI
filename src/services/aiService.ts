@@ -97,11 +97,11 @@ const chartSuggestionSchema = {
         shelves: {
             type: Type.OBJECT,
             properties: {
-                columns: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Field simple names for columns/X-axis. Usually dimensions, but can be measures for scatter plots." },
-                rows: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Field simple names for rows/Y-axis. Usually dimensions, but can be measures for scatter plots." },
-                category: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Field simple name for color category (e.g., in scatter plots)." },
-                values: { ...valueShelfSchemaForChat, description: "The measures to be visualized for the primary Y-axis or bubble size." },
-                values2: { ...valueShelfSchemaForChat, description: "Measure fields for the secondary Y-axis (for Dual Axis charts)." },
+                columns: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Dimension fields for the column shelf (e.g., X-axis, table columns)." },
+                rows: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Dimension fields for the row shelf (e.g., grouping, color legend, table rows)." },
+                category: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Dimension field for color encoding in charts like scatter plots." },
+                values: { ...valueShelfSchemaForChat, description: "The measure fields to be visualized (e.g., bar height, line value)." },
+                values2: { ...valueShelfSchemaForChat, description: "Measure fields for a secondary Y-axis in Dual Axis charts." },
             }
         }
     },
@@ -137,7 +137,7 @@ ${fieldsString}${sampleString}
 
 Your entire response MUST be a single, valid JSON object that conforms to the provided schema. Do not include any other text, greetings, or markdown formatting like \`\`\`json.
 
-- If the user asks to create a chart, table, or visualization (e.g., "show me sales by country"), populate the 'chartSuggestion' object. The 'responseText' should be a confirmation like "Certainly, here is the chart you requested."
+- If the user asks to create a chart, table, or visualization (e.g., "show me sales and profit by country and category"), populate the 'chartSuggestion' object. Choose the best chart type. Place dimensions like 'country' and 'category' into the 'rows' or 'columns' arrays. Place measures like 'sales' and 'profit' into the 'values' array. The 'responseText' should be a confirmation like "Certainly, here is the chart you requested."
 - If the user asks a general question (e.g., "what are the key trends?"), provide a concise, insightful answer in Markdown format in the 'responseText' field and leave 'chartSuggestion' as null.
 - After every response, whether it's a chart or text, provide 2-3 relevant follow-up questions in the 'followUpSuggestions' array to guide the user's analysis.`;
 };

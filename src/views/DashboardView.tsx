@@ -177,7 +177,7 @@ const GlobalFilterShelf: FC = () => {
                     </Button>
                     <HelpIcon helpText="Page Filters apply to all widgets on this dashboard page. Cross-filters are temporary filters created by clicking on data points within a widget." />
                 </div>
-                <div className="flex-grow flex items-center gap-2 flex-wrap min-h-[32px]">
+                <div className="flex-grow flex items-center gap-2 flex-wrap min-h-[36px]">
                      <AnimatePresence>
                     {globalFilters.map((pill, index) => (
                          <MotionDiv
@@ -1044,7 +1044,7 @@ export const DashboardView: FC = () => {
              <AnimatePresence>
                 {dashboardMode === 'comment' && <CommentModeBanner />}
             </AnimatePresence>
-            <div className="flex-grow flex flex-col gap-4 min-w-0">
+            <div className="flex-grow flex flex-col gap-4 min-w-0 min-h-0">
                 <DashboardHeader />
                 <GlobalFilterShelf />
                 <div id="dashboard-grid" className={cn(

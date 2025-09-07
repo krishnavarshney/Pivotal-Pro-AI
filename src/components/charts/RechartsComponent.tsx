@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { ResponsiveContainer, BarChart, Bar, LineChart, Line, PieChart, Pie, AreaChart, Area, ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell, ZAxis, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { useDashboard } from '../../contexts/DashboardProvider';
 import { WidgetState, ProcessedData, ChartType } from '../../utils/types';
@@ -53,8 +53,9 @@ const ScatterTooltip: React.FC<any> = ({ active, payload, widget }) => {
 export const RechartsComponent: React.FC<ChartProps> = ({ widget, data, onElementClick, onElementContextMenu }) => {
     const { crossFilter, themeConfig } = useDashboard();
     const nativeEventRef = useRef<MouseEvent | null>(null);
-    const { chartType, colorPalette } = widget;
+    const { chartType, colorPalette, chartSettings } = widget;
     const { labels, datasets } = data;
+    const [hiddenSeries, setHiddenSeries] = useState<string[]>([]);
 
     const paletteName = colorPalette as keyof typeof COLOR_PALETTES || 'Pivotal Pro';
     const { colors: chartColors } = COLOR_PALETTES[paletteName];
@@ -71,6 +72,28 @@ export const RechartsComponent: React.FC<ChartProps> = ({ widget, data, onElemen
             return entry;
         });
     }, [labels, datasets]);
+
+    const handleLegendClick = (data: any) => {
+        const { value } = data;
+        setHiddenSeries(prev => 
+            prev.includes(value) 
+                ? prev.filter(key => key !== value) 
+                : [...prev, value]
+        );
+    };
+
+    const getLegendProps = () => {
+        if (chartSettings?.showLegend === false) return { content: () => null };
+
+        const position = chartSettings?.legendPosition || 'bottom';
+        switch(position) {
+            case 'top': return { verticalAlign: 'top', wrapperStyle: { paddingBottom: '20px' } };
+            case 'left': return { align: 'left', verticalAlign: 'middle', layout: 'vertical', wrapperStyle: { paddingRight: '20px' } };
+            case 'right': return { align: 'right', verticalAlign: 'middle', layout: 'vertical', wrapperStyle: { paddingLeft: '20px' } };
+            case 'bottom':
+            default: return { verticalAlign: 'bottom', wrapperStyle: { paddingTop: '20px' } };
+        }
+    };
 
     const handleContextMenuCapture = (e: React.MouseEvent) => {
         nativeEventRef.current = e.nativeEvent;
@@ -97,6 +120,22 @@ export const RechartsComponent: React.FC<ChartProps> = ({ widget, data, onElemen
         const legendColor = isDark ? '#e2e8f0' : '#334155'; // Foreground
         const tooltipCursorFill = isDark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.03)';
 
+        const customizedLegendPayload = datasets.map((ds, i) => ({
+            value: ds.label,
+            type: 'square',
+            id: ds.label,
+            color: chartColors[i % chartColors.length],
+            inactive: hiddenSeries.includes(ds.label)
+        }));
+    
+        const pieLegendPayload = chartData.map((entry, index) => ({
+            value: entry.name,
+            type: 'square',
+            id: entry.name,
+            color: chartColors[index % chartColors.length],
+            inactive: hiddenSeries.includes(entry.name as string)
+        }));
+
         switch (chartType) {
             case ChartType.BAR:
                 return (
@@ -105,9 +144,9 @@ export const RechartsComponent: React.FC<ChartProps> = ({ widget, data, onElemen
                         <XAxis dataKey="name" tick={{ fill: tickColor, fontSize: 12 }} angle={-30} textAnchor="end" height={60} />
                         <YAxis tick={{ fill: tickColor, fontSize: 12 }} tickFormatter={(val) => formatValue(val, widget.shelves.values[0]?.formatting)} />
                         <Tooltip content={<CustomTooltip widget={widget} />} cursor={{ fill: tooltipCursorFill }}/>
-                        <Legend verticalAlign="top" wrapperStyle={{paddingBottom: '20px', color: legendColor}}/>
+                        <Legend payload={customizedLegendPayload} onClick={handleLegendClick} {...getLegendProps()} />
                         {datasets.map((ds, i) => (
-                            <Bar key={ds.label} dataKey={ds.label} fill={chartColors[i % chartColors.length]} name={ds.label}>
+                            <Bar key={ds.label} dataKey={ds.label} fill={chartColors[i % chartColors.length]} name={ds.label} hide={hiddenSeries.includes(ds.label)}>
                                 {chartData.map((entry, index) => (
                                     <Cell key={`cell-${index}`} fillOpacity={isSourceOfFilter ? (_.isEqual(entry.name, selectedValue) ? 1 : 0.3) : 1} />
                                 ))}
@@ -122,9 +161,9 @@ export const RechartsComponent: React.FC<ChartProps> = ({ widget, data, onElemen
                         <XAxis dataKey="name" tick={{ fill: tickColor, fontSize: 12 }} angle={-30} textAnchor="end" height={60} />
                         <YAxis tick={{ fill: tickColor, fontSize: 12 }} tickFormatter={(val) => formatValue(val, widget.shelves.values[0]?.formatting)} />
                         <Tooltip content={<CustomTooltip widget={widget} />} cursor={{ stroke: tooltipCursorFill, strokeWidth: 2 }}/>
-                        <Legend verticalAlign="top" wrapperStyle={{paddingBottom: '20px', color: legendColor}}/>
+                        <Legend payload={customizedLegendPayload} onClick={handleLegendClick} {...getLegendProps()} />
                         {datasets.map((ds, i) => (
-                            <Line key={ds.label} type="monotone" dataKey={ds.label} stroke={chartColors[i % chartColors.length]} strokeWidth={2} name={ds.label} />
+                            <Line key={ds.label} type="monotone" dataKey={ds.label} stroke={chartColors[i % chartColors.length]} strokeWidth={2} name={ds.label} hide={hiddenSeries.includes(ds.label)} />
                         ))}
                     </LineChart>
                 );
@@ -135,23 +174,24 @@ export const RechartsComponent: React.FC<ChartProps> = ({ widget, data, onElemen
                         <XAxis dataKey="name" tick={{ fill: tickColor, fontSize: 12 }} angle={-30} textAnchor="end" height={60} />
                         <YAxis tick={{ fill: tickColor, fontSize: 12 }} tickFormatter={(val) => formatValue(val, widget.shelves.values[0]?.formatting)} />
                         <Tooltip content={<CustomTooltip widget={widget} />} cursor={{ stroke: tooltipCursorFill, strokeWidth: 2 }}/>
-                        <Legend verticalAlign="top" wrapperStyle={{paddingBottom: '20px', color: legendColor}}/>
+                        <Legend payload={customizedLegendPayload} onClick={handleLegendClick} {...getLegendProps()} />
                         {datasets.map((ds, i) => {
                             const color = chartColors[i % chartColors.length];
                             return (
-                                <Area key={ds.label} type="monotone" dataKey={ds.label} stroke={color} fill={color} fillOpacity={0.3} name={ds.label} />
+                                <Area key={ds.label} type="monotone" dataKey={ds.label} stroke={color} fill={color} fillOpacity={0.3} name={ds.label} hide={hiddenSeries.includes(ds.label)} />
                             )
                         })}
                     </AreaChart>
                 );
             case ChartType.PIE:
+                const pieData = chartData.filter(entry => !hiddenSeries.includes(entry.name as string));
                 return (
                     <PieChart {...commonProps}>
                         <Tooltip content={<CustomTooltip widget={widget} />} />
-                        <Legend wrapperStyle={{color: legendColor}}/>
-                        <Pie data={chartData} dataKey={datasets[0].label} nameKey="name" cx="50%" cy="50%" outerRadius={80} label={{fill: legendColor}}>
-                            {chartData.map((entry, index) => (
-                                <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} fillOpacity={isSourceOfFilter ? (_.isEqual(entry.name, selectedValue) ? 1 : 0.3) : 1} />
+                        <Legend payload={pieLegendPayload} onClick={handleLegendClick} {...getLegendProps()} />
+                        <Pie data={pieData} dataKey={datasets[0].label} nameKey="name" cx="50%" cy="50%" outerRadius={80} label={{fill: legendColor}}>
+                            {pieData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={chartColors[labels.indexOf(entry.name as string) % chartColors.length]} fillOpacity={isSourceOfFilter ? (_.isEqual(entry.name, selectedValue) ? 1 : 0.3) : 1} />
                             ))}
                         </Pie>
                     </PieChart>
@@ -195,9 +235,9 @@ export const RechartsComponent: React.FC<ChartProps> = ({ widget, data, onElemen
                         <YAxis type="number" dataKey="y" name={yPill.simpleName} tick={{ fill: tickColor, fontSize: 12 }} domain={['dataMin', 'dataMax']} />
                         {chartType === ChartType.BUBBLE && rPill && <ZAxis type="number" dataKey="r" name={rPill.simpleName} range={[50, 500]} domain={rDomain} />}
                         <Tooltip content={<ScatterTooltip widget={widget} />} cursor={{ stroke: tooltipCursorFill, strokeDasharray: '3 3' }} />
-                        <Legend verticalAlign="top" wrapperStyle={{paddingBottom: '20px', color: legendColor}}/>
+                        <Legend payload={customizedLegendPayload} onClick={handleLegendClick} {...getLegendProps()} />
                         {datasets.map((ds, i) => (
-                            <Scatter key={ds.label} name={ds.label} data={ds.data as any[]} fill={chartColors[i % chartColors.length]} />
+                            <Scatter key={ds.label} name={ds.label} data={ds.data as any[]} fill={chartColors[i % chartColors.length]} hide={hiddenSeries.includes(ds.label)} />
                         ))}
                     </ScatterChart>
                 );
@@ -208,9 +248,9 @@ export const RechartsComponent: React.FC<ChartProps> = ({ widget, data, onElemen
                         <PolarAngleAxis dataKey="name" tick={{ fill: tickColor, fontSize: 12 }} />
                         <PolarRadiusAxis angle={30} domain={[0, 'auto']} tick={{ fill: tickColor, fontSize: 12 }}/>
                         <Tooltip content={<CustomTooltip widget={widget} />} />
-                        <Legend wrapperStyle={{color: legendColor}}/>
+                        <Legend payload={customizedLegendPayload} onClick={handleLegendClick} {...getLegendProps()} />
                         {datasets.map((ds, i) => (
-                            <Radar key={ds.label} name={ds.label} dataKey={ds.label} stroke={chartColors[i % chartColors.length]} fill={chartColors[i % chartColors.length]} fillOpacity={0.6} />
+                            <Radar key={ds.label} name={ds.label} dataKey={ds.label} stroke={chartColors[i % chartColors.length]} fill={chartColors[i % chartColors.length]} fillOpacity={0.6} hide={hiddenSeries.includes(ds.label)} />
                         ))}
                     </RadarChart>
                 );

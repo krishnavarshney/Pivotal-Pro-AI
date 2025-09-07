@@ -1,5 +1,3 @@
-
-
 export * from './WidgetEditorModal';
 export * from './FilterConfigModal';
 export * from './PageFiltersModal';
@@ -30,3 +28,4 @@ export * from './AiInsightStarterModal';
 export * from './AddDataSourceModal';
 export * from './DataSourceConnectionModal';
 export * from './NlpDisambiguationModal';
+export * from './GettingStartedGuideModal';
