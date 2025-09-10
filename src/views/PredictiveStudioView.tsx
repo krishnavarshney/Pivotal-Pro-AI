@@ -9,26 +9,26 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card'
 import { cn, inputClasses } from '../components/ui/utils';
 import { FormattedInsight } from '../components/ui/FormattedInsight';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/Table';
-import { Brain, Info, Sparkle, Target, SlidersHorizontal, ListChecks, LineChart, BarChart as BarChartIcon, CheckCircle, History, TrendingUp, ToggleLeft, Users, Clock } from 'lucide-react';
-import { ListNumbers } from 'phosphor-react';
+import { Brain, Info, Sparkle, Target, SlidersHorizontal, ListChecks, LineChart, BarChart as BarChartIcon, CheckCircle, History, TrendingUp, Users, Clock, Check } from 'lucide-react';
+import { ListNumbers, ToggleLeft } from 'phosphor-react';
 import * as aiService from '../services/aiService';
 import { EChartsComponent } from '../components/charts/EChartsComponent';
 import Slider from 'rc-slider';
 import { formatValue } from '../utils/dataProcessing/formatting';
-import { motion, AnimatePresence, animate } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
-const MotionDiv = motion.div as any;
+const MotionDiv = motion.div;
 
 const Step: FC<{ step: number; title: string; children: React.ReactNode; isComplete: boolean; isEnabled: boolean; }> = ({ step, title, children, isComplete, isEnabled }) => (
     <div className={cn("relative pl-10 transition-opacity", !isEnabled && "opacity-50 pointer-events-none")}>
-        <div className={cn("absolute left-0 top-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg border-2", isComplete ? "bg-primary border-primary text-primary-foreground" : "bg-secondary border-border text-secondary-foreground")}>
-            {isComplete ? <CheckCircle size={20} className="text-white"/> : step}
+        <div className={cn("absolute left-0 top-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg border-2 transition-all", isComplete ? "bg-primary border-primary text-primary-foreground animate-highlight-pulse" : "bg-secondary border-border text-secondary-foreground")}>
+            {isComplete ? <Check size={20}/> : step}
         </div>
-        <div className="pl-4 pt-1">
+        <div className={cn("pl-4 pt-1 transition-all duration-300", isEnabled ? 'opacity-100' : 'opacity-60')}>
             <h3 className="font-semibold text-foreground">{title}</h3>
             <div className="mt-2 text-sm">{children}</div>
         </div>
-        <div className={cn("absolute left-4 top-8 h-full border-l-2 border-dashed", isComplete ? "border-primary" : "border-border")} />
+        <div className={cn("absolute left-[15px] top-8 h-full border-l-2 border-dashed", isComplete ? "border-primary" : "border-border")} />
     </div>
 );
 
@@ -89,19 +89,23 @@ const ModelHistoryPanel: FC<{
 );
 
 const Simulator: FC<{ model: PredictiveModelResult }> = ({ model }) => {
-    const { blendedData } = useDashboard();
+    const { blendedData, blendedFields } = useDashboard();
     const [simulatedValues, setSimulatedValues] = useState<Record<string, number>>({});
+
+    const allFields = useMemo(() => [...blendedFields.dimensions, ...blendedFields.measures], [blendedFields]);
 
     const featureRanges = useMemo(() => {
         const ranges: Record<string, { min: number, max: number }> = {};
-        model.summary.featureVariables.forEach(featureName => {
-            const values = blendedData.map(row => row[featureName]).filter(v => typeof v === 'number');
+        model.summary.featureVariables.forEach(featureSimpleName => {
+            const field = allFields.find(f => f.simpleName === featureSimpleName);
+            if(!field) return;
+            const values = blendedData.map(row => row[field.name]).filter(v => typeof v === 'number');
             if (values.length > 0) {
-                ranges[featureName] = { min: _.min(values) || 0, max: _.max(values) || 100 };
+                ranges[featureSimpleName] = { min: _.min(values) || 0, max: _.max(values) || 100 };
             }
         });
         return ranges;
-    }, [model, blendedData]);
+    }, [model, blendedData, allFields]);
 
     useEffect(() => {
         const initialValues: Record<string, number> = {};
@@ -139,7 +143,7 @@ const Simulator: FC<{ model: PredictiveModelResult }> = ({ model }) => {
                             max={featureRanges[featureName]?.max || 100}
                             value={simulatedValues[featureName] || 0}
                             onChange={(val) => setSimulatedValues(v => ({...v, [featureName]: val as number}))}
-                            step={(featureRanges[featureName]?.max - featureRanges[featureName]?.min) / 100}
+                            step={(featureRanges[featureName] ? (featureRanges[featureName].max - featureRanges[featureName].min) : 100) / 100}
                         />
                     </div>
                 ))}
@@ -156,55 +160,6 @@ const Simulator: FC<{ model: PredictiveModelResult }> = ({ model }) => {
     )
 };
 
-
-const ResultTabs: FC<{ model: PredictiveModelResult, onTabChange: (tab: string) => void }> = ({ model, onTabChange }) => {
-    const [activeTab, setActiveTab] = useState('summary');
-    
-    const tabs = [
-        { id: 'summary', label: 'Summary', icon: <Info size={16} /> },
-        { id: 'plots', label: 'Performance Plots', icon: <LineChart size={16} /> },
-        { id: 'simulator', label: 'Simulator', icon: <SlidersHorizontal size={16} /> }
-    ];
-
-    const renderContent = () => {
-        switch(activeTab) {
-            case 'plots': return <PerformancePlots model={model} />;
-            case 'simulator': return <Simulator model={model} />;
-            case 'summary':
-            default: return <Summary model={model} />;
-        }
-    };
-    
-    return (
-        <div className="flex flex-col h-full">
-            <div className="flex-shrink-0 border-b border-border flex items-center px-4">
-                {tabs.map(tab => (
-                    <button
-                        key={tab.id}
-                        onClick={() => { setActiveTab(tab.id); onTabChange(tab.id); }}
-                        className={cn('flex items-center gap-2 px-4 py-3 font-semibold text-sm transition-colors relative', activeTab === tab.id ? 'text-primary' : 'text-muted-foreground hover:text-foreground')}
-                    >
-                        {tab.icon} {tab.label}
-                        {activeTab === tab.id && <MotionDiv layoutId="predictive-tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
-                    </button>
-                ))}
-            </div>
-            <div className="flex-grow overflow-y-auto bg-secondary/30">
-                <AnimatePresence mode="wait">
-                    <MotionDiv
-                        key={activeTab}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                    >
-                        {renderContent()}
-                    </MotionDiv>
-                </AnimatePresence>
-            </div>
-        </div>
-    )
-}
-
 const PerformancePlots: FC<{ model: PredictiveModelResult }> = ({ model }) => {
      const importanceData = _.orderBy(model.featureImportance, ['importance'], ['desc']);
      return (
@@ -214,7 +169,7 @@ const PerformancePlots: FC<{ model: PredictiveModelResult }> = ({ model }) => {
                 <CardContent className="h-80">
                     <EChartsComponent 
                         widget={{ chartType: ChartType.BAR, shelves: {}, isStacked: false } as any}
-                        data={{ type: 'chart', labels: importanceData.map(d => d.feature), datasets: [{ label: 'Importance', data: importanceData.map(d => d.importance) }] } as any}
+                        data={{ type: 'chart', labels: importanceData.map(d => d.feature), datasets: [{ label: 'Importance', data: importanceData.map(d => d.importance) }], chartType: ChartType.BAR } as any}
                         onElementClick={() => {}}
                         onElementContextMenu={() => {}}
                     />
@@ -225,7 +180,7 @@ const PerformancePlots: FC<{ model: PredictiveModelResult }> = ({ model }) => {
                 <CardContent className="h-96">
                     <EChartsComponent 
                         widget={{ chartType: ChartType.SCATTER, shelves: {} } as any}
-                        data={{ type: 'chart', labels: [], datasets: [{ label: 'Prediction', data: model.predictionVsActuals.map(p => ({ x: p.actual, y: p.predicted })) }] } as any}
+                        data={{ type: 'chart', labels: [], datasets: [{ label: 'Prediction', data: model.predictionVsActuals.map(p => ({ x: p.actual, y: p.predicted })) }], chartType: ChartType.SCATTER } as any}
                         onElementClick={() => {}}
                         onElementContextMenu={() => {}}
                     />
@@ -236,7 +191,7 @@ const PerformancePlots: FC<{ model: PredictiveModelResult }> = ({ model }) => {
                 <CardContent className="h-96">
                      <EChartsComponent 
                         widget={{ chartType: ChartType.SCATTER, shelves: {} } as any}
-                        data={{ type: 'chart', labels: [], datasets: [{ label: 'Residual', data: model.residuals.map(p => ({ x: p.predicted, y: p.residual })) }] } as any}
+                        data={{ type: 'chart', labels: [], datasets: [{ label: 'Residual', data: model.residuals.map(p => ({ x: p.predicted, y: p.residual })) }], chartType: ChartType.SCATTER } as any}
                         onElementClick={() => {}}
                         onElementContextMenu={() => {}}
                     />
@@ -299,8 +254,58 @@ const Summary: FC<{ model: PredictiveModelResult }> = ({ model }) => (
     </div>
 )
 
+const ResultTabs: FC<{ model: PredictiveModelResult }> = ({ model }) => {
+    const [activeTab, setActiveTab] = useState('summary');
+    
+    const tabs = [
+        { id: 'summary', label: 'Summary', icon: <Info size={16} /> },
+        { id: 'plots', label: 'Performance Plots', icon: <LineChart size={16} /> },
+    ];
 
-export const PredictiveStudioView: React.FC = () => {
+    if (model.summary.modelType === PredictiveModelType.LINEAR_REGRESSION) {
+         tabs.push({ id: 'simulator', label: 'Simulator', icon: <SlidersHorizontal size={16} /> });
+    }
+
+    const renderContent = () => {
+        switch(activeTab) {
+            case 'plots': return <PerformancePlots model={model} />;
+            case 'simulator': return <Simulator model={model} />;
+            case 'summary':
+            default: return <Summary model={model} />;
+        }
+    };
+    
+    return (
+        <div className="flex flex-col h-full">
+            <div className="flex-shrink-0 border-b border-border flex items-center px-4">
+                {tabs.map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={cn('flex items-center gap-2 px-4 py-3 font-semibold text-sm transition-colors relative', activeTab === tab.id ? 'text-primary' : 'text-muted-foreground hover:text-foreground')}
+                    >
+                        {tab.icon} {tab.label}
+                        {activeTab === tab.id && <MotionDiv layoutId="predictive-tab-underline" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />}
+                    </button>
+                ))}
+            </div>
+            <div className="flex-grow overflow-y-auto bg-secondary/30">
+                <AnimatePresence mode="wait">
+                    <MotionDiv
+                        key={activeTab}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                    >
+                        {renderContent()}
+                    </MotionDiv>
+                </AnimatePresence>
+            </div>
+        </div>
+    )
+}
+
+export const PredictiveStudioView: FC = () => {
     const { blendedData, blendedFields, aiConfig, addPredictiveModel, predictiveModels } = useDashboard();
     const [modelType, setModelType] = useState<PredictiveModelType | null>(null);
     const [targetVariable, setTargetVariable] = useState<Field | null>(null);
@@ -327,6 +332,8 @@ export const PredictiveStudioView: React.FC = () => {
         [PredictiveModelType.LOGISTIC_REGRESSION]: blendedFields.dimensions.some(f => fieldAnalysis[f.name]?.isBinary),
         [PredictiveModelType.CLASSIFICATION]: blendedFields.dimensions.some(f => fieldAnalysis[f.name]?.isMulticlass),
         [PredictiveModelType.TIME_SERIES_FORECASTING]: blendedFields.measures.length > 0 && blendedFields.dimensions.some(f => f.type === FieldType.DATETIME),
+        [PredictiveModelType.RANDOM_FOREST_CLASSIFIER]: blendedFields.dimensions.some(f => fieldAnalysis[f.name]?.isBinary || fieldAnalysis[f.name]?.isMulticlass),
+        [PredictiveModelType.K_MEANS_CLUSTERING]: blendedFields.measures.length >= 2,
     }), [blendedFields, fieldAnalysis]);
 
     const availableTargets = useMemo(() => {
@@ -338,7 +345,8 @@ export const PredictiveStudioView: React.FC = () => {
             case PredictiveModelType.LOGISTIC_REGRESSION:
                 return blendedFields.dimensions.filter(f => fieldAnalysis[f.name]?.isBinary);
             case PredictiveModelType.CLASSIFICATION:
-                return blendedFields.dimensions.filter(f => fieldAnalysis[f.name]?.isMulticlass);
+            case PredictiveModelType.RANDOM_FOREST_CLASSIFIER:
+                return blendedFields.dimensions.filter(f => fieldAnalysis[f.name]?.isBinary || fieldAnalysis[f.name]?.isMulticlass);
             default:
                 return [];
         }
@@ -388,7 +396,8 @@ export const PredictiveStudioView: React.FC = () => {
     const modelOptions: {type: PredictiveModelType, icon: ReactNode, desc: string}[] = [
         { type: PredictiveModelType.LINEAR_REGRESSION, icon: <TrendingUp size={20}/>, desc: "Predict a continuous numeric value." },
         { type: PredictiveModelType.LOGISTIC_REGRESSION, icon: <ToggleLeft size={20}/>, desc: "Predict one of two outcomes (e.g., yes/no)." },
-        { type: PredictiveModelType.CLASSIFICATION, icon: <Users size={20}/>, desc: "Predict a category from multiple options." },
+        { type: PredictiveModelType.RANDOM_FOREST_CLASSIFIER, icon: <Users size={20}/>, desc: "Predict a category using a powerful ensemble model." },
+        { type: PredictiveModelType.K_MEANS_CLUSTERING, icon: <Users size={20}/>, desc: "Discover natural groups or clusters in your data." },
         { type: PredictiveModelType.TIME_SERIES_FORECASTING, icon: <Clock size={20}/>, desc: "Forecast future values based on time." },
     ];
     
@@ -459,7 +468,7 @@ export const PredictiveStudioView: React.FC = () => {
 
                 <main className="flex-grow min-h-0">
                     {selectedModel ? (
-                        <ResultTabs model={selectedModel} onTabChange={() => {}}/>
+                        <ResultTabs model={selectedModel}/>
                     ) : (
                         <div className="flex-grow flex items-center justify-center text-center p-8">
                             <div>

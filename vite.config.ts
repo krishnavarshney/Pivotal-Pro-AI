@@ -112,7 +112,7 @@ const externalApiProxy = (): Connect.HandleFunction => {
             
             if (requestBody && (method === 'POST' || method === 'PUT')) {
                 fetchOptions.body = JSON.stringify(requestBody);
-                headers['Content-Type'] = 'application/json';
+                fetchOptions.headers['Content-Type'] = 'application/json';
             }
 
             const apiResponse = await fetch(url, fetchOptions);

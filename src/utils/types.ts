@@ -716,6 +716,8 @@ export enum PredictiveModelType {
     LOGISTIC_REGRESSION = 'Logistic Regression (Binary)',
     CLASSIFICATION = 'Classification (Multiclass)',
     TIME_SERIES_FORECASTING = 'Time Series Forecasting',
+    RANDOM_FOREST_CLASSIFIER = 'Random Forest Classifier',
+    K_MEANS_CLUSTERING = 'K-Means Clustering',
 }
 
 export interface PerformanceMetric {

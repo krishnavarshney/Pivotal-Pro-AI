@@ -3,19 +3,15 @@ import { useAuth } from '../../contexts/AuthProvider';
 import { Mail, Lock, User as UserIcon, AlertCircle, Zap, Sun, Moon } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../components/ui/utils';
-// FIX: Changed import to be type-only for Variants.
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { useDashboard } from '../../contexts/DashboardProvider';
 import { AnimatedStars } from './AnimatedStars';
 
 // New, more professional hero graphic
 const AuthHeroGraphic: FC = memo(() => {
-    // FIX: Add aliasing for motion component to fix TypeScript errors.
-    const MotionDiv = motion.div as any;
-    // FIX: Add aliasing for motion component to fix TypeScript errors.
-    const MotionRect = motion.rect as any;
-    // FIX: Add aliasing for motion component to fix TypeScript errors.
-    const MotionPath = motion.path as any;
+    const MotionDiv = motion.div;
+    const MotionRect = motion.rect;
+    const MotionPath = motion.path;
     return (
         <div className="w-full h-64 relative flex items-center justify-center">
             <MotionDiv
@@ -96,6 +92,7 @@ const AuthThemeSwitcher: FC = () => {
 
 
 const PasswordStrengthMeter: FC<{ score: number }> = ({ score }) => {
+    const MotionDiv = motion.div;
     const levels = [
         { width: '0%', color: '' },
         { width: '25%', color: 'bg-red-500' },
@@ -105,7 +102,7 @@ const PasswordStrengthMeter: FC<{ score: number }> = ({ score }) => {
     ];
     return (
         <div className="w-full bg-slate-700 rounded-full h-1.5 overflow-hidden mt-1">
-            <motion.div
+            <MotionDiv
                 className={`h-full rounded-full ${levels[score].color}`}
                 initial={{ width: 0 }}
                 animate={{ width: levels[score].width }}
@@ -138,6 +135,8 @@ const AuthForm: FC<{ isLogin: boolean; }> = ({ isLogin }) => {
     const [passwordStrength, setPasswordStrength] = useState(0);
     const { login, signup } = useAuth();
     const errorId = `auth-error-${React.useId()}`;
+    const MotionDiv = motion.div;
+    const MotionP = motion.p;
 
     const checkPasswordStrength = (password: string) => {
         let score = 0;
@@ -187,9 +186,9 @@ const AuthForm: FC<{ isLogin: boolean; }> = ({ isLogin }) => {
         <form onSubmit={handleSubmit} className="space-y-6">
             <AnimatePresence mode="wait">
                 {!isLogin && (
-                    <motion.div key="name" variants={formVariants} initial="hidden" animate="visible" exit="exit" transition={{ duration: 0.2 }}>
+                    <MotionDiv key="name" variants={formVariants} initial="hidden" animate="visible" exit="exit" transition={{ duration: 0.2 }}>
                         <InputField name="name" type="text" label="Full name" icon={<UserIcon size={18} className="text-gray-500" />} value={formData.name} onChange={handleInputChange} isInvalid={hasError} ariaDescribedBy={errorId} />
-                    </motion.div>
+                    </MotionDiv>
                 )}
             </AnimatePresence>
             <InputField name="email" type="email" label="Work email" icon={<Mail size={18} className="text-gray-500" />} value={formData.email} onChange={handleInputChange} isInvalid={hasError} ariaDescribedBy={errorId} />
@@ -197,16 +196,16 @@ const AuthForm: FC<{ isLogin: boolean; }> = ({ isLogin }) => {
                 <InputField name="password" type="password" label="Password" icon={<Lock size={18} className="text-gray-500" />} value={formData.password} onChange={handleInputChange} isInvalid={hasError} ariaDescribedBy={errorId} />
                 <AnimatePresence>
                     {!isLogin && formData.password && (
-                        <motion.div key="strength" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                        <MotionDiv key="strength" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                             <PasswordStrengthMeter score={passwordStrength} />
-                        </motion.div>
+                        </MotionDiv>
                     )}
                 </AnimatePresence>
             </div>
 
             <AnimatePresence>
                 {error && (
-                    <motion.p
+                    <MotionP
                         id={errorId}
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -216,7 +215,7 @@ const AuthForm: FC<{ isLogin: boolean; }> = ({ isLogin }) => {
                         aria-live="polite"
                     >
                         <AlertCircle size={16} /> {error}
-                    </motion.p>
+                    </MotionP>
                 )}
             </AnimatePresence>
 
@@ -254,11 +253,13 @@ const wordVariants: Variants = {
 };
 
 const AnimatedBrandHeading: FC = () => {
+    const MotionH2 = motion.h2;
+    const MotionSpan = motion.span;
     const line1 = "Make every decision";
     const line2 = "Pivotal.";
     
     return (
-         <motion.h2
+         <MotionH2
             variants={sentenceVariants}
             initial="hidden"
             animate="visible"
@@ -266,21 +267,22 @@ const AnimatedBrandHeading: FC = () => {
         >
             <span className="block">
                 {line1.split(" ").map((word, wordIndex) => (
-                    <motion.span key={`${word}-${wordIndex}`} custom={wordIndex} variants={wordVariants} className="inline-block pr-4">
+                    <MotionSpan key={`${word}-${wordIndex}`} custom={wordIndex} variants={wordVariants} className="inline-block pr-4">
                         {word}
-                    </motion.span>
+                    </MotionSpan>
                 ))}
             </span>
-             <motion.span custom={line1.split(" ").length} variants={wordVariants} className="inline-block pr-4 animated-text">
+             <MotionSpan custom={line1.split(" ").length} variants={wordVariants} className="inline-block pr-4 animated-text">
                 {line2}
-            </motion.span>
-        </motion.h2>
+            </MotionSpan>
+        </MotionH2>
     );
 };
 
 
 export const AuthView: FC = () => {
     const [isLogin, setIsLogin] = useState(true);
+    const MotionDiv = motion.div;
     
     return (
         <div className="auth-container min-h-screen flex items-center justify-center p-4">
@@ -290,7 +292,7 @@ export const AuthView: FC = () => {
             
             <div className="content-wrapper relative z-10 w-full max-w-7xl grid lg:grid-cols-2 gap-16 items-center">
                  <div className="hidden lg:block p-8 space-y-8">
-                    <motion.div 
+                    <MotionDiv 
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2 }}
@@ -298,21 +300,21 @@ export const AuthView: FC = () => {
                     >
                         <Zap size={24} className="text-primary" />
                         <h1 className="text-2xl font-bold tracking-wider text-auth-muted-foreground">Pivotal Pro AI</h1>
-                    </motion.div>
+                    </MotionDiv>
 
                     <AnimatedBrandHeading />
 
-                    <motion.div 
+                    <MotionDiv 
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 1.5, duration: 0.5 }}
                     >
                         <AuthHeroGraphic />
-                    </motion.div>
+                    </MotionDiv>
                 </div>
 
                 <div className="w-full max-w-md mx-auto">
-                    <motion.div 
+                    <MotionDiv 
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: 0.4, duration: 0.5, ease: 'easeOut' }}
@@ -328,7 +330,7 @@ export const AuthView: FC = () => {
                                 {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Login"}
                             </button>
                         </div>
-                    </motion.div>
+                    </MotionDiv>
                 </div>
             </div>
         </div>
