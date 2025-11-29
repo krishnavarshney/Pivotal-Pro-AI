@@ -1,6 +1,13 @@
-<div align="center">
-  <br />
-  <h1>✨ Pivotal Pro AI ✨</h1>
+<p align="center">
+  <img src="https://dummyimage.com/1200x260/0d1117/ffffff&text=Pivotal-Pro+AI" />
+</p>
+
+<p align="center">
+  <a href="#"><img src="https://img.shields.io/badge/React-19-blue?style=for-the-badge&logo=react" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/Vite-Frontend%20Bundler-yellow?style=for-the-badge&logo=vite" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/TypeScript-5.x-3178c6?style=for-the-badge&logo=typescript" /></a>
+  <a href="#"><img src="https://img.shields.io/badge/TailwindCSS-Styling-38b2ac?style=for-the-badge&logo=tailwindcss" /></a>
+</p>
   <strong>A Next-Generation Business Intelligence Platform</strong>
   <br />
   <p>Turn your data into actionable insights, instantly. Upload data, converse with an AI assistant to generate visualizations, and build interactive dashboards with drag-and-drop simplicity.</p>
