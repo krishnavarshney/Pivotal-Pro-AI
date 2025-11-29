@@ -1,3 +1,4 @@
+<p align="center"> <a href="#"><img src="https://img.shields.io/badge/Backend-Node.js%20%7C%20TypeScript-43853d?style=for-the-badge" /></a> <a href="#"><img src="https://img.shields.io/badge/Frontend-React%20%7C%20Tailwind-61dafb?style=for-the-badge" /></a> <a href="#"><img src="https://img.shields.io/badge/Database-PostgreSQL-31648c?style=for-the-badge" /></a> <a href="#"><img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge" /></a> </p>
 <div align="center">
   <br />
   <h1>✨ Pivotal Pro AI ✨</h1>
