@@ -1,12 +1,12 @@
 
 import React, { FC, ReactNode } from 'react';
-import { useDrag } from 'react-dnd';
 import { ChartType } from '../../utils/types';
 import { BarChart, LineChart, AreaChart, PieChart, Table, Hash as KpiIcon, Plus } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Button } from '../ui/Button';
 import { useDashboard } from '../../contexts/DashboardProvider';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../ui/Accordion';
+import { DatasetSelector } from './DatasetSelector';
 
 interface QuickAddCardProps {
     chartType: ChartType;
@@ -35,7 +35,7 @@ const SectionHeader: FC<{ children: ReactNode }> = ({ children }) => (
 );
 
 export const BuilderSidebar: FC = () => {
-    const { openWidgetEditorModal, dataSources } = useDashboard();
+    const { openWidgetEditorForNewWidget, dataSources } = useDashboard();
 
     const quickAddWidgets = [
         { type: ChartType.BAR, icon: <BarChart size={20} />, name: 'Bar' },
@@ -59,8 +59,9 @@ export const BuilderSidebar: FC = () => {
             <div className="p-4 border-b border-border flex-shrink-0">
                 <h2 className="text-lg font-bold font-display text-foreground">Widget Library</h2>
             </div>
+            <DatasetSelector />
             <div className="flex-grow p-4 overflow-y-auto">
-                <Button size="lg" className="w-full mb-4" onClick={() => openWidgetEditorModal()}>
+                <Button size="lg" className="w-full mb-4" onClick={() => openWidgetEditorForNewWidget()}>
                     <Plus /> Create New Widget
                 </Button>
 

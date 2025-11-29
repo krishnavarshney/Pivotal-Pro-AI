@@ -1,4 +1,4 @@
-import { createContext, ReactNode, RefObject, Dispatch, SetStateAction, ChangeEvent, MouseEvent } from 'react';
+import { createContext, ReactNode, RefObject, Dispatch, SetStateAction } from 'react';
 import { Layout } from 'react-grid-layout';
 
 export const DashboardContext = createContext<DashboardContextProps | null>(null);
@@ -19,17 +19,17 @@ export const DND_ITEM_TYPE = {
 
 // Drag item interfaces
 export interface FieldDragItem {
-  name: string;
-  simpleName: string;
-  type: FieldType;
-  isCalculated?: boolean;
-  formula?: string;
+    name: string;
+    simpleName: string;
+    type: FieldType;
+    isCalculated?: boolean;
+    formula?: string;
 }
 
 export interface ShelfPillDragItem {
-  pill: Pill;
-  index: number;
-  shelfId: keyof WidgetState['shelves'] | 'globalFilters';
+    pill: Pill;
+    index: number;
+    shelfId: keyof WidgetState['shelves'] | 'globalFilters';
 }
 
 export interface StudioFieldDragItem {
@@ -44,98 +44,98 @@ export interface RelationshipFieldDragItem {
 }
 
 export interface ContextMenuItem {
-  label: string;
-  icon?: ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
+    label: string;
+    icon?: ReactNode;
+    onClick: () => void;
+    disabled?: boolean;
 }
 
 
 export enum FieldType {
-  DIMENSION = 'dimension',
-  MEASURE = 'measure',
-  DATETIME = 'datetime',
+    DIMENSION = 'dimension',
+    MEASURE = 'measure',
+    DATETIME = 'datetime',
 }
 
 export interface Field {
-  name:string;
-  simpleName: string;
-  type: FieldType;
-  isCalculated?: boolean;
-  formula?: string; // For numeric calculations
-  transformation?: (row: any) => any; // For categorical or other data transformations
+    name: string;
+    simpleName: string;
+    type: FieldType;
+    isCalculated?: boolean;
+    formula?: string; // For numeric calculations
+    transformation?: (row: any) => any; // For categorical or other data transformations
 }
 
 export enum AggregationType {
-  SUM = 'SUM',
-  AVERAGE = 'AVERAGE',
-  COUNT = 'COUNT',
-  MIN = 'MIN',
-  MAX = 'MAX',
-  PERCENT_OF_TOTAL = '% of Grand Total',
+    SUM = 'SUM',
+    AVERAGE = 'AVERAGE',
+    COUNT = 'COUNT',
+    MIN = 'MIN',
+    MAX = 'MAX',
+    PERCENT_OF_TOTAL = '% of Grand Total',
 }
 
 export enum FilterCondition {
-  // Text & General
-  EQUALS = '=',
-  NOT_EQUALS = '!=',
-  CONTAINS = 'contains',
-  DOES_NOT_CONTAIN = 'does not contain',
-  STARTS_WITH = 'starts with',
-  ENDS_WITH = 'ends with',
-  IS_ONE_OF = 'is one of',
-  IS_NOT_ONE_OF = 'is not one of',
+    // Text & General
+    EQUALS = '=',
+    NOT_EQUALS = '!=',
+    CONTAINS = 'contains',
+    DOES_NOT_CONTAIN = 'does not contain',
+    STARTS_WITH = 'starts with',
+    ENDS_WITH = 'ends with',
+    IS_ONE_OF = 'is one of',
+    IS_NOT_ONE_OF = 'is not one of',
 
-  // Numeric
-  GREATER_THAN = '>',
-  LESS_THAN = '<',
-  GREATER_THAN_OR_EQUAL = '>=',
-  LESS_THAN_OR_EQUAL = '<=',
-  BETWEEN = 'is between',
+    // Numeric
+    GREATER_THAN = '>',
+    LESS_THAN = '<',
+    GREATER_THAN_OR_EQUAL = '>=',
+    LESS_THAN_OR_EQUAL = '<=',
+    BETWEEN = 'is between',
 }
 
 export interface FilterConfig {
-  condition: FilterCondition;
-  values: any[];
+    condition: FilterCondition;
+    values: any[];
 }
 
 export interface ValueFormat {
-  prefix?: string;
-  suffix?: string;
-  decimalPlaces?: number;
+    prefix?: string;
+    suffix?: string;
+    decimalPlaces?: number;
 }
 
 export interface Pill {
-  id: string;
-  name: string;
-  simpleName: string;
-  type: FieldType;
-  aggregation: AggregationType;
-  isCalculated?: boolean;
-  formula?: string;
-  formatting?: ValueFormat;
-  filter?: FilterConfig;
+    id: string;
+    name: string;
+    simpleName: string;
+    type: FieldType;
+    aggregation: AggregationType;
+    isCalculated?: boolean;
+    formula?: string;
+    formatting?: ValueFormat;
+    filter?: FilterConfig;
 }
 
 export enum ChartType {
-  BAR = 'Bar',
-  LINE = 'Line',
-  AREA = 'Area',
-  PIE = 'Pie',
-  SCATTER = 'Scatter',
-  RADAR = 'Radar',
-  TABLE = 'Table',
-  KPI = 'Kpi',
-  GAUGE = 'Gauge',
-  HEATMAP = 'Heatmap',
-  FUNNEL = 'Funnel',
-  TREEMAP = 'Treemap',
-  DUAL_AXIS = 'Dual Axis',
-  BOXPLOT = 'Box Plot',
-  CONTROL = 'Control',
-  SANKEY = 'Sankey',
-  MAP = 'Map',
-  BUBBLE = 'Bubble',
+    BAR = 'Bar',
+    LINE = 'Line',
+    AREA = 'Area',
+    PIE = 'Pie',
+    SCATTER = 'Scatter',
+    RADAR = 'Radar',
+    TABLE = 'Table',
+    KPI = 'Kpi',
+    GAUGE = 'Gauge',
+    HEATMAP = 'Heatmap',
+    FUNNEL = 'Funnel',
+    TREEMAP = 'Treemap',
+    DUAL_AXIS = 'Dual Axis',
+    BOXPLOT = 'Box Plot',
+    CONTROL = 'Control',
+    SANKEY = 'Sankey',
+    MAP = 'Map',
+    BUBBLE = 'Bubble',
 }
 
 export interface TableSettings {
@@ -161,8 +161,8 @@ export interface ChartSettings {
 }
 
 export interface SortConfig {
-  fieldName: string;
-  order: 'asc' | 'desc';
+    fieldName: string;
+    order: 'asc' | 'desc';
 }
 
 export interface ConditionalFormatRule {
@@ -189,91 +189,107 @@ export interface SectionSettings {
 }
 
 export interface WidgetState {
-  id: string;
-  title: string;
-  chartType: ChartType;
-  displayMode: WidgetDisplayMode;
-  shelves: {
-    columns: Pill[];
-    rows: Pill[];
-    values: Pill[];
-    values2?: Pill[]; // For Dual Axis charts
-    filters: Pill[];
-    category?: Pill[]; // for bubble charts
-    bubbleSize?: Pill[]; // for bubble charts
-  };
-  subtotalSettings: {
-    rows: boolean;
-    columns: boolean;
-    grandTotal?: boolean;
-  };
-  tableSettings?: TableSettings;
-  chartSettings?: ChartSettings;
-  drillPath?: { fieldName: string; value: any }[];
-  kpiSettings?: {
-      primaryValueIndex: number;
-      secondaryValueIndex?: number;
-      comparisonMode: 'value' | 'percentage';
-  };
-  mapSettings?: {
-      geoField: string | null;
-      mapType: 'world' | 'usa';
-  };
-  colorPalette?: string;
-  sort?: SortConfig[];
-  forecasting?: {
-    enabled: boolean;
-    periods: number;
-  };
-  isCrossFilterSource?: boolean; // For cross-filtering
-  controlType?: 'slider' | 'dropdown'; // For dashboard controls
-  targetType?: 'parameter' | 'field';
-  targetId?: string; // e.g., parameter ID or field name for a control
-  conditionalFormatting?: ConditionalFormatRule[]; // for tables
-  controlSettings?: {
-    display: 'list' | 'dropdown' | 'tabs' | 'range' | 'datepicker';
-  };
-  isStacked?: boolean;
-  columnOrder?: string[];
-  sectionSettings?: SectionSettings;
+    id: string;
+    title: string;
+    chartType: ChartType;
+    displayMode: WidgetDisplayMode;
+    pageId: string;
+    configuration: any;
+    layouts: any;
+    shelves: {
+        columns: Pill[];
+        rows: Pill[];
+        values: Pill[];
+        values2?: Pill[]; // For Dual Axis charts
+        filters: Pill[];
+        category?: Pill[]; // for bubble charts
+        bubbleSize?: Pill[]; // for bubble charts
+    };
+    subtotalSettings: {
+        rows: boolean;
+        columns: boolean;
+        grandTotal?: boolean;
+    };
+    tableSettings?: TableSettings;
+    chartSettings?: ChartSettings;
+    drillPath?: { fieldName: string; value: any }[];
+    kpiSettings?: {
+        primaryValueIndex: number;
+        secondaryValueIndex?: number;
+        comparisonMode: 'value' | 'percentage';
+    };
+    mapSettings?: {
+        geoField: string | null;
+        mapType: 'world' | 'usa';
+    };
+    colorPalette?: string;
+    sort?: SortConfig[];
+    forecasting?: {
+        enabled: boolean;
+        periods: number;
+    };
+    isCrossFilterSource?: boolean; // For cross-filtering
+    controlType?: 'slider' | 'dropdown'; // For dashboard controls
+    targetType?: 'parameter' | 'field';
+    targetId?: string; // e.g., parameter ID or field name for a control
+    conditionalFormatting?: ConditionalFormatRule[]; // for tables
+    controlSettings?: {
+        display: 'list' | 'dropdown' | 'tabs' | 'range' | 'datepicker';
+    };
+    isStacked?: boolean;
+    columnOrder?: string[];
+    sectionSettings?: SectionSettings;
+    widgetsData?: any;
 }
 
 export interface DashboardCommentMessage {
-  id: string;
-  author: string;
-  text: string;
-  timestamp: string;
+    id: string;
+    author: string;
+    text: string;
+    timestamp: string;
 }
 
 export interface DashboardComment {
-  id: string;
-  widgetId: string;
-  position: { x: number; y: number };
-  messages: DashboardCommentMessage[];
+    id: string;
+    widgetId: string;
+    position: { x: number; y: number };
+    messages: DashboardCommentMessage[];
 }
 
 export interface Bookmark {
-  id: string;
-  name: string;
-  globalFilters: Pill[];
-  crossFilter: CrossFilterState;
+    id: string;
+    name: string;
+    globalFilters: Pill[];
+    crossFilter: CrossFilterState;
+    controlFilters?: ControlFilterState;
 }
 
 export interface DashboardPage {
-  id: string;
-  name: string;
-  widgets: WidgetState[];
-  layouts: { [breakpoint: string]: WidgetLayout[] };
-  globalFilters: Pill[];
-  comments: DashboardComment[];
-  bookmarks: Bookmark[];
-  collapsedRows: string[];
+    id: string;
+    name: string;
+    widgets: WidgetState[];
+    layouts: { [breakpoint: string]: WidgetLayout[] };
+    globalFilters: Pill[];
+    comments: DashboardComment[];
+    bookmarks: Bookmark[];
+    collapsedRows: string[];
+    workspaceId?: string;
+    configuration?: any;
+    widgetsData?: any;
 }
 
 export interface Workspace {
     id: string;
     name: string;
     pages: DashboardPage[];
+}
+
+export interface UndoableState {
+    workspaces: Workspace[];
+    activeWorkspaceId: string | null;
+    activePageId: string | null;
+    themeConfig: ThemeConfig;
+    dashboardDefaults: DashboardDefaults;
 }
 
 export interface User {
@@ -317,16 +333,16 @@ export interface CreateCategoricalPayload {
 }
 
 export interface SplitColumnPayload {
-  fieldName: string;
-  delimiter: string;
-  newColumnNames: string[];
+    fieldName: string;
+    delimiter: string;
+    newColumnNames: string[];
 }
 
 export interface MergeColumnsPayload {
-  newFieldName: string;
-  columnsToMerge: string[];
-  separator: string;
-  deleteOriginals: boolean;
+    newFieldName: string;
+    columnsToMerge: string[];
+    separator: string;
+    deleteOriginals: boolean;
 }
 
 export interface Transformation {
@@ -374,6 +390,7 @@ export interface DataSource {
     queryTime?: number; // in ms
     icon?: 'database' | 'file-spreadsheet' | 'cloud' | 'api';
     technology?: string;
+    transformations?: Transformation[];
 }
 
 
@@ -408,7 +425,7 @@ export type ProcessedData =
     | { type: 'chart', labels: (string | number)[], datasets: { label: string, data: any[], [key: string]: any }[], chartType: ChartType }
     | { type: 'sankey', nodes: { name: string }[], links: { source: string, target: string, value: number }[] }
     | { type: 'table', headerRows: HeaderCell[][], rows: TableRow[], columnOrder: string[] }
-    | { type: 'heatmap', rowLabels: string[], colLabels: string[], data: (number|null)[][], valuePill: Pill };
+    | { type: 'heatmap', rowLabels: string[], colLabels: string[], data: (number | null)[][], valuePill: Pill };
 
 
 export interface Parameter {
@@ -469,30 +486,30 @@ export interface AiInsight {
 }
 
 export enum InsightType {
-  ANOMALY = 'Anomaly',
-  PREDICTION = 'Prediction',
-  OPTIMIZATION = 'Optimization',
-  FORECAST = 'Forecast',
-  PERFORMANCE = 'Performance',
-  USAGE = 'Usage',
+    ANOMALY = 'Anomaly',
+    PREDICTION = 'Prediction',
+    OPTIMIZATION = 'Optimization',
+    FORECAST = 'Forecast',
+    PERFORMANCE = 'Performance',
+    USAGE = 'Usage',
 }
 
 export enum InsightStatus {
-  NEW = 'new',
-  SAVED = 'saved',
-  DISMISSED = 'dismissed',
+    NEW = 'new',
+    SAVED = 'saved',
+    DISMISSED = 'dismissed',
 }
 
 export interface Insight {
-  id: string;
-  title: string;
-  description: string;
-  type: InsightType;
-  confidence: number;
-  status: InsightStatus;
-  dataSource: string;
-  timestamp: string; // ISO string
-  suggestedChartPrompt: string;
+    id: string;
+    title: string;
+    description: string;
+    type: InsightType;
+    confidence: number;
+    status: InsightStatus;
+    dataSource: string;
+    timestamp: string; // ISO string
+    suggestedChartPrompt: string;
 }
 
 export interface ProactiveInsight {
@@ -578,7 +595,7 @@ export type CrossFilterState = {
     filter: Pill;
 } | null;
 
-export type ControlFilterState = Map<string, Pill>;
+export type ControlFilterState = Record<string, Pill>;
 
 export interface ExplorerState {
     initialFilters: Pill[];
@@ -643,11 +660,11 @@ export interface DataModelerLayout {
 }
 
 export interface TemplateField {
-  id: string;
-  displayName: string;
-  description: string;
-  required: boolean;
-  type: FieldType;
+    id: string;
+    displayName: string;
+    description: string;
+    required: boolean;
+    type: FieldType;
 }
 
 export interface Template {
@@ -707,6 +724,7 @@ export interface AuthContextProps {
     login: (email: string, password: string) => Promise<void>;
     signup: (name: string, email: string, password: string) => Promise<void>;
     logout: () => void;
+    revalidate: () => Promise<void>;
 }
 
 
@@ -757,7 +775,7 @@ export interface PredictiveModelResult {
     residuals: { predicted: number; residual: number; }[];
 }
 
-export type CurrentView = 'dashboard' | 'explorer' | 'stories' | 'studio' | 'modeler' | 'settings' | 'admin' | 'templates' | 'predictive' | 'datasources' | 'insightHub';
+export type CurrentView = 'dashboard' | 'explorer' | 'stories' | 'studio' | 'modeler' | 'settings' | 'admin' | 'templates' | 'predictive' | 'datasources' | 'insightHub' | 'onboarding';
 
 export type DashboardMode = 'view' | 'comment' | 'edit';
 
@@ -809,15 +827,6 @@ export interface DataContextProps {
     resetAllTransformations: (sourceId: string) => void;
     addCalculatedField: (sourceId: string, fieldName: string, formula: string) => void;
     addParameter: (p: Omit<Parameter, 'id'>) => void;
-    updateParameter: (id: string, updates: Partial<Parameter>) => void;
-    removeParameter: (id: string) => void;
-    refreshApiDataSource: (source: DataSource) => Promise<void>;
-    runHealthCheck: () => void;
-    createDataSourceFromConnection: (config: { connector: Connector; details: any; name: string }) => Promise<void>;
-}
-
-export interface DashboardContextProps extends DataContextProps {
-    // State
     performanceTimings: Map<string, number>;
     aiConfig: AIConfig | null;
     aiChatHistory: AiChatMessage[];
@@ -838,6 +847,7 @@ export interface DashboardContextProps extends DataContextProps {
     scrollToWidgetId: string | null;
     dashboardMode: DashboardMode;
     isHelpModeActive: boolean;
+    activeDatasetId: string | 'blended';
     isGettingStartedModalOpen: boolean;
     workspaces: Workspace[];
     activePageId: string | null;
@@ -893,28 +903,15 @@ export interface DashboardContextProps extends DataContextProps {
     setScrollToWidgetId: Dispatch<SetStateAction<string | null>>;
     setDashboardMode: Dispatch<SetStateAction<DashboardMode>>;
     toggleHelpMode: () => void;
+    setActiveDataset: (datasetId: string | 'blended') => void;
     setWorkspaces: (updater: SetStateAction<Workspace[]>) => void;
     setActivePageId: Dispatch<SetStateAction<string | null>>;
     addPage: () => void;
+    addNewPage: (page: DashboardPage) => void;
     removePage: (id: string) => void;
-    updatePage: (id: string, updater: Partial<DashboardPage> | ((page: DashboardPage) => DashboardPage)) => void;
-    setLayouts: (layouts: { [breakpoint: string]: WidgetLayout[] }) => void;
-    setGlobalFilters: (updater: SetStateAction<Pill[]>) => void;
-    addGlobalFilter: (pill: Omit<Pill, 'id'>) => void;
-    removeWidget: (id: string) => void;
-    saveWidget: (widget: WidgetState, layoutOverride?: Partial<Omit<WidgetLayout, 'i'>>) => void;
-    duplicateWidget: (id: string) => void;
+    updatePage: (pageId: string, updates: Partial<DashboardPage> | ((page: DashboardPage) => DashboardPage)) => void;
     duplicatePage: (pageId: string) => void;
-    setCrossFilter: Dispatch<SetStateAction<CrossFilterState>>;
-    setControlFilter: (widgetId: string, filterPill: Pill | null) => void;
-    saveStory: (story: Story) => void;
-    removeStory: (id: string) => void;
-    undo: () => void;
-    redo: () => void;
-    importInputRef: RefObject<HTMLInputElement>;
-    handleImportDashboard: (e: ChangeEvent<HTMLInputElement>) => void;
-    resetDashboard: () => void;
-    addNewPage: (templatePage?: Partial<DashboardPage>) => void;
+    renamePage: (id: string, newName: string) => void;
     setUserTemplates: Dispatch<SetStateAction<Template[]>>;
     addBookmark: (name: string) => void;
     applyBookmark: (bookmark: Bookmark) => void;
@@ -927,6 +924,8 @@ export interface DashboardContextProps extends DataContextProps {
     handleWidgetAddToStory: (widgetId: string) => void;
     createStoryFromWidget: (widgetId: string) => void;
     addWidgetToStory: (storyId: string, widgetId: string) => void;
+    saveStory: (story: Story) => void;
+    removeStory: (id: string) => void;
     handleExportDashboard: () => void;
     saveStateToLocalStorage: () => void;
     clearApplicationState: () => void;
@@ -946,7 +945,7 @@ export interface DashboardContextProps extends DataContextProps {
     handleGenerateAiDashboard: () => Promise<void>;
     addPredictiveModel: (model: PredictiveModelResult) => void;
     openWidgetEditorModal: (widgetId?: string | null) => void;
-    openWidgetEditorForNewWidget: (chartType: ChartType) => void;
+    openWidgetEditorForNewWidget: (chartType?: ChartType) => void;
     saveEditingWidget: () => void;
     // FIX: Changed suggestion type to AiWidgetSuggestion.
     populateEditorFromAI: (suggestion: AiWidgetSuggestion) => void;
@@ -1045,6 +1044,7 @@ export interface DashboardContextProps extends DataContextProps {
     setFocusedWidgetId: Dispatch<SetStateAction<string | null>>;
     openDataLineageModal: (widgetId: string) => void;
     closeDataLineageModal: () => void;
+    saveWidget: (widget: WidgetState, layoutOverride?: Partial<Omit<WidgetLayout, 'i'>>) => Promise<void>;
     openPerformanceAnalyzer: () => void;
     closePerformanceAnalyzer: () => void;
     openAiInsightStarterModal: () => void;
@@ -1056,4 +1056,18 @@ export interface DashboardContextProps extends DataContextProps {
     closeDataSourceConnectionModal: () => void;
     openNlpDisambiguationModal: (term: string, fields: string[]) => void;
     closeNlpDisambiguationModal: () => void;
+    removeWidget: (id: string) => void;
+    duplicateWidget: (id: string) => void;
+    setGlobalFilters: Dispatch<SetStateAction<Pill[]>>;
+    addGlobalFilter: (pill: Omit<Pill, 'id'>) => void;
+    setCrossFilter: Dispatch<SetStateAction<CrossFilterState>>;
+    setControlFilter: (widgetId: string, filter: Pill | null) => void;
+    setLayouts: (layouts: { [breakpoint: string]: WidgetLayout[] }) => void;
+    undo: () => void;
+    redo: () => void;
+    resetDashboard: () => void;
+    importInputRef: RefObject<HTMLInputElement | null>;
+    handleImportDashboard: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
+
+

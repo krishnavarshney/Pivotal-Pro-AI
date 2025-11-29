@@ -1,6 +1,6 @@
 import React, { useState, FC, ReactNode, ChangeEvent, FormEvent, useEffect, memo } from 'react';
 import { useAuth } from '../../contexts/AuthProvider';
-import { Mail, Lock, User as UserIcon, AlertCircle, Zap, Sun, Moon } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, AlertCircle, Zap, Sun, Moon, Phone, KeyRound } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { cn } from '../../components/ui/utils';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
@@ -128,15 +128,12 @@ const InputField: FC<{ name: string; type: string; label: string; icon: ReactNod
     </div>
 );
 
-const AuthForm: FC<{ isLogin: boolean; }> = ({ isLogin }) => {
-    const [formData, setFormData] = useState({ name: '', email: 'admin@pivotalpro.ai', password: 'admin' });
-    const [error, setError] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
+const ProfileSetupForm: FC<{ onSubmit: (data: any) => void; isLoading: boolean; error: string | null }> = ({ onSubmit, isLoading, error }) => {
+    const [formData, setFormData] = useState({ name: '', email: '', password: '' });
     const [passwordStrength, setPasswordStrength] = useState(0);
-    const { login, signup } = useAuth();
-    const errorId = `auth-error-${React.useId()}`;
     const MotionDiv = motion.div;
     const MotionP = motion.p;
+    const errorId = `profile-error-${React.useId()}`;
 
     const checkPasswordStrength = (password: string) => {
         let score = 0;
@@ -153,49 +150,26 @@ const AuthForm: FC<{ isLogin: boolean; }> = ({ isLogin }) => {
         if (name === 'password') {
             setPasswordStrength(checkPasswordStrength(value));
         }
-        setError(null);
     };
 
-    const handleSubmit = async (e: FormEvent) => {
+    const handleSubmit = (e: FormEvent) => {
         e.preventDefault();
-        setError(null);
-        setIsLoading(true);
-        try {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            if (isLogin) {
-                await login(formData.email, formData.password);
-            } else {
-                await signup(formData.name, formData.email, formData.password);
-            }
-        } catch (err: any) {
-            setError(err.message || 'An unexpected error occurred.');
-        } finally {
-            setIsLoading(false);
-        }
+        onSubmit(formData);
     };
-
-    const formVariants: Variants = {
-        hidden: { opacity: 0, y: 10 },
-        visible: { opacity: 1, y: 0 },
-        exit: { opacity: 0, y: -10 }
-    };
-
-    const hasError = !!error;
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6">
-            <AnimatePresence mode="wait">
-                {!isLogin && (
-                    <MotionDiv key="name" variants={formVariants} initial="hidden" animate="visible" exit="exit" transition={{ duration: 0.2 }}>
-                        <InputField name="name" type="text" label="Full name" icon={<UserIcon size={18} className="text-gray-500" />} value={formData.name} onChange={handleInputChange} isInvalid={hasError} ariaDescribedBy={errorId} />
-                    </MotionDiv>
-                )}
-            </AnimatePresence>
-            <InputField name="email" type="email" label="Work email" icon={<Mail size={18} className="text-gray-500" />} value={formData.email} onChange={handleInputChange} isInvalid={hasError} ariaDescribedBy={errorId} />
+            <div className="text-center mb-6">
+                <h3 className="text-xl font-semibold text-auth-foreground">Complete Your Profile</h3>
+                <p className="text-sm text-auth-muted-foreground">Please provide a few more details to get started.</p>
+            </div>
+
+            <InputField name="name" type="text" label="Full Name" icon={<UserIcon size={18} className="text-gray-500" />} value={formData.name} onChange={handleInputChange} />
+            <InputField name="email" type="email" label="Email Address" icon={<Mail size={18} className="text-gray-500" />} value={formData.email} onChange={handleInputChange} />
             <div>
-                <InputField name="password" type="password" label="Password" icon={<Lock size={18} className="text-gray-500" />} value={formData.password} onChange={handleInputChange} isInvalid={hasError} ariaDescribedBy={errorId} />
+                <InputField name="password" type="password" label="Create Password" icon={<Lock size={18} className="text-gray-500" />} value={formData.password} onChange={handleInputChange} />
                 <AnimatePresence>
-                    {!isLogin && formData.password && (
+                    {formData.password && (
                         <MotionDiv key="strength" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                             <PasswordStrengthMeter score={passwordStrength} />
                         </MotionDiv>
@@ -219,12 +193,312 @@ const AuthForm: FC<{ isLogin: boolean; }> = ({ isLogin }) => {
                 )}
             </AnimatePresence>
 
-            <div className="pt-2">
-                <Button type="submit" size="lg" className="w-full h-12 text-base font-semibold auth-button" disabled={isLoading}>
-                    {isLoading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div> : (isLogin ? 'Login Securely' : 'Create Account')}
-                </Button>
-            </div>
+            <Button type="submit" size="lg" className="w-full h-12 text-base font-semibold auth-button" disabled={isLoading}>
+                {isLoading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div> : 'Complete Setup'}
+            </Button>
         </form>
+    );
+};
+
+const AuthForm: FC<{ isLogin: boolean; }> = ({ isLogin }) => {
+    const [authMethod, setAuthMethod] = useState<'email' | 'mobile'>('email');
+    const [formData, setFormData] = useState({ name: '', email: 'admin@pivotalpro.ai', password: 'admin' });
+    const [mobileData, setMobileData] = useState({ phoneNumber: '', otp: '' });
+    const [otpSent, setOtpSent] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [passwordStrength, setPasswordStrength] = useState(0);
+    const [isNewUser, setIsNewUser] = useState(false); // State to track if user needs to complete profile
+
+    const { login, signup, revalidate } = useAuth();
+    const { setView } = useDashboard();
+    const errorId = `auth-error-${React.useId()}`;
+    const MotionDiv = motion.div;
+    const MotionP = motion.p;
+
+    const checkPasswordStrength = (password: string) => {
+        let score = 0;
+        if (password.length >= 8) score++;
+        if (/[A-Z]/.test(password)) score++;
+        if (/[0-9]/.test(password)) score++;
+        if (/[^A-Za-z0-9]/.test(password)) score++;
+        return score;
+    };
+
+    const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setFormData({ ...formData, [name]: value });
+        if (name === 'password') {
+            setPasswordStrength(checkPasswordStrength(value));
+        }
+        setError(null);
+    };
+
+    const handleMobileInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+        setMobileData({ ...mobileData, [name]: value });
+        setError(null);
+    };
+
+    const handleSendOtp = async () => {
+        setError(null);
+        setIsLoading(true);
+        try {
+            let phone = mobileData.phoneNumber.trim();
+            if (/^\d{10}$/.test(phone)) {
+                phone = `+91${phone}`;
+            }
+            
+            const response = await fetch('/api/auth/send-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phoneNumber: phone }),
+            });
+            if (!response.ok) throw new Error('Failed to send OTP');
+            setOtpSent(true);
+        } catch (err: any) {
+            setError(err.message || 'Failed to send OTP');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleVerifyOtp = async (e: FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        setIsLoading(true);
+        try {
+            let phone = mobileData.phoneNumber.trim();
+            if (/^\d{10}$/.test(phone)) {
+                phone = `+91${phone}`;
+            }
+
+            const response = await fetch('/api/auth/verify-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phoneNumber: phone, code: mobileData.otp }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Failed to verify OTP');
+            
+            if (data.isNewUser) {
+                setIsNewUser(true);
+            } else {
+                window.location.reload(); 
+            }
+        } catch (err: any) {
+            setError(err.message || 'Failed to verify OTP');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleProfileSubmit = async (profileData: any) => {
+        setError(null);
+        setIsLoading(true);
+        try {
+            const response = await fetch('/api/auth/complete-profile', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${document.cookie.replace(/(?:(?:^|.*;\s*)jwt\s*\=\s*([^;]*).*$)|^.*$/, "$1")}` // Get JWT from cookie if possible, or rely on cookie being sent automatically
+                },
+                body: JSON.stringify(profileData),
+            });
+            
+            if (!response.ok) {
+                 const data = await response.json();
+                 throw new Error(data.message || 'Failed to update profile');
+            }
+
+            // Redirect to onboarding
+            await revalidate();
+            setView('onboarding');
+        } catch (err: any) {
+            setError(err.message || 'Failed to update profile');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSubmit = async (e: FormEvent) => {
+        e.preventDefault();
+        setError(null);
+        setIsLoading(true);
+        try {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            if (isLogin) {
+                await login(formData.email, formData.password);
+            } else {
+                await signup(formData.name, formData.email, formData.password);
+                setView('onboarding');
+            }
+        } catch (err: any) {
+            setError(err.message || 'An unexpected error occurred.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const formVariants: Variants = {
+        hidden: { opacity: 0, y: 10 },
+        visible: { opacity: 1, y: 0 },
+        exit: { opacity: 0, y: -10 }
+    };
+
+    const hasError = !!error;
+
+    if (isNewUser) {
+        return (
+            <AnimatePresence mode="wait">
+                <MotionDiv
+                    key="profile-setup"
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                >
+                    <ProfileSetupForm onSubmit={handleProfileSubmit} isLoading={isLoading} error={error} />
+                </MotionDiv>
+            </AnimatePresence>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            <div className="flex rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
+                <button
+                    onClick={() => { setAuthMethod('email'); setError(null); }}
+                    className={cn(
+                        "flex-1 rounded-md py-2 text-sm font-medium transition-all",
+                        authMethod === 'email' 
+                            ? "bg-white text-slate-900 shadow dark:bg-slate-600 dark:text-slate-100" 
+                            : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                    )}
+                >
+                    Email
+                </button>
+                <button
+                    onClick={() => { setAuthMethod('mobile'); setError(null); }}
+                    className={cn(
+                        "flex-1 rounded-md py-2 text-sm font-medium transition-all",
+                        authMethod === 'mobile' 
+                            ? "bg-white text-slate-900 shadow dark:bg-slate-600 dark:text-slate-100" 
+                            : "text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+                    )}
+                >
+                    Mobile
+                </button>
+            </div>
+
+            {authMethod === 'email' ? (
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <AnimatePresence mode="wait">
+                        {!isLogin && (
+                            <MotionDiv key="name" variants={formVariants} initial="hidden" animate="visible" exit="exit" transition={{ duration: 0.2 }}>
+                                <InputField name="name" type="text" label="Full name" icon={<UserIcon size={18} className="text-gray-500" />} value={formData.name} onChange={handleInputChange} isInvalid={hasError} ariaDescribedBy={errorId} />
+                            </MotionDiv>
+                        )}
+                    </AnimatePresence>
+                    <InputField name="email" type="email" label="Work email" icon={<Mail size={18} className="text-gray-500" />} value={formData.email} onChange={handleInputChange} isInvalid={hasError} ariaDescribedBy={errorId} />
+                    <div>
+                        <InputField name="password" type="password" label="Password" icon={<Lock size={18} className="text-gray-500" />} value={formData.password} onChange={handleInputChange} isInvalid={hasError} ariaDescribedBy={errorId} />
+                        <AnimatePresence>
+                            {!isLogin && formData.password && (
+                                <MotionDiv key="strength" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                                    <PasswordStrengthMeter score={passwordStrength} />
+                                </MotionDiv>
+                            )}
+                        </AnimatePresence>
+                    </div>
+
+                    <AnimatePresence>
+                        {error && (
+                            <MotionP
+                                id={errorId}
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 5 }}
+                                transition={{ duration: 0.2 }}
+                                className="text-red-400 text-sm flex items-center gap-2"
+                                aria-live="polite"
+                            >
+                                <AlertCircle size={16} /> {error}
+                            </MotionP>
+                        )}
+                    </AnimatePresence>
+
+                    <div className="pt-2">
+                        <Button type="submit" size="lg" className="w-full h-12 text-base font-semibold auth-button" disabled={isLoading}>
+                            {isLoading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div> : (isLogin ? 'Login Securely' : 'Create Account')}
+                        </Button>
+                    </div>
+                </form>
+            ) : (
+                <form onSubmit={handleVerifyOtp} className="space-y-6">
+                    <AnimatePresence mode="wait">
+                        {!otpSent ? (
+                            <MotionDiv key="phone-input" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+                                <InputField 
+                                    name="phoneNumber" 
+                                    type="tel" 
+                                    label="Mobile Number (e.g., +91...)" 
+                                    icon={<Phone size={18} className="text-gray-500" />} 
+                                    value={mobileData.phoneNumber} 
+                                    onChange={handleMobileInputChange} 
+                                    isInvalid={hasError} 
+                                    ariaDescribedBy={errorId} 
+                                />
+                                <div className="pt-4">
+                                    <Button type="button" onClick={handleSendOtp} size="lg" className="w-full h-12 text-base font-semibold auth-button" disabled={isLoading || !mobileData.phoneNumber}>
+                                        {isLoading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div> : 'Send OTP'}
+                                    </Button>
+                                </div>
+                            </MotionDiv>
+                        ) : (
+                            <MotionDiv key="otp-input" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                                <InputField 
+                                    name="otp" 
+                                    type="text" 
+                                    label="Enter OTP" 
+                                    icon={<KeyRound size={18} className="text-gray-500" />} 
+                                    value={mobileData.otp} 
+                                    onChange={handleMobileInputChange} 
+                                    isInvalid={hasError} 
+                                    ariaDescribedBy={errorId} 
+                                />
+                                <div className="pt-4">
+                                    <Button type="submit" size="lg" className="w-full h-12 text-base font-semibold auth-button" disabled={isLoading || !mobileData.otp}>
+                                        {isLoading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-current"></div> : 'Verify & Login'}
+                                    </Button>
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setOtpSent(false)} 
+                                        className="w-full mt-4 text-sm text-auth-link hover:text-auth-link-hover"
+                                    >
+                                        Change Number
+                                    </button>
+                                </div>
+                            </MotionDiv>
+                        )}
+                    </AnimatePresence>
+                     <AnimatePresence>
+                        {error && (
+                            <MotionP
+                                id={errorId}
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 5 }}
+                                transition={{ duration: 0.2 }}
+                                className="text-red-400 text-sm flex items-center gap-2 mt-2"
+                                aria-live="polite"
+                            >
+                                <AlertCircle size={16} /> {error}
+                            </MotionP>
+                        )}
+                    </AnimatePresence>
+                </form>
+            )}
+        </div>
     );
 };
 

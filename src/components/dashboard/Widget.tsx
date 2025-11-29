@@ -1,0 +1,267 @@
+import React, { FC, useState, useRef, MouseEvent, KeyboardEvent } from 'react';
+import { 
+    Pencil, Search, Copy, MessageSquare, Sparkles, AlertCircle, Users, Aperture, Puzzle, 
+    BookOpen, Share2, Trash2, GripVertical, BarChart, Table, ChevronDown, MoreVertical 
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useDashboard } from '../../contexts/DashboardProvider';
+import { WidgetState, ChartType, ContextMenuItem } from '../../utils/types';
+import { cn } from '../ui/utils';
+import { Button } from '../ui/Button';
+import { Tooltip } from '../ui/Tooltip';
+import { Popover } from '../ui/Popover';
+import { DataProcessor } from '../common/DataProcessor';
+import { generateTitle } from '../../utils/dataProcessing/widgetProcessor';
+import { CompactChartTypeSelector } from './CompactChartTypeSelector';
+import { SectionHeaderWidget } from './SectionHeaderWidget';
+import { FilterControlWidget } from './FilterControlWidget';
+import { chartIcons } from './CompactChartTypeSelector'; // Need to export chartIcons or redefine
+
+const MotionDiv = motion.div;
+
+// Redefining chartIcons here if not exported, or better export it from CompactChartTypeSelector
+// For now I will import it if I can, or just redefine it to avoid circular dependency issues if CompactChartTypeSelector imports Widget (it doesn't).
+// But CompactChartTypeSelector is already created and I didn't export chartIcons.
+// I should probably update CompactChartTypeSelector to export chartIcons or duplicate it.
+// Duplicating for now to be safe and quick.
+
+import { 
+    LineChart, AreaChart, PieChart, AppWindow, Dot, Grid, 
+    BarChartHorizontal, Construction, Box, Filter, Radar, GaugeCircle 
+} from 'lucide-react';
+
+const localChartIcons: Record<string, React.ReactElement> = {
+    [ChartType.BAR]: <BarChart size={20} />,
+    [ChartType.LINE]: <LineChart size={20} />,
+    [ChartType.AREA]: <AreaChart size={20} />,
+    [ChartType.PIE]: <PieChart size={20} />,
+    [ChartType.SCATTER]: <AppWindow size={20} />,
+    [ChartType.BUBBLE]: <Dot size={20} />,
+    [ChartType.TABLE]: <Table size={20} />,
+    [ChartType.TREEMAP]: <Grid size={20} />,
+    [ChartType.DUAL_AXIS]: <BarChartHorizontal size={20} />,
+    [ChartType.HEATMAP]: <Construction size={20} />,
+    [ChartType.BOXPLOT]: <Box size={20} />,
+    [ChartType.FUNNEL]: <Filter size={20} />,
+    [ChartType.SANKEY]: <Share2 size={20} />,
+    [ChartType.RADAR]: <Radar size={20} />,
+    [ChartType.GAUGE]: <GaugeCircle size={20} />,
+};
+
+export const Widget: FC<{ widget: WidgetState }> = ({ widget }) => {
+    const { 
+        openWidgetEditorModal, openContextMenu, openDataLineageModal, 
+        handleWidgetAddToStory, 
+        runWidgetAnalysis, 
+        runAdvancedAnalysis, saveWidget, 
+        removeWidget, duplicateWidget, openWhatIfConfigModal, setFocusedWidgetId,
+        dashboardMode, addComment, setActiveCommentThread, activePage,
+        setChatContext, openChatModal
+    } = useDashboard();
+
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isChartTypePopoverOpen, setChartTypePopoverOpen] = useState(false);
+    const [isEditingTitle, setIsEditingTitle] = useState(false);
+    const [tempTitle, setTempTitle] = useState(widget.title);
+    const widgetRef = useRef<HTMLDivElement>(null);
+    
+    const commentsForWidget = activePage?.comments?.filter(c => c.widgetId === widget.id) || [];
+
+    const handleTitleSave = () => {
+        if (tempTitle.trim() && tempTitle !== widget.title) {
+            saveWidget({ ...widget, title: tempTitle.trim() });
+        }
+        setIsEditingTitle(false);
+    };
+
+    const handleTitleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter') handleTitleSave();
+        if (e.key === 'Escape') {
+            setTempTitle(widget.title);
+            setIsEditingTitle(false);
+        }
+    };
+    
+    const handleWidgetClick = (e: MouseEvent<HTMLDivElement>) => {
+        if (dashboardMode !== 'comment' || !widgetRef.current) return;
+        
+        const rect = widgetRef.current.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        
+        addComment(widget.id, { x, y });
+    };
+
+    const handleViewToggle = (targetMode: 'chart' | 'table') => {
+        let newChartType = widget.chartType;
+        if (targetMode === 'table') {
+            newChartType = ChartType.TABLE;
+        } else if (targetMode === 'chart' && widget.chartType === ChartType.TABLE) {
+            newChartType = ChartType.BAR; // Sensible default
+        }
+        
+        const newWidgetState: WidgetState = {
+            ...widget,
+            displayMode: targetMode,
+            chartType: newChartType
+        };
+
+        const chartTypeValues = Object.values(ChartType);
+        const defaultTitles = ['New Widget', 'AI Suggested Widget', 'New AI Widget', ...chartTypeValues];
+        const isDefaultTitle = defaultTitles.includes(widget.title);
+        const chartTypesForRegex = chartTypeValues.map(ct => `${ct}( Chart)?`).join('|');
+        const isAutoGeneratedTitle = new RegExp(`^.+\\s\\|\\s(${chartTypesForRegex})$`).test(widget.title);
+
+        if (isDefaultTitle || isAutoGeneratedTitle) {
+            newWidgetState.title = generateTitle(newWidgetState);
+        }
+
+        saveWidget(newWidgetState);
+    };
+
+
+    if (widget.displayMode === 'section') {
+        return <SectionHeaderWidget widget={widget} />;
+    }
+
+    const menuItems: ContextMenuItem[] = [
+        { label: 'Edit', icon: <Pencil size={16}/>, onClick: () => openWidgetEditorModal(widget.id) },
+        { label: 'Focus', icon: <Search size={16}/>, onClick: () => setFocusedWidgetId(widget.id) },
+        { label: 'Duplicate', icon: <Copy size={16}/>, onClick: () => duplicateWidget(widget.id) },
+        { label: '---', onClick: () => {} },
+        { label: 'Discuss with AI', icon: <MessageSquare size={16}/>, onClick: () => { setChatContext({ widgetId: widget.id }); openChatModal(); } },
+        { label: 'AI Summary', icon: <Sparkles size={16}/>, onClick: () => runWidgetAnalysis(widget) },
+        { label: 'Anomaly Detection', icon: <AlertCircle size={16}/>, onClick: () => runAdvancedAnalysis(widget.id, 'ANOMALY_DETECTION') },
+        { label: 'Key Influencers', icon: <Users size={16}/>, onClick: () => runAdvancedAnalysis(widget.id, 'KEY_INFLUENCERS') },
+        { label: 'Clustering', icon: <Aperture size={16}/>, onClick: () => runAdvancedAnalysis(widget.id, 'CLUSTERING') },
+        { label: 'What-If Analysis', icon: <Puzzle size={16}/>, onClick: () => openWhatIfConfigModal(widget.id) },
+        { label: '---', onClick: () => {} },
+        { label: 'Add to Story', icon: <BookOpen size={16}/>, onClick: () => handleWidgetAddToStory(widget.id) },
+        { label: 'Data Lineage', icon: <Share2 size={16}/>, onClick: () => openDataLineageModal(widget.id) },
+        { label: '---', onClick: () => {} },
+        { label: 'Delete', icon: <Trash2 size={16}/>, onClick: () => removeWidget(widget.id) },
+    ];
+
+    return (
+        <MotionDiv ref={widgetRef} layoutId={`widget-container-${widget.id}`} onClick={handleWidgetClick} className="glass-panel rounded-xl flex flex-col h-full w-full group/widget overflow-hidden relative transition-all duration-300 hover:shadow-xl hover:-translate-y-0.5">
+             <header className="drag-handle flex items-center p-3 h-[52px] border-b border-border/50 flex-shrink-0 gap-1 cursor-move">
+                <div className="nodrag cursor-default text-muted-foreground hover:text-foreground p-1 transition-colors duration-300 group-hover/widget:text-primary" title="Drag to move widget">
+                    <span className="icon-hover-anim"><GripVertical /></span>
+                </div>
+                
+                <div className="flex-grow flex items-center gap-1 group/title truncate nodrag" onClick={(e) => { e.stopPropagation(); if (!isEditingTitle) setIsEditingTitle(true); }}>
+                    {isEditingTitle ? (
+                        <input
+                            type="text"
+                            value={tempTitle}
+                            onChange={e => setTempTitle(e.target.value)}
+                            onBlur={handleTitleSave}
+                            onKeyDown={handleTitleKeyDown}
+                            className="font-semibold text-foreground text-sm truncate bg-transparent border-b border-primary focus:outline-none cursor-text"
+                            autoFocus
+                            size={Math.max(20, tempTitle.length)}
+                        />
+                    ) : (
+                        <div className="flex items-center gap-2 cursor-text w-full truncate" title="Click to edit title">
+                            <h3 className="font-semibold text-foreground text-sm truncate">
+                                {widget.title}
+                            </h3>
+                            <span className="icon-hover-anim"><Pencil size={14} className="opacity-0 group-hover/title:opacity-100 text-muted-foreground flex-shrink-0" /></span>
+                        </div>
+                    )}
+                </div>
+                
+                <div className="flex items-center gap-1 pl-2 nodrag">
+                     <div className="p-0.5 bg-secondary rounded-lg flex items-center opacity-0 group-hover/widget:opacity-100 transition-opacity">
+                        <Tooltip content="Chart View">
+                            <button onClick={(e) => { e.stopPropagation(); handleViewToggle('chart'); }} className={cn("p-1.5 rounded-md cursor-pointer", widget.displayMode === 'chart' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:bg-background/50')} aria-label="Switch to Chart View">
+                                <span className="icon-hover-anim"><BarChart size={16} /></span>
+                            </button>
+                        </Tooltip>
+                         <Tooltip content="Table View">
+                            <button onClick={(e) => { e.stopPropagation(); handleViewToggle('table'); }} className={cn("p-1.5 rounded-md cursor-pointer", widget.displayMode === 'table' ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground hover:bg-background/50')} aria-label="Switch to Table View">
+                                <span className="icon-hover-anim"><Table size={16} /></span>
+                            </button>
+                        </Tooltip>
+                    </div>
+                    <AnimatePresence>
+                        {widget.displayMode === 'chart' && widget.chartType !== ChartType.KPI && (
+                            <MotionDiv initial={{opacity:0, width:0}} animate={{opacity:1, width:'auto'}} exit={{opacity:0, width:0}}>
+                                <Popover
+                                    isOpen={isChartTypePopoverOpen}
+                                    onClose={() => setChartTypePopoverOpen(false)}
+                                    trigger={
+                                        <button onClick={(e) => { e.stopPropagation(); setChartTypePopoverOpen(true); }} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground opacity-0 group-hover/widget:opacity-100 transition-opacity cursor-pointer flex items-center gap-1" aria-label="Change chart type">
+                                            <span className="icon-hover-anim">{localChartIcons[widget.chartType]}</span>
+                                            <ChevronDown size={12} />
+                                        </button>
+                                    }
+                                    contentClassName="w-72 p-2"
+                                    align="right"
+                                >
+                                     <CompactChartTypeSelector 
+                                         currentType={widget.chartType}
+                                         onChange={(newType) => saveWidget({...widget, chartType: newType})}
+                                         onClose={() => setChartTypePopoverOpen(false)}
+                                     />
+                                </Popover>
+                            </MotionDiv>
+                        )}
+                    </AnimatePresence>
+                    <Popover
+                        isOpen={isMenuOpen}
+                        onClose={() => setIsMenuOpen(false)}
+                        trigger={<button onClick={(e) => { e.stopPropagation(); setIsMenuOpen(true); }} className="p-1.5 rounded-md hover:bg-accent text-muted-foreground hover:text-foreground opacity-0 group-hover/widget:opacity-100 transition-opacity cursor-pointer" aria-label="Open widget menu"><MoreVertical/></button>}
+                        contentClassName="w-48 p-1"
+                        align="right"
+                    >
+                         {({ close }) => (
+                            <div className="flex flex-col gap-1">
+                                {menuItems.map((item, index) => item.label === '---' ? <div key={index} className="h-px bg-border my-1" /> : (
+                                    <button key={index} onClick={() => { item.onClick(); close(); }} className="w-full text-left flex items-center gap-2 p-2 rounded text-sm hover:bg-accent disabled:opacity-50" disabled={item.disabled}>
+                                        <span className="icon-hover-anim">{item.icon}</span> {item.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </Popover>
+                </div>
+            </header>
+            <div className="flex-grow min-h-0 w-full">
+                 {widget.displayMode === 'control' 
+                    ? <FilterControlWidget widget={widget} /> 
+                    : <DataProcessor widget={widget} />
+                }
+            </div>
+             <AnimatePresence>
+            {commentsForWidget.map(comment => {
+                const author = comment.messages[0]?.author || '??';
+                const initials = author.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+                return (
+                    <motion.button
+                        key={comment.id}
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        whileHover={{ scale: 1.2, zIndex: 11, boxShadow: '0 0 10px hsl(var(--primary))' }}
+                        onClick={(e: MouseEvent) => {
+                            e.stopPropagation();
+                            setActiveCommentThread(comment);
+                        }}
+                        className="absolute z-10 w-8 h-8 rounded-full bg-primary shadow-lg flex items-center justify-center text-primary-foreground font-bold text-xs"
+                        style={{
+                            left: `${comment.position.x}%`,
+                            top: `${comment.position.y}%`,
+                            transform: 'translate(-50%, -50%)'
+                        }}
+                        aria-label={`View comment thread from ${author}`}
+                    >
+                        {initials}
+                    </motion.button>
+                )
+            })}
+            </AnimatePresence>
+        </MotionDiv>
+    );
+};

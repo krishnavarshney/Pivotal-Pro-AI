@@ -46,7 +46,15 @@ const sourceIcons: Record<NonNullable<DataSource['icon']>, React.ReactNode> = {
 
 const DataSourceCard: FC<{ source: DataSource, isHighlighted: boolean }> = ({ source, isHighlighted }) => {
     const status = statusInfo[source.status];
-    const { setView } = useDashboard();
+    const { setView, removeDataSource, openConfirmationModal } = useDashboard();
+
+    const handleDisconnect = () => {
+        openConfirmationModal({
+            title: 'Remove Data Source?',
+            message: `This will remove "${source.name}" and affect all related widgets and transformations.`,
+            onConfirm: () => removeDataSource(source.id)
+        });
+    };
 
     return (
         <MotionDiv
@@ -91,7 +99,11 @@ const DataSourceCard: FC<{ source: DataSource, isHighlighted: boolean }> = ({ so
                     Last sync: {source.lastSync ? new Date(source.lastSync).toLocaleString([], { dateStyle: 'short', timeStyle: 'short'}) : 'Never'}
                 </p>
                 <div className="flex items-center gap-1">
-                    <Button variant={source.status === 'connected' ? 'destructive' : 'default'} size="sm">
+                    <Button 
+                        variant={source.status === 'connected' ? 'destructive' : 'default'} 
+                        size="sm"
+                        onClick={() => source.status === 'connected' ? handleDisconnect() : null}
+                    >
                         {source.status === 'connected' ? 'Disconnect' : 'Connect'}
                     </Button>
                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setView('studio', {sourceId: source.id})}><MoreVertical size={16} /></Button>
@@ -101,8 +113,32 @@ const DataSourceCard: FC<{ source: DataSource, isHighlighted: boolean }> = ({ so
     );
 };
 
+const SampleDataCard: FC<{ 
+    title: string; 
+    description: string; 
+    icon: React.ReactNode; 
+    colorClass: string; 
+    onConnect: () => void;
+}> = ({ title, description, icon, colorClass, onConnect }) => (
+    <div className="bg-card p-4 rounded-xl border border-border flex flex-col gap-4 relative overflow-hidden group hover:shadow-md transition-all">
+        <div className={cn("absolute top-0 right-0 w-24 h-24 rounded-bl-full opacity-10 transition-transform group-hover:scale-110", colorClass.replace('text-', 'bg-'))} />
+        <div className="flex items-start gap-4 z-10">
+            <div className={cn("w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0 text-current", colorClass, "bg-current/10")}>
+                {icon}
+            </div>
+            <div>
+                <h3 className="font-bold text-foreground">{title}</h3>
+                <p className="text-sm text-muted-foreground">{description}</p>
+            </div>
+        </div>
+        <Button size="sm" variant="outline" className="w-full mt-auto z-10 group-hover:bg-primary group-hover:text-primary-foreground transition-colors" onClick={onConnect}>
+            Use Sample Data
+        </Button>
+    </div>
+);
+
 export const DataSourcesView: React.FC = () => {
-    const { dataSources, openAddDataSourceModal, runHealthCheck } = useDashboard();
+    const { dataSources, openAddDataSourceModal, runHealthCheck, loadSampleData } = useDashboard();
     const [activeFilter, setActiveFilter] = useState<string>('All');
     const [searchTerm, setSearchTerm] = useState('');
     
@@ -167,11 +203,32 @@ export const DataSourcesView: React.FC = () => {
                         ))}
                     </div>
                 </AnimatePresence>
+                
                 {filteredSources.length === 0 && (
-                    <div className="text-center py-16 text-muted-foreground">
+                    <div className="text-center py-8 text-muted-foreground">
                         <p>No data sources match your criteria.</p>
                     </div>
                 )}
+
+                <div className="pt-6 border-t border-border">
+                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><FileSpreadsheet size={20} className="text-primary"/> Try Sample Data</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <SampleDataCard 
+                            title="Superstore Sales" 
+                            description="Retail sales data with customer, product, and geographic dimensions." 
+                            icon={<FileSpreadsheet size={24} />} 
+                            colorClass="text-blue-500"
+                            onConnect={() => loadSampleData('sales')}
+                        />
+                        <SampleDataCard 
+                            title="Iris Dataset" 
+                            description="Classic dataset for classification and pattern recognition." 
+                            icon={<FileSpreadsheet size={24} />} 
+                            colorClass="text-purple-500"
+                            onConnect={() => loadSampleData('iris')}
+                        />
+                    </div>
+                </div>
             </main>
         </div>
     );

@@ -45,7 +45,7 @@ export const GettingStartedGuideModal: React.FC<{ isOpen: boolean; onClose: () =
         onboardingState, 
         openAiInsightStarterModal, 
         setView,
-        openWidgetEditorModal,
+        openWidgetEditorForNewWidget,
         dataSources
     } = useDashboard();
     
@@ -58,7 +58,7 @@ export const GettingStartedGuideModal: React.FC<{ isOpen: boolean; onClose: () =
                 openAiInsightStarterModal();
                 break;
             case "Build a Widget Manually":
-                openWidgetEditorModal();
+                openWidgetEditorForNewWidget();
                 startOnboardingTour('widgetEditor');
                 break;
             case "Prepare Your Data":

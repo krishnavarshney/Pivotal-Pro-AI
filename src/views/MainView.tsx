@@ -1,5 +1,4 @@
-import React, { FC } from 'react';
-// FIX: Add aliasing for motion component to fix TypeScript errors.
+import { FC } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDashboard } from '../contexts/DashboardProvider';
 import { AppSidebar } from '../components/dashboard/Sidebar';
@@ -16,6 +15,7 @@ import { DataSourcesView } from './DataSourcesView';
 import { DashboardHomeView } from './DashboardHomeView';
 import { AdminView } from './AdminView';
 import { InsightHubView } from './InsightHubView';
+import { OnboardingView } from './OnboardingView';
 import { cn } from '../components/ui/utils';
 
 // FIX: Add aliasing for motion component to fix TypeScript errors.
@@ -24,17 +24,24 @@ const MotionDiv = motion.div as any;
 export const MainView: FC = () => {
     const { 
         currentView, 
-        dataSources,
         workspaces,
         activePage,
+        isWorkspacesLoading,
+        isDataSourcesLoading
     } = useDashboard();
     
     const renderCurrentView = () => {
         switch(currentView) {
+            case 'onboarding': return <OnboardingView />;
             case 'dashboard':
                 const allPages = workspaces.flatMap(ws => ws.pages || []);
-                if (!activePage && allPages.length > 0) {
-                    return <DashboardHomeView />;
+                if (!activePage) {
+                    if (allPages.length > 0) {
+                        return <DashboardHomeView />;
+                    } else {
+                         // Fallback if showEmptyState didn't catch it (shouldn't happen with new logic)
+                         return <EmptyStateView />;
+                    }
                 }
                 return <DashboardView />;
             case 'admin': return <AdminView />;
@@ -51,7 +58,19 @@ export const MainView: FC = () => {
         }
     }
     
-    const showEmptyState = dataSources.size === 0;
+    // Show loading state if data is still loading
+    if (isWorkspacesLoading || isDataSourcesLoading) {
+        return (
+            <div className="flex items-center justify-center h-screen bg-transparent">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+            </div>
+        );
+    }
+
+    // Logic: If user has no workspaces, show Empty State.
+    // Exception: If we are in 'onboarding' view, show that instead.
+    const showEmptyState = workspaces.length === 0 && currentView !== 'onboarding';
+    
     const allPages = workspaces.flatMap(ws => ws.pages || []);
     // FIX: The Getting Started view should only show when a specific page is active, not when navigating to the home view.
     const showGettingStarted = !showEmptyState && currentView === 'dashboard' && activePage && allPages.length === 1 && activePage.widgets.length === 0;
@@ -60,6 +79,14 @@ export const MainView: FC = () => {
         return (
             <div className="h-screen bg-transparent">
                 <EmptyStateView />
+            </div>
+        );
+    }
+
+    if (currentView === 'onboarding') {
+        return (
+             <div className="h-screen bg-transparent">
+                <OnboardingView />
             </div>
         );
     }

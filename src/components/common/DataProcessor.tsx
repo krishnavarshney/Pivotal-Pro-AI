@@ -238,8 +238,22 @@ export const DataProcessor: FC<{ widget: WidgetState }> = ({ widget }) => {
     const tableContainerRef = useRef<HTMLDivElement>(null);
     const [stickyHeaderLeft, setStickyHeaderLeft] = useState<number[]>([]);
     
-    const numStickyColumns = useMemo(() => (widget.shelves.rows || []).length, [widget.shelves.rows]);
+    const numStickyColumns = useMemo(() => (widget.shelves?.rows || []).length, [widget.shelves?.rows]);
     const collapsedRows = useMemo(() => activePage?.collapsedRows || [], [activePage]);
+
+    // Create a hash of properties that should trigger a data refetch
+    // This prevents refetching when only layout properties (x, y, w, h) change
+    const widgetDataHash = JSON.stringify({
+        id: widget.id,
+        chartType: widget.chartType,
+        dataSourceId: widget.dataSourceId,
+        shelves: widget.shelves,
+        filters: widget.filters,
+        sort: widget.sort,
+        drillPath: widget.drillPath,
+        subtotalSettings: widget.subtotalSettings,
+        conditionalFormatting: widget.conditionalFormatting,
+    });
 
     useEffect(() => {
         let isMounted = true;
@@ -273,7 +287,7 @@ export const DataProcessor: FC<{ widget: WidgetState }> = ({ widget }) => {
         };
         fetchData();
         return () => { isMounted = false; };
-    }, [widget, blendedData, globalFilters, crossFilter, parameters, refetchCounter, controlFilters]);
+    }, [widgetDataHash, blendedData, globalFilters, crossFilter, parameters, refetchCounter, controlFilters]);
     
     const tableDataForWidget = useMemo(() => {
         if (processedData?.type === 'table') return processedData;
@@ -755,7 +769,7 @@ export const DataProcessor: FC<{ widget: WidgetState }> = ({ widget }) => {
     return (
         <div className="h-full w-full flex flex-col relative">
             <DrilldownBreadcrumb widget={widget} onDrillUp={handleDrillUp} />
-            <div className="flex-grow min-h-0">
+            <div className="flex-grow min-h-0"> 
                 {renderContent()}
             </div>
         </div>

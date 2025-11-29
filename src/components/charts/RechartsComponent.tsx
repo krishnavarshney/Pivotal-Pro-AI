@@ -21,7 +21,7 @@ const CustomTooltip: React.FC<any> = ({ active, payload, label, widget }) => {
                 <p className="font-bold mb-2">{formatValue(label)}</p>
                 {payload.map((pld: any, index: number) => (
                     <div key={index} style={{ color: pld.color }}>
-                        {`${pld.name}: ${formatValue(pld.value, widget.shelves.values[index]?.formatting, widget.shelves.values[index]?.aggregation)}`}
+                        {`${pld.name}: ${formatValue(pld.value, widget.shelves?.values?.[index]?.formatting, widget.shelves?.values?.[index]?.aggregation)}`}
                     </div>
                 ))}
             </div>
@@ -34,9 +34,9 @@ const ScatterTooltip: React.FC<any> = ({ active, payload, widget }) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
         if (!data) return null;
-        const xPill = widget.shelves.columns[0];
-        const yPill = widget.shelves.rows[0];
-        const rPill = widget.shelves.values[0];
+        const xPill = widget.shelves?.columns?.[0];
+        const yPill = widget.shelves?.rows?.[0];
+        const rPill = widget.shelves?.values?.[0];
 
         return (
             <div className="p-3 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border text-sm">
@@ -142,7 +142,7 @@ export const RechartsComponent: React.FC<ChartProps> = ({ widget, data, onElemen
                     <BarChart {...commonProps}>
                         <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                         <XAxis dataKey="name" tick={{ fill: tickColor, fontSize: 12 }} angle={-30} textAnchor="end" height={60} />
-                        <YAxis tick={{ fill: tickColor, fontSize: 12 }} tickFormatter={(val) => formatValue(val, widget.shelves.values[0]?.formatting)} />
+                        <YAxis tick={{ fill: tickColor, fontSize: 12 }} tickFormatter={(val) => formatValue(val, widget.shelves?.values?.[0]?.formatting)} />
                         <Tooltip content={<CustomTooltip widget={widget} />} cursor={{ fill: tooltipCursorFill }}/>
                         <Legend payload={customizedLegendPayload} onClick={handleLegendClick} {...getLegendProps()} />
                         {datasets.map((ds, i) => (
@@ -159,7 +159,7 @@ export const RechartsComponent: React.FC<ChartProps> = ({ widget, data, onElemen
                     <LineChart {...commonProps}>
                         <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                         <XAxis dataKey="name" tick={{ fill: tickColor, fontSize: 12 }} angle={-30} textAnchor="end" height={60} />
-                        <YAxis tick={{ fill: tickColor, fontSize: 12 }} tickFormatter={(val) => formatValue(val, widget.shelves.values[0]?.formatting)} />
+                        <YAxis tick={{ fill: tickColor, fontSize: 12 }} tickFormatter={(val) => formatValue(val, widget.shelves?.values?.[0]?.formatting)} />
                         <Tooltip content={<CustomTooltip widget={widget} />} cursor={{ stroke: tooltipCursorFill, strokeWidth: 2 }}/>
                         <Legend payload={customizedLegendPayload} onClick={handleLegendClick} {...getLegendProps()} />
                         {datasets.map((ds, i) => (
@@ -172,7 +172,7 @@ export const RechartsComponent: React.FC<ChartProps> = ({ widget, data, onElemen
                     <AreaChart {...commonProps}>
                         <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
                         <XAxis dataKey="name" tick={{ fill: tickColor, fontSize: 12 }} angle={-30} textAnchor="end" height={60} />
-                        <YAxis tick={{ fill: tickColor, fontSize: 12 }} tickFormatter={(val) => formatValue(val, widget.shelves.values[0]?.formatting)} />
+                        <YAxis tick={{ fill: tickColor, fontSize: 12 }} tickFormatter={(val) => formatValue(val, widget.shelves?.values?.[0]?.formatting)} />
                         <Tooltip content={<CustomTooltip widget={widget} />} cursor={{ stroke: tooltipCursorFill, strokeWidth: 2 }}/>
                         <Legend payload={customizedLegendPayload} onClick={handleLegendClick} {...getLegendProps()} />
                         {datasets.map((ds, i) => {
@@ -198,9 +198,9 @@ export const RechartsComponent: React.FC<ChartProps> = ({ widget, data, onElemen
                 );
             case ChartType.SCATTER:
             case ChartType.BUBBLE:
-                const xPill = widget.shelves.columns[0];
-                const yPill = widget.shelves.rows[0];
-                const rPill = widget.shelves.values[0];
+                const xPill = widget.shelves?.columns?.[0];
+                const yPill = widget.shelves?.rows?.[0];
+                const rPill = widget.shelves?.values?.[0];
 
                 if (!xPill || !yPill) return <div className="text-center text-muted-foreground p-4">Scatter charts require a field on X-Axis and Y-Axis.</div>;
                 
@@ -211,7 +211,7 @@ export const RechartsComponent: React.FC<ChartProps> = ({ widget, data, onElemen
                     if (e && e.activePayload && e.activePayload.length > 0) {
                         const payload = e.activePayload[0].payload;
                         if (payload && payload.category !== undefined) {
-                            const categoryPill = (widget.shelves.category || [])[0];
+                            const categoryPill = (widget.shelves?.category || [])[0];
                             if (categoryPill) {
                                 const index = data.labels.indexOf(payload.category);
                                 onElementClick(index !== -1 ? index : null);

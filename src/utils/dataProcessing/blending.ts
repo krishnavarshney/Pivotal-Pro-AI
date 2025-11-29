@@ -36,8 +36,8 @@ export const blendData = (
     // If no relationships or just one source, return the prefixed data from the first source
     if (relationships.length === 0 || dataSources.size === 1) {
         const firstSource = dataSources.values().next().value;
-        if (!firstSource) return { blendedData: [], blendedFields: { dimensions: [], measures: [] } };
-        
+        if (!firstSource || !firstSource.data) return { blendedData: [], blendedFields: { dimensions: [], measures: [] } };
+
         const prefix = firstSource.name;
         const blendedData = firstSource.data.map(row => prefixKeys(row, prefix));
         const blendedFields = {
@@ -46,9 +46,9 @@ export const blendData = (
         };
         return { blendedData, blendedFields };
     }
-    
+
     // --- Advanced Blending with Relationships ---
-    
+
     // Determine the "base" source, ideally the one that appears most often on the "left" side of relationships.
     const sourceFrequency = _.countBy(relationships.map(r => r.sourceAId));
     const baseSourceId = _.maxBy(Object.keys(sourceFrequency), id => sourceFrequency[id]) || relationships[0].sourceAId;
@@ -81,15 +81,15 @@ export const blendData = (
         if (isAJoined && isBJoined) continue; // Skip joins between already blended sources
 
         if (!isAJoined && !isBJoined) {
-             console.warn(`Skipping disconnected relationship: ${sourceA.name} <-> ${sourceB.name}`);
-             continue;
+            console.warn(`Skipping disconnected relationship: ${sourceA.name} <-> ${sourceB.name}`);
+            continue;
         }
 
         const existingSource = isAJoined ? sourceA : sourceB;
         const newSource = isAJoined ? sourceB : sourceA;
         const existingField = isAJoined ? rel.fieldA : rel.fieldB;
         const newField = isAJoined ? rel.fieldB : rel.fieldA;
-        
+
         // Adjust join type if we reversed the sources
         let joinType = rel.type;
         if (!isAJoined) {
@@ -116,18 +116,18 @@ export const blendData = (
                 nextBlendedData.push({ ...existingRow, ...newSourcePrefixedNulls });
             }
         });
-        
+
         if (joinType === 'right' || joinType === 'full') {
             const joinedNewSourceKeys = new Set(currentBlendedData.map(row => row[fullExistingFieldName]));
             newSource.data.forEach(newRow => {
                 if (!joinedNewSourceKeys.has(newRow[newField])) {
                     const existingSourcePrefixedNulls = Object.keys(currentBlendedData[0] || {})
-                        .reduce((acc, key) => ({...acc, [key]: null}), {});
-                    nextBlendedData.push({...existingSourcePrefixedNulls, ...prefixKeys(newRow, newSource.name)});
+                        .reduce((acc, key) => ({ ...acc, [key]: null }), {});
+                    nextBlendedData.push({ ...existingSourcePrefixedNulls, ...prefixKeys(newRow, newSource.name) });
                 }
             });
         }
-        
+
         currentBlendedData = nextBlendedData;
 
         // Add new fields to the schema and mark the new source as joined
@@ -135,6 +135,6 @@ export const blendData = (
         allFields.measures.push(...newSource.fields.measures.map(f => ({ ...f, name: `${newSource.name}.${f.name}`, simpleName: f.simpleName })));
         joinedSourceIds.add(newSource.id);
     }
-    
+
     return { blendedData: currentBlendedData, blendedFields: allFields };
 };

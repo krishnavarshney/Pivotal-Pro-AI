@@ -26,8 +26,8 @@ const aggregate = (values: any[], agg: AggregationType): number | null => {
         case AggregationType.SUM: return _.sum(numericValues);
         case AggregationType.AVERAGE: return _.mean(numericValues);
         case AggregationType.COUNT: return values.length;
-        case AggregationType.MIN: return _.min(numericValues);
-        case AggregationType.MAX: return _.max(numericValues);
+        case AggregationType.MIN: return _.min(numericValues) ?? null;
+        case AggregationType.MAX: return _.max(numericValues) ?? null;
         default: return null;
     }
 };
@@ -37,7 +37,7 @@ export const generateTitle = (widget: WidgetState): string => {
 
     const chartPart = chartType === ChartType.TABLE ? 'Table' : `${chartType} Chart`;
     if (chartType === ChartType.KPI) {
-        const valuePill = (shelves.values || [])[0];
+        const valuePill = (shelves?.values || [])[0];
         return valuePill ? `${_.startCase(valuePill.aggregation.toLowerCase())} of ${valuePill.simpleName}` : 'KPI';
     }
 
@@ -49,17 +49,17 @@ export const generateTitle = (widget: WidgetState): string => {
     const dimensionPills = [...(shelves.rows || []), ...(shelves.columns || [])];
 
     const valuePart = valuePills.map(p => `${_.startCase(p.aggregation.toLowerCase())} of ${p.simpleName}`).join(' and ');
-    
+
     const dimensionPart = dimensionPills.length > 0
         ? `${dimensionPills.map(p => p.simpleName).join(' and ')} wise`
         : '';
 
     const titleParts = [valuePart, dimensionPart].filter(Boolean);
-    
+
     if (titleParts.length === 0) {
         return chartPart;
     }
-    
+
     return `${titleParts.join(' ')} | ${chartPart}`;
 };
 
@@ -73,17 +73,18 @@ export const processWidgetData = (
 ): ProcessedData => {
 
     if (!widget.shelves) {
+        console.error('processWidgetData: Widget is missing shelves!', widget);
         return { type: 'nodata', message: 'Widget is not configured properly.' };
     }
 
     if (data.length === 0) {
         return { type: 'nodata', message: 'No data available.' };
     }
-    
+
     const effectiveChartType = widget.displayMode === 'table' ? ChartType.TABLE : widget.chartType;
     const subtotalSettings = { rows: false, columns: false, grandTotal: true, ...widget.subtotalSettings };
 
-    const controlFilterValues = controlFilters ? Array.from(controlFilters.values()).filter(cf => cf.id !== widget.id) : [];
+    const controlFilterValues = controlFilters ? Object.values(controlFilters).filter(cf => cf.id !== widget.id) : [];
     const allFilters = [...globalFilters, ...(widget.shelves.filters || []), ...(crossFilter ? [crossFilter.filter] : []), ...controlFilterValues];
     let filteredData: any[] = applyFilters(data, allFilters);
 
@@ -92,8 +93,8 @@ export const processWidgetData = (
             filteredData = filteredData.filter(row => row[level.fieldName] === level.value);
         });
     }
-    
-    if(widget.forecasting?.enabled && [ChartType.LINE, ChartType.AREA, ChartType.BAR].includes(effectiveChartType)) {
+
+    if (widget.forecasting?.enabled && [ChartType.LINE, ChartType.AREA, ChartType.BAR].includes(effectiveChartType)) {
         // Forecasting logic is now handled in mockApiService to simulate backend processing
     }
 
@@ -107,7 +108,7 @@ export const processWidgetData = (
             if (!valuePill) return { type: 'nodata', message: 'Please add a measure to the Gauge chart.' };
 
             const value = aggregate(filteredData.map(row => row[valuePill.name]), valuePill.aggregation);
-            
+
             return {
                 type: 'chart',
                 labels: [valuePill.simpleName],
@@ -144,13 +145,13 @@ export const processWidgetData = (
                 const targetPill = dimensionPills[i + 1];
 
                 const grouped = groupByTyped(filteredData, row => `${row[sourcePill.name]}|${row[targetPill.name]}`);
-                
+
                 grouped.forEach((groupData, key) => {
                     const [source, target] = String(key).split('|');
                     if (source === 'null' || target === 'null' || source === '' || target === '') return;
-                    
+
                     const value = aggregate(groupData.map(r => r[valuePill.name]), valuePill.aggregation);
-                     if (source && target && value !== null) {
+                    if (source && target && value !== null) {
                         const linkKey = `${source}|${target}`;
                         linksMap.set(linkKey, (linksMap.get(linkKey) || 0) + value);
                     }
@@ -179,24 +180,24 @@ export const processWidgetData = (
             };
         }
         case ChartType.HEATMAP: {
-             const rowPill = (widget.shelves.rows || [])[0];
-             const colPill = (widget.shelves.columns || [])[0];
-             const valuePill = (widget.shelves.values || [])[0];
-             if (!rowPill || !colPill || !valuePill) return { type: 'nodata', message: 'Heatmap requires a row, a column, and a value.' };
+            const rowPill = (widget.shelves.rows || [])[0];
+            const colPill = (widget.shelves.columns || [])[0];
+            const valuePill = (widget.shelves.values || [])[0];
+            if (!rowPill || !colPill || !valuePill) return { type: 'nodata', message: 'Heatmap requires a row, a column, and a value.' };
 
-             const rowLabels = _.uniq(filteredData.map(r => r[rowPill.name])).sort();
-             const colLabels = _.uniq(filteredData.map(r => r[colPill.name])).sort();
-             
-             const grouped = _.groupBy(filteredData, r => `${r[rowPill.name]}|${r[colPill.name]}`);
-             
-             const matrix = rowLabels.map(rowLabel => {
-                 return colLabels.map(colLabel => {
-                     const group = grouped[`${rowLabel}|${colLabel}`];
-                     return group && Array.isArray(group) ? aggregate(group.map(g => g[valuePill.name]), valuePill.aggregation) : null;
-                 });
-             });
-             
-             return { type: 'heatmap', rowLabels, colLabels, data: matrix, valuePill };
+            const rowLabels = _.uniq(filteredData.map(r => r[rowPill.name])).sort();
+            const colLabels = _.uniq(filteredData.map(r => r[colPill.name])).sort();
+
+            const grouped = _.groupBy(filteredData, r => `${r[rowPill.name]}|${r[colPill.name]}`);
+
+            const matrix = rowLabels.map(rowLabel => {
+                return colLabels.map(colLabel => {
+                    const group = grouped[`${rowLabel}|${colLabel}`];
+                    return group && Array.isArray(group) ? aggregate(group.map(g => g[valuePill.name]), valuePill.aggregation) : null;
+                });
+            });
+
+            return { type: 'heatmap', rowLabels, colLabels, data: matrix, valuePill };
         }
         case ChartType.TABLE: {
             const rowPills = widget.shelves.rows || [];
@@ -208,7 +209,7 @@ export const processWidgetData = (
             }
 
             const pivotMeasureLayout = widget.tableSettings?.pivotMeasureLayout || 'horizontal';
-            
+
             if (pivotMeasureLayout === 'vertical' && colPills.length > 0) {
                 // --- VERTICAL PIVOT LAYOUT ---
                 const allValueFields = [...(widget.shelves.values || []), ...(widget.shelves.values2 || [])];
@@ -220,25 +221,25 @@ export const processWidgetData = (
                     allColPills.forEach(p => values[p.name] = row[p.name]);
                     return values;
                 }), JSON.stringify);
-                
+
                 const headerRows: HeaderCell[][] = [[]];
                 allRowPills.forEach(p => headerRows[0].push({ label: p.simpleName, key: p.name, rowSpan: 2, colSpan: 1 }));
 
                 allValueFields.forEach(vf => {
                     headerRows[0].push({ label: vf.simpleName, key: `group-${vf.name}`, rowSpan: 1, colSpan: uniqueColValues.length + (subtotalSettings.columns !== false ? 1 : 0), isMeasureGroup: true });
                 });
-                
+
                 headerRows.push([]); // second row of headers
                 allValueFields.forEach(vf => {
                     uniqueColValues.forEach(cv => {
                         const label = allColPills.map(p => cv[p.name]).join(' - ');
                         headerRows[1].push({ label, key: `${vf.name}|${label}`, rowSpan: 1, colSpan: 1 });
                     });
-                     if(subtotalSettings.columns !== false) {
+                    if (subtotalSettings.columns !== false) {
                         headerRows[1].push({ label: 'Total', key: `${vf.name}|row_total`, rowSpan: 1, colSpan: 1 });
                     }
                 });
-                
+
                 const columnOrder = [
                     ...allRowPills.map(p => p.name),
                     ...allValueFields.flatMap(vf => [
@@ -254,18 +255,18 @@ export const processWidgetData = (
                 Array.from(groupedByRow.keys()).forEach(rowKey => {
                     const groupData = groupedByRow.get(rowKey) || [];
                     const dataRow: TableRow = { type: 'data', values: {}, level: 0, path: rowKey };
-                    
+
                     allRowPills.forEach((p, i) => {
                         dataRow.values[p.name] = rowKey.split('|')[i];
                     });
-                    
+
                     allValueFields.forEach(vf => {
                         uniqueColValues.forEach(cv => {
                             const filteredGroup = groupData.filter(row => allColPills.every(p => row[p.name] === cv[p.name]));
                             const key = `${vf.name}|${allColPills.map(p => cv[p.name]).join(' - ')}`;
                             dataRow.values[key] = aggregate(filteredGroup.map(r => r[vf.name]), vf.aggregation);
                         });
-                        if(subtotalSettings.columns !== false) {
+                        if (subtotalSettings.columns !== false) {
                             dataRow.values[`${vf.name}|row_total`] = aggregate(groupData.map(r => r[vf.name]), vf.aggregation);
                         }
                     });
@@ -275,14 +276,14 @@ export const processWidgetData = (
                 if (subtotalSettings.grandTotal !== false) {
                     const grandTotalRow: TableRow = { type: 'grandtotal', values: {} };
                     grandTotalRow.values[allRowPills[0]?.name || ''] = 'Grand Total';
-                    
+
                     allValueFields.forEach(vf => {
                         uniqueColValues.forEach(cv => {
                             const filteredGroup = filteredData.filter(row => allColPills.every(p => row[p.name] === cv[p.name]));
                             const key = `${vf.name}|${allColPills.map(p => cv[p.name]).join(' - ')}`;
                             grandTotalRow.values[key] = aggregate(filteredGroup.map(r => r[vf.name]), vf.aggregation);
                         });
-                        if(subtotalSettings.columns !== false) {
+                        if (subtotalSettings.columns !== false) {
                             grandTotalRow.values[`${vf.name}|row_total`] = aggregate(filteredData.map(r => r[vf.name]), vf.aggregation);
                         }
                     });
@@ -300,7 +301,7 @@ export const processWidgetData = (
                         return values;
                     }), _.isEqual)
                     : [];
-                
+
                 if (colPills.length > 0 && colPills[0]) {
                     uniqueColumnValues = _.orderBy(uniqueColumnValues, colPills.map(p => p.name));
                 }
@@ -343,7 +344,7 @@ export const processWidgetData = (
                         headerRows[0].push({ label: vp.simpleName, key: vp.name, colSpan: 1, rowSpan: 1 });
                     });
                 }
-                
+
                 const shouldAddGrandTotal = isPivot && subtotalSettings.columns !== false;
                 if (shouldAddGrandTotal) {
                     if (isSingleMeasurePivot) {
@@ -355,30 +356,30 @@ export const processWidgetData = (
                         });
                     }
                 }
-                
+
                 const columnOrder: string[] = [
                     ...rowPills.map(p => p.name),
                 ];
                 if (colPills.length > 0) {
-                     columnOrder.push(...uniqueColumnValues.flatMap(cv => valuePills.map(vp => `${vp.name}|${colPills.map(p => cv[p.name]).join('|')}`)));
+                    columnOrder.push(...uniqueColumnValues.flatMap(cv => valuePills.map(vp => `${vp.name}|${colPills.map(p => cv[p.name]).join('|')}`)));
                 } else {
-                     columnOrder.push(...valuePills.map(vp => vp.name));
+                    columnOrder.push(...valuePills.map(vp => vp.name));
                 }
 
                 if (shouldAddGrandTotal) {
                     columnOrder.push(...valuePills.map(vp => `${vp.name}|grand_total`));
                 }
-                
+
                 const rows: TableRow[] = [];
                 const processGroup = (data: any[], level: number, path: string) => {
                     if (rowPills.length > 0 && level >= rowPills.length) {
                         return; // Base case for multi-level hierarchies
                     }
-                
+
                     const groupPill = rowPills[level];
                     const grouped = rowPills.length > 0 ? groupByTyped(data, item => item[groupPill.name]) : new Map([['all', data]]);
                     const isLastLevel = level === rowPills.length - 1;
-                
+
                     grouped.forEach((groupData, groupKey) => {
                         const currentPath = path ? `${path}|${groupKey}` : String(groupKey);
                         const isLeafNode = isLastLevel || rowPills.length === 0;
@@ -390,7 +391,7 @@ export const processWidgetData = (
                                     dataRow.values[p.name] = currentPath.split('|')[i];
                                 });
                             }
-                
+
                             valuePills.forEach(vp => {
                                 if (colPills.length > 0) {
                                     uniqueColumnValues.forEach(cv => {
@@ -409,12 +410,12 @@ export const processWidgetData = (
                             });
                             rows.push(dataRow);
                         }
-                        
+
                         if (!isLeafNode) { // It's a parent group, process subtotals and recurse
                             if (subtotalSettings.rows) {
                                 const subtotalRow: TableRow = { type: 'subtotal', values: {}, level, path: currentPath, isExpandable: true };
                                 rowPills.forEach((p, i) => subtotalRow.values[p.name] = (i === level) ? groupKey : null);
-                
+
                                 valuePills.forEach(vp => {
                                     if (colPills.length > 0) {
                                         uniqueColumnValues.forEach(cv => {
@@ -423,8 +424,8 @@ export const processWidgetData = (
                                             subtotalRow.values[key] = aggregate(filteredGroup.map(r => r[vp.name]), vp.aggregation);
                                         });
                                         if (shouldAddGrandTotal) {
-                                             const rowTotalValue = aggregate(groupData.map(r => r[vp.name]), vp.aggregation);
-                                             subtotalRow.values[`${vp.name}|grand_total`] = rowTotalValue;
+                                            const rowTotalValue = aggregate(groupData.map(r => r[vp.name]), vp.aggregation);
+                                            subtotalRow.values[`${vp.name}|grand_total`] = rowTotalValue;
                                         }
                                     } else {
                                         subtotalRow.values[vp.name] = aggregate(groupData.map(r => r[vp.name]), vp.aggregation);
@@ -436,7 +437,7 @@ export const processWidgetData = (
                         }
                     });
                 };
-                
+
                 if (rowPills.length > 0) {
                     filteredData = _.orderBy(filteredData, rowPills.map(p => p.name));
                 }
@@ -464,8 +465,8 @@ export const processWidgetData = (
                                 grandTotalRow.values[key] = colTotal;
                             });
                             if (shouldAddGrandTotal) {
-                                 const grandTotalValue = aggregate(filteredData.map(r => r[vp.name]), vp.aggregation);
-                                 grandTotalRow.values[`${vp.name}|grand_total`] = grandTotalValue;
+                                const grandTotalValue = aggregate(filteredData.map(r => r[vp.name]), vp.aggregation);
+                                grandTotalRow.values[`${vp.name}|grand_total`] = grandTotalValue;
                             }
                         } else {
                             grandTotalRow.values[vp.name] = aggregate(filteredData.map(r => r[vp.name]), vp.aggregation);
@@ -482,40 +483,40 @@ export const processWidgetData = (
             if (effectiveChartType === ChartType.TREEMAP) {
                 const categoryPills = widget.shelves.rows || [];
                 const valuePill = (widget.shelves.values || [])[0];
-    
+
                 if (categoryPills.length === 0 || !valuePill) {
                     return { type: 'nodata', message: 'Treemap requires at least one dimension on Rows and one measure on Values.' };
                 }
-    
+
                 const createNestedData = (data: any[], level: number): any[] => {
                     if (level >= categoryPills.length) {
                         return [];
                     }
                     const pill = categoryPills[level];
                     const grouped = groupByTyped(data, item => item[pill.name]);
-    
+
                     return Array.from(grouped.entries()).map(([name, groupData]) => {
                         const children = createNestedData(groupData, level + 1);
                         const aggregatedValue = aggregate(groupData.map(item => item[valuePill.name]), valuePill.aggregation) || 0;
-                
+
                         const node: { name: string; value: number; children?: any[] } = {
                             name: String(name),
                             value: aggregatedValue,
                         };
-                
+
                         if (children.length > 0) {
                             node.children = children;
                         }
-                
+
                         return node;
                     });
                 };
-    
+
                 const treemapData = createNestedData(filteredData, 0);
-    
+
                 return {
                     type: 'chart',
-                    labels: [], 
+                    labels: [],
                     datasets: [{
                         label: valuePill.simpleName,
                         data: treemapData,
@@ -528,9 +529,9 @@ export const processWidgetData = (
             const rowPills = widget.shelves.rows || [];
             const colPills = widget.shelves.columns || [];
             const valuePills = [...(widget.shelves.values || []), ...(widget.shelves.values2 || [])];
-            
+
             if (valuePills.length === 0) return { type: 'nodata', message: 'Please add a measure to the Values shelf.' };
-            
+
             if (effectiveChartType === ChartType.SCATTER || effectiveChartType === ChartType.BUBBLE) {
                 const xPill = (widget.shelves.columns || [])[0];
                 const yPill = (widget.shelves.rows || [])[0];
@@ -558,34 +559,34 @@ export const processWidgetData = (
                 });
                 return { type: 'chart', labels, datasets, chartType: effectiveChartType };
             }
-            
-            if(effectiveChartType === ChartType.BOXPLOT) {
+
+            if (effectiveChartType === ChartType.BOXPLOT) {
                 const catPill = (widget.shelves.rows || [])[0];
                 const valPill = (widget.shelves.values || [])[0];
-                if(!valPill) return { type: 'nodata', message: 'Box Plot requires a measure on the Values shelf.'};
-                
+                if (!valPill) return { type: 'nodata', message: 'Box Plot requires a measure on the Values shelf.' };
+
                 let labels: any[];
                 let groupedData: Map<any, any[]>;
 
-                if(catPill) {
+                if (catPill) {
                     labels = _.uniq(filteredData.map(r => r[catPill.name])).sort();
                     groupedData = groupByTyped(filteredData, item => item[catPill.name]);
                 } else {
                     labels = [valPill.simpleName];
                     groupedData = new Map([[valPill.simpleName, filteredData]]);
                 }
-                
+
                 const datasets = [{
                     label: valPill.simpleName,
                     data: labels.map(l => {
                         const group = groupedData.get(l) || [];
                         const values = group.map(i => i[valPill.name]).filter(v => typeof v === 'number' && isFinite(v));
                         if (values.length === 0) return null;
-                        const sorted = values.sort((a,b) => a-b);
+                        const sorted = values.sort((a, b) => a - b);
                         const q1 = sorted[Math.floor(sorted.length * 0.25)];
                         const median = sorted[Math.floor(sorted.length * 0.5)];
                         const q3 = sorted[Math.floor(sorted.length * 0.75)];
-                        return { min: sorted[0], q1, median, q3, max: sorted[sorted.length-1] };
+                        return { min: sorted[0], q1, median, q3, max: sorted[sorted.length - 1] };
                     }),
                     valuePillName: valPill.name
                 }];
@@ -597,10 +598,10 @@ export const processWidgetData = (
                 const getRowKey = (item: any) => rowPills.map(p => item[p.name]).join(' | ');
                 const groupedByRow = groupByTyped(filteredData, getRowKey);
                 const rowLabels = _.sortBy(Array.from(groupedByRow.keys()));
-            
+
                 const getColKey = (item: any) => colPills.map(p => item[p.name]).join(' | ');
                 const colLabels = _.sortBy(_.uniq(filteredData.map(getColKey)));
-            
+
                 const datasets = valuePills.flatMap(valuePill => {
                     return colLabels.map(colLabel => {
                         const dataForCol = rowLabels.map(rowLabel => {
@@ -620,22 +621,22 @@ export const processWidgetData = (
             } else {
                 const dimensionPills = rowPills.length > 0 ? rowPills : colPills;
                 if (dimensionPills.length === 0) {
-                     // No dimensions, just show aggregated values
+                    // No dimensions, just show aggregated values
                     const labels = valuePills.map(p => p.simpleName);
                     const data = valuePills.map(p => aggregate(filteredData.map(r => r[p.name]), p.aggregation));
                     const datasets = [{ label: 'Total', data, valuePillName: valuePills[0]?.name }];
                     return { type: 'chart', labels, datasets, chartType: effectiveChartType };
                 }
-                 // Single dimension
+                // Single dimension
                 const dimensionPill = dimensionPills[0];
                 const groupedData = groupByTyped(filteredData, item => item[dimensionPill.name]);
                 let labels = _.sortBy(Array.from(groupedData.keys()));
 
-                 if(widget.sort && widget.sort.length > 0) {
+                if (widget.sort && widget.sort.length > 0) {
                     const sortConfig = widget.sort[0];
                     const sortPill = valuePills.find(p => p.name === sortConfig.fieldName || p.simpleName === sortConfig.fieldName);
                     if (sortPill) {
-                         const aggregatedForSort = labels.map(label => ({
+                        const aggregatedForSort = labels.map(label => ({
                             label,
                             value: aggregate(groupedData.get(label)!.map(r => r[sortPill.name]), sortPill.aggregation)
                         }));
@@ -644,7 +645,7 @@ export const processWidgetData = (
                         labels = _.orderBy(labels, [], [sortConfig.order]);
                     }
                 }
-                
+
                 const datasets = valuePills.map(valuePill => {
                     const data = labels.map(label => {
                         const group = groupedData.get(label) || [];

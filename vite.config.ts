@@ -44,13 +44,13 @@ const geminiProxy = (apiKey: string): Connect.HandleFunction => {
                 res.end(JSON.stringify({ error: "Model is required" }));
                 return;
             }
-            
+
             if (req.url === '/generateContentStream') {
                 const result = await ai.models.generateContentStream({ model, ...restOfBody });
                 res.setHeader('Content-Type', 'text/event-stream');
                 res.setHeader('Cache-Control', 'no-cache');
                 res.setHeader('Connection', 'keep-alive');
-                
+
                 for await (const chunk of result) {
                     // Explicitly add the .text from the getter for client-side convenience
                     const chunkJson = {
@@ -63,7 +63,7 @@ const geminiProxy = (apiKey: string): Connect.HandleFunction => {
                 res.end();
             } else if (req.url === '/generateContent') {
                 const result = await ai.models.generateContent({ model, ...restOfBody });
-                 // Explicitly add the .text from the getter for client-side convenience
+                // Explicitly add the .text from the getter for client-side convenience
                 const responseJson = {
                     ...JSON.parse(JSON.stringify(result)),
                     text: result.text,
@@ -93,13 +93,13 @@ const externalApiProxy = (): Connect.HandleFunction => {
 
         try {
             const { url, method = 'GET', headers = {}, body: requestBody = null } = await readJsonBody(req);
-            
+
             if (!url) {
                 res.statusCode = 400;
                 res.end('URL is required');
                 return;
             }
-            
+
             const fetchOptions: any = {
                 method,
                 headers: {
@@ -109,17 +109,17 @@ const externalApiProxy = (): Connect.HandleFunction => {
                     'host': undefined,
                 },
             };
-            
+
             if (requestBody && (method === 'POST' || method === 'PUT')) {
                 fetchOptions.body = JSON.stringify(requestBody);
                 fetchOptions.headers['Content-Type'] = 'application/json';
             }
 
             const apiResponse = await fetch(url, fetchOptions);
-            
+
             res.statusCode = apiResponse.status;
             res.setHeader('Content-Type', apiResponse.headers.get('Content-Type') || 'application/json');
-            
+
             apiResponse.body.pipe(res);
 
         } catch (error) {
@@ -140,29 +140,34 @@ export default defineConfig(({ mode }) => {
     if (!apiKey) {
         console.warn("API_KEY not found in .env file. AI features will be disabled.");
     }
-    
+
     return {
-      plugins: [
-          react(),
-          {
-              name: 'custom-middlewares',
-              configureServer(server: ViteDevServer) {
-                  if (apiKey) {
-                      server.middlewares.use('/api/gemini', geminiProxy(apiKey));
-                  }
-                  server.middlewares.use('/api/proxy', externalApiProxy());
-              }
-          }
-      ],
-      server: {
-        proxy: {
-          '/ollama-api': {
-            target: 'http://localhost:11434',
-            changeOrigin: true,
-            rewrite: (path) => path.replace(/^\/ollama-api/, ''),
-          }
-        }
-      },
-      // API_KEY is no longer exposed to the client
+        plugins: [
+            react(),
+            {
+                name: 'custom-middlewares',
+                configureServer(server: ViteDevServer) {
+                    if (apiKey) {
+                        server.middlewares.use('/api/gemini', geminiProxy(apiKey));
+                    }
+                    server.middlewares.use('/api/proxy', externalApiProxy());
+                }
+            }
+        ],
+        server: {
+            proxy: {
+                '/ollama-api': {
+                    target: 'http://localhost:11434',
+                    changeOrigin: true,
+                    rewrite: (path) => path.replace(/^\/ollama-api/, ''),
+                },
+                '/api': {
+                    target: 'http://localhost:3000',
+                    changeOrigin: true,
+                    rewrite: (path) => path.replace(/^\/api/, ''),
+                }
+            }
+        },
+        // API_KEY is no longer exposed to the client
     };
 });

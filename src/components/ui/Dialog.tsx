@@ -24,7 +24,12 @@ export const Dialog: FC<{ open: boolean; onOpenChange: (open: boolean) => void; 
     return ReactDOM.createPortal(
         <DialogContext.Provider value={{ open, onOpenChange }}>
             <AnimatePresence>
-                {open && children}
+                {open && React.Children.map(children, (child, index) => {
+                    if (React.isValidElement(child)) {
+                        return React.cloneElement(child, { key: child.key || `dialog-child-${index}` } as any);
+                    }
+                    return child;
+                })}
             </AnimatePresence>
         </DialogContext.Provider>,
         document.body

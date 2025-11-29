@@ -1,146 +1,159 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Pivotal Pro AI</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Delius+Swash+Caps&family=IBM+Plex+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&family=Lato:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Manrope:wght@400;500;700;800&family=Merriweather:wght@400;700&family=Playfair+Display:wght@700&family=Poppins:wght@400;500;600;700&family=Roboto+Mono:wght@400;500;700&family=Source+Serif+4:wght@400;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/react-grid-layout/1.4.4/css/styles.min.css" />
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/react-resizable/3.0.5/css/styles.min.css" />
-    <link rel="stylesheet" href="https://esm.sh/rc-slider@10.6.2/assets/index.css" />
-    <script>
-      tailwind.config = {
-        darkMode: 'class',
-        theme: {
-          extend: {
-            fontFamily: {
-               sans: ['var(--font-sans)', 'sans-serif'],
-               display: ['var(--font-display)', 'sans-serif'],
-               mono: ['var(--font-mono)', 'monospace'],
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pivotal Pro AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Delius+Swash+Caps&family=IBM+Plex+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&family=Lato:wght@400;700&family=Libre+Baskerville:wght@400;700&family=Manrope:wght@400;500;700;800&family=Merriweather:wght@400;700&family=Playfair+Display:wght@700&family=Poppins:wght@400;500;600;700&family=Roboto+Mono:wght@400;500;700&family=Source+Serif+4:wght@400;700&family=Space+Mono:wght@400;700&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/react-grid-layout/1.4.4/css/styles.min.css" />
+  <link rel="stylesheet" href="https://unpkg.com/react-resizable@3.0.5/css/styles.css" />
+  <link rel="stylesheet" href="https://esm.sh/rc-slider@10.6.2/assets/index.css" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['var(--font-sans)', 'sans-serif'],
+            display: ['var(--font-display)', 'sans-serif'],
+            mono: ['var(--font-mono)', 'monospace'],
+          },
+          colors: {
+            border: 'var(--border)',
+            input: 'var(--input)',
+            ring: 'var(--ring)',
+            background: 'var(--background)',
+            foreground: 'var(--foreground)',
+            primary: {
+              DEFAULT: 'var(--primary)',
+              foreground: 'var(--primary-foreground)',
             },
-            colors: {
-              border: 'var(--border)',
-              input: 'var(--input)',
-              ring: 'var(--ring)',
-              background: 'var(--background)',
-              foreground: 'var(--foreground)',
-              primary: {
-                DEFAULT: 'var(--primary)',
-                foreground: 'var(--primary-foreground)',
-              },
-              secondary: {
-                DEFAULT: 'var(--secondary)',
-                foreground: 'var(--secondary-foreground)',
-              },
-              destructive: {
-                DEFAULT: 'var(--destructive)',
-                foreground: 'var(--destructive-foreground)',
-              },
-              muted: {
-                DEFAULT: 'var(--muted)',
-                foreground: 'var(--muted-foreground)',
-              },
-              accent: {
-                DEFAULT: 'var(--accent)',
-                foreground: 'var(--accent-foreground)',
-              },
-              popover: {
-                DEFAULT: 'var(--popover)',
-                foreground: 'var(--popover-foreground)',
-              },
-              card: {
-                DEFAULT: 'var(--card)',
-                foreground: 'var(--card-foreground)',
-              },
-              'auth-foreground': 'var(--auth-foreground)',
-              'auth-muted-foreground': 'var(--auth-muted-foreground)',
-              'auth-input-text': 'var(--auth-input-text)',
-              'auth-link': 'var(--auth-link)',
-              'auth-link-hover': 'var(--auth-link-hover)',
-              'auth-glass-bg': 'var(--auth-glass-bg)',
+            secondary: {
+              DEFAULT: 'var(--secondary)',
+              foreground: 'var(--secondary-foreground)',
             },
-            borderRadius: {
-              xl: `calc(var(--radius) + 4px)`,
-              lg: `var(--radius)`,
-              md: `calc(var(--radius) - 4px)`,
-              sm: `calc(var(--radius) - 8px)`,
+            destructive: {
+              DEFAULT: 'var(--destructive)',
+              foreground: 'var(--destructive-foreground)',
             },
-            accentColor: {
-              primary: 'var(--primary)',
+            muted: {
+              DEFAULT: 'var(--muted)',
+              foreground: 'var(--muted-foreground)',
             },
-            boxShadow: {
-              sm: 'var(--shadow-sm)',
-              md: 'var(--shadow-md)',
-              lg: 'var(--shadow-lg)',
-              xl: 'var(--shadow-xl)',
+            accent: {
+              DEFAULT: 'var(--accent)',
+              foreground: 'var(--accent-foreground)',
             },
-            keyframes: {
-              "accordion-down": { from: { height: 0 }, to: { height: "var(--radix-accordion-content-height)" } },
-              "accordion-up": { from: { height: "var(--radix-accordion-content-height)" }, to: { height: 0 } },
-              "sheet-in-right": { from: { transform: "translateX(100%)" }, to: { transform: "translateX(0)" } },
-              "sheet-out-right": { from: { transform: "translateX(100%)" }, to: { transform: "translateX(100%)" } },
-              "dialog-in": { from: { opacity: 0, transform: "translate(-50%, -48%) scale(0.96)" }, to: { opacity: 1, transform: "translate(-50%, -50%) scale(1)" } },
-              "dialog-out": { from: { opacity: 1, transform: "translate(-50%, -50%) scale(1)" }, to: { opacity: 0, transform: "translate(-50%, -48%) scale(0.96)" } },
-              "overlay-in": { from: { opacity: 0 }, to: { opacity: 0.8 } },
-              "overlay-out": { from: { opacity: 0.8 }, to: { opacity: 0 } },
-              "highlight-pulse": {
-                '0%': { boxShadow: '0 0 0 0 hsl(var(--primary-values) / 0.7)' },
-                '70%': { boxShadow: '0 0 0 10px hsl(var(--primary-values) / 0)' },
-                '100%': { boxShadow: '0 0 0 0 hsl(var(--primary-values) / 0)' }
-              },
-              "glow": {
-                "0%, 100%": { textShadow: "0 0 2px var(--primary), 0 0 5px hsl(var(--primary-values) / 0.5)" },
-                "50%": { textShadow: "0 0 5px var(--primary), 0 0 10px hsl(var(--primary-values) / 0.5)" }
-              },
-              "border-glow": {
-                "0%, 100%": { boxShadow: '0 0 3px var(--glow-color), inset 0 0 2px var(--glow-color)' },
-                "50%": { boxShadow: '0 0 7px var(--glow-color), inset 0 0 3px var(--glow-color)' }
-              },
-              "info-pulse": {
-                "50%": {
-                  transform: "scale(1.1)",
-                  opacity: 0.8
-                }
-              },
-               "ripple-effect": {
-                to: {
-                  transform: 'scale(4)',
-                  opacity: 0
-                }
-              },
-              "aurora": {
-                from: { backgroundPosition: "50% 50%, 50% 50%" },
-                to: { backgroundPosition: "350% 50%, 350% 50%" },
-              },
-              "text-aurora": {
-                from: { backgroundPosition: "0% 50%" },
-                to: { backgroundPosition: "200% 50%" },
-              },
+            popover: {
+              DEFAULT: 'var(--popover)',
+              foreground: 'var(--popover-foreground)',
             },
-            animation: {
-              "accordion-down": "accordion-down 0.2s ease-out",
-              "accordion-up": "accordion-up 0.2s ease-out",
-              "sheet-in-right": "sheet-in-right 0.3s cubic-bezier(0.82, 0.085, 0.395, 0.895)",
-              "sheet-out-right": "sheet-out-right 0.3s cubic-bezier(0.82, 0.085, 0.395, 0.895)",
-              "dialog-in": "dialog-in 0.2s ease-out",
-              "dialog-out": "dialog-out 0.2s ease-out",
-              "overlay-in": "overlay-in 0.2s ease-out",
-              "overlay-out": "overlay-out 0.2s ease-out",
-              "highlight-pulse": "highlight-pulse 2s infinite",
-              "glow": "glow 3s ease-in-out infinite",
-              "border-glow": "border-glow 3s ease-in-out infinite",
-              "info-pulse": "info-pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite",
-              "ripple-effect": "ripple-effect 0.6s linear",
-              "aurora": "aurora 60s linear infinite",
-              "text-aurora": "text-aurora 5s linear infinite",
+            card: {
+              DEFAULT: 'var(--card)',
+              foreground: 'var(--card-foreground)',
             },
-          }
+            'auth-foreground': 'var(--auth-foreground)',
+            'auth-muted-foreground': 'var(--auth-muted-foreground)',
+            'auth-input-text': 'var(--auth-input-text)',
+            'auth-link': 'var(--auth-link)',
+            'auth-link-hover': 'var(--auth-link-hover)',
+            'auth-glass-bg': 'var(--auth-glass-bg)',
+          },
+          borderRadius: {
+            xl: `calc(var(--radius) + 4px)`,
+            lg: `var(--radius)`,
+            md: `calc(var(--radius) - 4px)`,
+            sm: `calc(var(--radius) - 8px)`,
+          },
+          accentColor: {
+            primary: 'var(--primary)',
+          },
+          boxShadow: {
+            sm: 'var(--shadow-sm)',
+            md: 'var(--shadow-md)',
+            lg: 'var(--shadow-lg)',
+            xl: 'var(--shadow-xl)',
+          },
+          keyframes: {
+            "accordion-down": { from: { height: 0 }, to: { height: "var(--radix-accordion-content-height)" } },
+            "accordion-up": { from: { height: "var(--radix-accordion-content-height)" }, to: { height: 0 } },
+            "sheet-in-right": { from: { transform: "translateX(100%)" }, to: { transform: "translateX(0)" } },
+            "sheet-out-right": { from: { transform: "translateX(100%)" }, to: { transform: "translateX(100%)" } },
+            "dialog-in": {
+              from: { opacity: 0, transform: "translate(-50%, -48%) scale(0.96)" }, to: {
+                opacity: 1, transform:
+                  "translate(-50%, -50%) scale(1)"
+              }
+            },
+            "dialog-out": {
+              from: { opacity: 1, transform: "translate(-50%, -50%) scale(1)" }, to: {
+                opacity: 0, transform:
+                  "translate(-50%, -48%) scale(0.96)"
+              }
+            },
+            "overlay-in": { from: { opacity: 0 }, to: { opacity: 0.8 } },
+            "overlay-out": { from: { opacity: 0.8 }, to: { opacity: 0 } },
+            "highlight-pulse": {
+              '0%': { boxShadow: '0 0 0 0 hsl(var(--primary-values) / 0.7)' },
+              '70%': { boxShadow: '0 0 0 10px hsl(var(--primary-values) / 0)' },
+              '100%': { boxShadow: '0 0 0 0 hsl(var(--primary-values) / 0)' }
+            },
+            "glow": {
+              "0%, 100%": { textShadow: "0 0 2px var(--primary), 0 0 5px hsl(var(--primary-values) / 0.5)" },
+              "50%": { textShadow: "0 0 5px var(--primary), 0 0 10px hsl(var(--primary-values) / 0.5)" }
+            },
+            "border-glow": {
+              "0%, 100%": { boxShadow: '0 0 3px var(--glow-color), inset 0 0 2px var(--glow-color)' },
+              "50%": { boxShadow: '0 0 7px var(--glow-color), inset 0 0 3px var(--glow-color)' }
+            },
+            "info-pulse": {
+              "50%": {
+                transform: "scale(1.1)",
+                opacity: 0.8
+              }
+            },
+            "ripple-effect": {
+              to: {
+                transform: 'scale(4)',
+                opacity: 0
+              }
+            },
+            "aurora": {
+              from: { backgroundPosition: "50% 50%, 50% 50%" },
+              to: { backgroundPosition: "350% 50%, 350% 50%" },
+            },
+            "text-aurora": {
+              from: { backgroundPosition: "0% 50%" },
+              to: { backgroundPosition: "200% 50%" },
+            },
+          },
+          animation: {
+            "accordion-down": "accordion-down 0.2s ease-out",
+            "accordion-up": "accordion-up 0.2s ease-out",
+            "sheet-in-right": "sheet-in-right 0.3s cubic-bezier(0.82, 0.085, 0.395, 0.895)",
+            "sheet-out-right": "sheet-out-right 0.3s cubic-bezier(0.82, 0.085, 0.395, 0.895)",
+            "dialog-in": "dialog-in 0.2s ease-out",
+            "dialog-out": "dialog-out 0.2s ease-out",
+            "overlay-in": "overlay-in 0.2s ease-out",
+            "overlay-out": "overlay-out 0.2s ease-out",
+            "highlight-pulse": "highlight-pulse 2s infinite",
+            "glow": "glow 3s ease-in-out infinite",
+            "border-glow": "border-glow 3s ease-in-out infinite",
+            "info-pulse": "info-pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+            "ripple-effect": "ripple-effect 0.6s linear",
+            "aurora": "aurora 60s linear infinite",
+            "text-aurora": "text-aurora 5s linear infinite",
+          },
         }
       }
-    </script>
+    }
+  </script>
   <script type="importmap">
 {
   "imports": {
@@ -181,10 +194,11 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
-  <body data-theme="pivotal-pro">
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+
+<body data-theme="pivotal-pro">
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
 </html>

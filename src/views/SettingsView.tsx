@@ -1,7 +1,5 @@
-
-
 import React, { useState, FC, ReactNode } from 'react';
-import { Palette, Bot, BarChart, Settings, AlertTriangle } from 'lucide-react';
+import { Palette, Bot, BarChart, Settings, AlertTriangle, User } from 'lucide-react';
 import { ViewHeader } from '../components/common/ViewHeader';
 import { cn } from '../components/ui/utils';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -11,13 +9,15 @@ import { AiSettings } from './settings/AiSettings';
 import { DefaultsSettings } from './settings/DefaultsSettings';
 import { EngineSettings } from './settings/EngineSettings';
 import { DangerZone } from './settings/DangerZone';
+import { ProfileSettings } from './settings/ProfileSettings';
 
 // FIX: Add aliasing for motion component to fix TypeScript errors.
 const MotionDiv = motion.div;
 
-type SettingsTab = 'appearance' | 'ai' | 'defaults' | 'engine' | 'danger';
+type SettingsTab = 'profile' | 'appearance' | 'ai' | 'defaults' | 'engine' | 'danger';
 
 const TABS: { id: SettingsTab; label: string; icon: ReactNode }[] = [
+    { id: 'profile', label: 'Profile', icon: <User size={20} /> },
     { id: 'appearance', label: 'Appearance', icon: <Palette size={20} /> },
     { id: 'ai', label: 'AI Provider', icon: <Bot size={20} /> },
     { id: 'defaults', label: 'Defaults', icon: <BarChart size={20} /> },
@@ -26,10 +26,11 @@ const TABS: { id: SettingsTab; label: string; icon: ReactNode }[] = [
 ];
 
 export const SettingsView: FC = () => {
-    const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
+    const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
 
     const renderContent = () => {
         switch (activeTab) {
+            case 'profile': return <ProfileSettings />;
             case 'appearance': return <AppearanceSettings />;
             case 'ai': return <AiSettings />;
             case 'defaults': return <DefaultsSettings />;

@@ -52,7 +52,7 @@ export const ParametersPanel: FC = () => {
 }
 
 export const PageMenuItem: FC<{ page: DashboardPage; onNavigate?: () => void }> = ({ page, onNavigate }) => {
-    const { activePageId, setActivePageId, openInputModal, removePage, openConfirmationModal, updatePage } = useDashboard();
+    const { activePageId, setActivePageId, openInputModal, removePage, openConfirmationModal, updatePage, renamePage } = useDashboard();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const { isCollapsed } = useSidebar();
     const isActive = page.id === activePageId;
@@ -69,7 +69,7 @@ export const PageMenuItem: FC<{ page: DashboardPage; onNavigate?: () => void }> 
             inputLabel: "Page Name",
             initialValue: page.name,
             onConfirm: (newName) => {
-                updatePage(page.id, { name: newName });
+                renamePage(page.id, newName);
             }
         });
     };

@@ -9,6 +9,8 @@ import { MultiValueInput } from '../ui/MultiValueInput';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/Select';
 import { Filter, ArrowLeft } from 'lucide-react';
 
+import { notificationService } from '../../services/notificationService';
+
 export const FilterConfigModal: FC<{ isOpen: boolean; onClose: () => void; pill: Pill | null; onSave: (p: Pill) => void; onBack?: () => void }> = ({ isOpen, onClose, pill, onSave, onBack }) => {
     const [config, setConfig] = useState<FilterConfig>({ condition: FilterCondition.IS_ONE_OF, values: [] });
     const { blendedData } = useDashboard();
@@ -32,6 +34,14 @@ export const FilterConfigModal: FC<{ isOpen: boolean; onClose: () => void; pill:
 
     const handleSave = () => {
         onSave({ ...pill, filter: config });
+        
+        const valueStr = config.values.join(', ');
+        if (config.condition === FilterCondition.IS_ONE_OF || config.condition === FilterCondition.EQUALS) {
+             notificationService.success(`${valueStr} is Filtered in ${pill.simpleName} Column`);
+        } else {
+             notificationService.success(`${pill.simpleName} ${config.condition} ${valueStr} Filter Applied`);
+        }
+
         onClose();
     };
 

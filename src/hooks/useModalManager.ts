@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { Pill, ValueFormat, Field, TransformationType, Template, DashboardPage, AdvancedAnalysisResult, DashboardComment, WidgetState, FieldType, AggregationType, Connector } from '../utils/types';
 import _ from 'lodash';
 
@@ -23,11 +23,11 @@ export const useModalManager = () => {
     const [createTemplateModalState, setCreateTemplateModalState] = useState<{ isOpen: boolean; page: DashboardPage | null }>({ isOpen: false, page: null });
     const [isCommandPaletteOpen, setCommandPaletteOpen] = useState(false);
     const [addToStoryModalState, setAddToStoryModalState] = useState<{ isOpen: boolean; widgetId: string | null }>({ isOpen: false, widgetId: null });
-    const [splitColumnModalState, setSplitColumnModalState] = useState<{ isOpen: boolean; field: Field | null; onConfirm: (payload: any) => void }>({ isOpen: false, field: null, onConfirm: () => {} });
-    const [mergeColumnsModalState, setMergeColumnsModalState] = useState<{ isOpen: boolean; onConfirm: (payload: any) => void; availableFields: Field[] }>({ isOpen: false, onConfirm: () => {}, availableFields: [] });
+    const [splitColumnModalState, setSplitColumnModalState] = useState<{ isOpen: boolean; field: Field | null; onConfirm: (payload: any) => void }>({ isOpen: false, field: null, onConfirm: () => { } });
+    const [mergeColumnsModalState, setMergeColumnsModalState] = useState<{ isOpen: boolean; onConfirm: (payload: any) => void; availableFields: Field[] }>({ isOpen: false, onConfirm: () => { }, availableFields: [] });
     const [advancedAnalysisModalState, setAdvancedAnalysisModalState] = useState<{ isOpen: boolean; result: AdvancedAnalysisResult | null; title: string }>({ isOpen: false, result: null, title: '' });
     const [activeCommentThread, setActiveCommentThread] = useState<DashboardComment | null>(null);
-    const [whatIfConfigModalState, setWhatIfConfigModalState] = useState<{isOpen: boolean, widgetId: string | null}>({isOpen: false, widgetId: null});
+    const [whatIfConfigModalState, setWhatIfConfigModalState] = useState<{ isOpen: boolean, widgetId: string | null }>({ isOpen: false, widgetId: null });
     const [isGenerateStoryModalOpen, setGenerateStoryModalOpen] = useState(false);
     const [focusedWidgetId, setFocusedWidgetId] = useState<string | null>(null);
     const [dataLineageModalState, setDataLineageModalState] = useState<{ isOpen: boolean; widgetId: string | null; }>({ isOpen: false, widgetId: null });
@@ -37,16 +37,17 @@ export const useModalManager = () => {
     const [isAddDataSourceModalOpen, setAddDataSourceModalOpen] = useState(false);
     const [dataSourceConnectionModalState, setDataSourceConnectionModalState] = useState<{ isOpen: boolean; connector: Connector | null }>({ isOpen: false, connector: null });
     const [nlpDisambiguationModalState, setNlpDisambiguationModalState] = useState<{ isOpen: boolean; term: string; fields: string[] }>({ isOpen: false, term: '', fields: [] });
+    const [isGettingStartedModalOpen, setGettingStartedModalOpen] = useState(false);
 
 
     const toggleFieldInEditorShelves = (field: Field) => {
         setEditingWidgetState(currentWidget => {
             if (!currentWidget) return null;
-    
+
             const newWidget = _.cloneDeep(currentWidget);
             const allPills = _.flatMap(Object.values(newWidget.shelves), shelf => Array.isArray(shelf) ? shelf : []);
             const isPresent = allPills.some(p => p.name === field.name);
-    
+
             if (isPresent) {
                 // Remove the field from all shelves
                 for (const shelfId in newWidget.shelves) {
@@ -66,7 +67,7 @@ export const useModalManager = () => {
                     isCalculated: field.isCalculated,
                     formula: field.formula,
                 };
-    
+
                 if (field.type === FieldType.MEASURE) {
                     newWidget.shelves.values = [...(newWidget.shelves.values || []), newPill];
                 } else if (field.type === FieldType.DATETIME) {
@@ -76,21 +77,27 @@ export const useModalManager = () => {
                         newWidget.shelves.rows = [...(newWidget.shelves.rows || []), newPill];
                     }
                 } else { // Dimension
-                     if (!newWidget.shelves.rows || newWidget.shelves.rows.length === 0) {
+                    if (!newWidget.shelves.rows || newWidget.shelves.rows.length === 0) {
                         newWidget.shelves.rows = [...(newWidget.shelves.rows || []), newPill];
                     } else if (!newWidget.shelves.columns || newWidget.shelves.columns.length === 0) {
                         newWidget.shelves.columns = [...(newWidget.shelves.columns || []), newPill];
                     } else {
-                         newWidget.shelves.rows = [...(newWidget.shelves.rows || []), newPill];
+                        newWidget.shelves.rows = [...(newWidget.shelves.rows || []), newPill];
                     }
                 }
             }
-    
+
             return newWidget;
         });
     };
 
-    return {
+    const openGettingStartedModal = useCallback(() => setGettingStartedModalOpen(true), []);
+    const closeGettingStartedModal = useCallback(() => {
+        setGettingStartedModalOpen(false);
+        localStorage.setItem('hasSeenGettingStartedModal', 'true');
+    }, []);
+
+    return useMemo(() => ({
         isWidgetEditorModalOpen,
         editingWidgetState,
         widgetEditorAIPrompt,
@@ -125,35 +132,35 @@ export const useModalManager = () => {
         nlpDisambiguationModalState,
         setEditingWidgetState,
         setWidgetEditorAIPrompt,
-        
+
         openWidgetEditorModal: () => setWidgetEditorModalOpen(true),
         closeWidgetEditorModal: () => { setWidgetEditorModalOpen(false); setEditingWidgetState(null); },
         updateEditingWidget: (update: Partial<WidgetState> | ((prevState: WidgetState) => WidgetState)) => setEditingWidgetState(s => (s ? (typeof update === 'function' ? update(s) : { ...s, ...update }) : null)),
-        
-        openFilterConfigModal: (pill, onSave, onBack) => setFilterConfigModalState({ isOpen: true, pill, onSave, onBack }),
+
+        openFilterConfigModal: (pill: Pill, onSave: (p: Pill) => void, onBack?: () => void) => setFilterConfigModalState({ isOpen: true, pill, onSave, onBack }),
         closeFilterConfigModal: () => setFilterConfigModalState({ isOpen: false, pill: null, onSave: null }),
-        
+
         openPageFiltersModal: () => setPageFiltersModalOpen(true),
         closePageFiltersModal: () => setPageFiltersModalOpen(false),
-        
+
         openSelectFieldModal: (onSave?: (pill: Pill) => void) => setSelectFieldModalState({ isOpen: true, onSave }),
         closeSelectFieldModal: () => setSelectFieldModalState({ isOpen: false, onSave: undefined }),
-        
+
         openChatModal: () => setChatModalOpen(true),
         closeChatModal: () => setChatModalOpen(false),
 
         openAddFieldModal: (sourceId: string, initialStep?: 'formula' | 'grouping') => setAddFieldModalState({ isOpen: true, sourceId, initialStep }),
         closeAddFieldModal: () => setAddFieldModalState({ isOpen: false, sourceId: null, initialStep: undefined }),
 
-        openValueFormatModal: (pill, onSave) => setValueFormatModalState({ isOpen: true, pill, onSave }),
+        openValueFormatModal: (pill: Pill, onSave: (f: ValueFormat) => void) => setValueFormatModalState({ isOpen: true, pill, onSave }),
         closeValueFormatModal: () => setValueFormatModalState({ isOpen: false, pill: null, onSave: null }),
-        
-        openConfirmationModal: (config) => setConfirmationModalState({ ...config, isOpen: true }),
+
+        openConfirmationModal: (config: { title: string; message: string; onConfirm: () => void }) => setConfirmationModalState({ ...config, isOpen: true }),
         closeConfirmationModal: () => setConfirmationModalState(null),
 
-        openInputModal: (config) => setInputModalState({ ...config, isOpen: true }),
+        openInputModal: (config: { title: string; message?: string; inputLabel: string; initialValue?: string; onConfirm: (value: string) => void; inputType?: string; actionLabel?: string }) => setInputModalState({ ...config, isOpen: true }),
         closeInputModal: () => setInputModalState(null),
-        
+
         openParameterModal: () => setParameterModalOpen(true),
         closeParameterModal: () => setParameterModalOpen(false),
 
@@ -163,46 +170,46 @@ export const useModalManager = () => {
         openTemplateModal: () => setTemplateModalOpen(true),
         closeTemplateModal: () => setTemplateModalOpen(false),
 
-        openTemplatePreviewModal: (template) => setTemplatePreviewModalState({ isOpen: true, template }),
+        openTemplatePreviewModal: (template: Template) => setTemplatePreviewModalState({ isOpen: true, template }),
         closeTemplatePreviewModal: () => setTemplatePreviewModalState({ isOpen: false, template: null }),
-        
-        openFieldMappingModal: (template, onBack) => setFieldMappingModalState({ isOpen: true, template, onBack }),
+
+        openFieldMappingModal: (template: Template, onBack?: () => void) => setFieldMappingModalState({ isOpen: true, template, onBack }),
         closeFieldMappingModal: () => setFieldMappingModalState({ isOpen: false, template: null }),
-        
-        openCreateTemplateModal: (page) => setCreateTemplateModalState({ isOpen: true, page }),
+
+        openCreateTemplateModal: (page: DashboardPage) => setCreateTemplateModalState({ isOpen: true, page }),
         closeCreateTemplateModal: () => setCreateTemplateModalState({ isOpen: false, page: null }),
-        
+
         openCommandPalette: () => setCommandPaletteOpen(true),
         closeCommandPalette: () => setCommandPaletteOpen(false),
-        
+
         closeAddToStoryModal: () => setAddToStoryModalState({ isOpen: false, widgetId: null }),
         setAddToStoryModalState,
-        
-        openSplitColumnModal: (field, onConfirm) => setSplitColumnModalState({ isOpen: true, field, onConfirm }),
-        closeSplitColumnModal: () => setSplitColumnModalState({ isOpen: false, field: null, onConfirm: () => {} }),
 
-        openMergeColumnsModal: (onConfirm, availableFields) => setMergeColumnsModalState({ isOpen: true, onConfirm, availableFields }),
-        closeMergeColumnsModal: () => setMergeColumnsModalState({ isOpen: false, onConfirm: () => {}, availableFields: [] }),
-        
-        openAdvancedAnalysisModal: (result, title) => setAdvancedAnalysisModalState({ isOpen: true, result, title }),
+        openSplitColumnModal: (field: Field, onConfirm: (payload: any) => void) => setSplitColumnModalState({ isOpen: true, field, onConfirm }),
+        closeSplitColumnModal: () => setSplitColumnModalState({ isOpen: false, field: null, onConfirm: () => { } }),
+
+        openMergeColumnsModal: (onConfirm: (payload: any) => void, availableFields: Field[]) => setMergeColumnsModalState({ isOpen: true, onConfirm, availableFields }),
+        closeMergeColumnsModal: () => setMergeColumnsModalState({ isOpen: false, onConfirm: () => { }, availableFields: [] }),
+
+        openAdvancedAnalysisModal: (result: AdvancedAnalysisResult, title: string) => setAdvancedAnalysisModalState({ isOpen: true, result, title }),
         closeAdvancedAnalysisModal: () => setAdvancedAnalysisModalState({ isOpen: false, result: null, title: '' }),
 
         setActiveCommentThread,
-        
-        openWhatIfConfigModal: (widgetId) => setWhatIfConfigModalState({isOpen: true, widgetId}),
-        closeWhatIfConfigModal: () => setWhatIfConfigModalState({isOpen: false, widgetId: null}),
+
+        openWhatIfConfigModal: (widgetId: string) => setWhatIfConfigModalState({ isOpen: true, widgetId }),
+        closeWhatIfConfigModal: () => setWhatIfConfigModalState({ isOpen: false, widgetId: null }),
 
         openGenerateStoryModal: () => setGenerateStoryModalOpen(true),
         closeGenerateStoryModal: () => setGenerateStoryModalOpen(false),
 
         setFocusedWidgetId,
 
-        openDataLineageModal: (widgetId) => setDataLineageModalState({ isOpen: true, widgetId }),
+        openDataLineageModal: (widgetId: string) => setDataLineageModalState({ isOpen: true, widgetId }),
         closeDataLineageModal: () => setDataLineageModalState({ isOpen: false, widgetId: null }),
 
         openPerformanceAnalyzer: () => setPerformanceAnalyzerOpen(true),
         closePerformanceAnalyzer: () => setPerformanceAnalyzerOpen(false),
-        
+
         openAiInsightStarterModal: () => setAiInsightStarterModalOpen(true),
         closeAiInsightStarterModal: () => setAiInsightStarterModalOpen(false),
 
@@ -211,10 +218,22 @@ export const useModalManager = () => {
         openAddDataSourceModal: () => setAddDataSourceModalOpen(true),
         closeAddDataSourceModal: () => setAddDataSourceModalOpen(false),
 
-        openDataSourceConnectionModal: (connector) => setDataSourceConnectionModalState({ isOpen: true, connector }),
+        openDataSourceConnectionModal: (connector: Connector) => setDataSourceConnectionModalState({ isOpen: true, connector }),
         closeDataSourceConnectionModal: () => setDataSourceConnectionModalState({ isOpen: false, connector: null }),
-        
-        openNlpDisambiguationModal: (term, fields) => setNlpDisambiguationModalState({ isOpen: true, term, fields }),
+
+        openNlpDisambiguationModal: (term: string, fields: string[]) => setNlpDisambiguationModalState({ isOpen: true, term, fields }),
         closeNlpDisambiguationModal: () => setNlpDisambiguationModalState({ isOpen: false, term: '', fields: [] }),
-    };
+
+        isGettingStartedModalOpen,
+        openGettingStartedModal,
+        closeGettingStartedModal,
+    }), [
+        isWidgetEditorModalOpen, editingWidgetState, widgetEditorAIPrompt, filterConfigModalState, isPageFiltersModalOpen,
+        selectFieldModalState, isChatModalOpen, addFieldModalState, valueFormatModalState, confirmationModalState,
+        inputModalState, isParameterModalOpen, isAddControlModalOpen, isTemplateModalOpen, templatePreviewModalState,
+        fieldMappingModalState, createTemplateModalState, isCommandPaletteOpen, addToStoryModalState, splitColumnModalState,
+        mergeColumnsModalState, advancedAnalysisModalState, activeCommentThread, whatIfConfigModalState, isGenerateStoryModalOpen,
+        focusedWidgetId, dataLineageModalState, isPerformanceAnalyzerOpen, isAiInsightStarterModalOpen, isAddDataSourceModalOpen,
+        dataSourceConnectionModalState, nlpDisambiguationModalState, isGettingStartedModalOpen, openGettingStartedModal, closeGettingStartedModal
+    ]);
 };

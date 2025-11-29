@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, FC, ReactNode } from 'react';
 import _ from 'lodash';
 import { 
-    Search, Plus, Sparkle, SunMoon, Folder, File, BarChart, Table, Database, Share, Settings, BookOpen, Timer, SlidersHorizontal, ArrowRight, Lightbulb, Command, Palette
+    Search, Plus, SunMoon, File, BarChart, Table, Database, Share, Settings, BookOpen, Timer, SlidersHorizontal, Lightbulb, Command, Palette
 } from 'lucide-react';
 import { useDashboard } from '../../contexts/DashboardProvider';
 import { SearchableItem } from '../../utils/types';
@@ -56,6 +56,7 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
         setActivePageId, 
         setView, 
         openWidgetEditorModal, 
+        openWidgetEditorForNewWidget,
         setScrollToWidgetId, 
         toggleThemeMode,
         openPerformanceAnalyzer,
@@ -82,7 +83,7 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
 
     const allItems = useMemo((): SearchableItem[] => {
         const actionItems: SearchableItem[] = [
-            { id: 'action-add-widget', category: 'Actions', title: 'Create new widget', description: 'Open the widget editor to build a new visualization.', icon: <Plus />, action: openWidgetEditorModal },
+            { id: 'action-add-widget', category: 'Actions', title: 'Create new widget', description: 'Open the widget editor to build a new visualization.', icon: <Plus />, action: () => openWidgetEditorForNewWidget() },
             { id: 'action-add-control', category: 'Actions', title: 'Add Dashboard Control', description: 'Add a filter or parameter control to the current dashboard.', icon: <SlidersHorizontal />, action: openAddControlModal },
             // FIX: Property 'openInsightHub' does not exist on type 'DashboardContextProps'. Changed to use setView.
             { id: 'action-open-ai', category: 'Actions', title: 'Open Insight Hub', description: 'Use AI to find proactive insights and analyze your dashboard.', icon: <Lightbulb />, action: () => setView('insightHub') },
@@ -143,7 +144,7 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
         }
         
         return _.uniqBy([...actionItems, ...quickSettingItems, ...navigationItems, ...dashboardItems, ...widgetItems], 'id');
-    }, [workspaces, activePage, dataSources, openWidgetEditorModal, setView, setActivePageId, setScrollToWidgetId, toggleThemeMode, openPerformanceAnalyzer, openAddControlModal, setThemeConfig, setDashboardDefaults, setChartLibrary]);
+    }, [workspaces, activePage, dataSources, openWidgetEditorModal, openWidgetEditorForNewWidget, setView, setActivePageId, setScrollToWidgetId, toggleThemeMode, openPerformanceAnalyzer, openAddControlModal, setThemeConfig, setDashboardDefaults, setChartLibrary]);
     
     const filteredGroups = useMemo((): ItemGroup[] => {
         const itemsToFilter = query ? allItems.filter(item =>

@@ -7,12 +7,16 @@ import { ToastContainer } from './components/ui/Toast';
 import { LoadingOverlay } from './components/ui/LoadingOverlay';
 import { ContextMenu } from './components/ui/ContextMenu';
 import { useAuth } from './contexts/AuthProvider';
-import { AuthView } from './views/AuthView';
+import { AuthView } from './views/auth/AuthView';
 import { AdminView } from './views/AdminView';
 import { OnboardingManager } from './components/common/OnboardingManager';
+import { UploadProgressModal } from './components/ui/UploadProgressModal';
+import { useData } from './contexts/DataContext';
 
 const UIManagers: FC = () => {
     const { loadingState, contextMenu, closeContextMenu } = useDashboard();
+    const { uploadProgress, setUploadProgress } = useData();
+    
     return (
         <>
             <CustomDragLayer />
@@ -20,6 +24,10 @@ const UIManagers: FC = () => {
             <OnboardingManager />
             {loadingState.isLoading && <LoadingOverlay message={loadingState.message} />}
             {contextMenu && <ContextMenu {...contextMenu} onClose={closeContextMenu} />}
+            <UploadProgressModal 
+                progress={uploadProgress} 
+                onClose={() => setUploadProgress(null)} 
+            />
         </>
     )
 }
