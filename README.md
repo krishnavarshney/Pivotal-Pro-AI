@@ -8,9 +8,9 @@
   <a href="#"><img src="https://img.shields.io/badge/TypeScript-5.x-3178c6?style=for-the-badge&logo=typescript" /></a>
   <a href="#"><img src="https://img.shields.io/badge/TailwindCSS-Styling-38b2ac?style=for-the-badge&logo=tailwindcss" /></a>
 </p>
-  <strong>A Next-Generation Business Intelligence Platform</strong>
+  <strong>A Premium, Next-Generation Business Intelligence Platform</strong>
   <br />
-  <p>Turn your data into actionable insights, instantly. Upload data, converse with an AI assistant to generate visualizations, and build interactive dashboards with drag-and-drop simplicity.</p>
+  <p>Experience the future of analytics. Pivotal Pro AI combines state-of-the-art AI with a stunning, glassmorphic design to turn your data into actionable insights instantly.</p>
 
 </div>
 
@@ -18,9 +18,14 @@
 
 ## 🚀 Key Features
 
-Pivotal Pro AI is packed with powerful features to cover your entire BI workflow from data to decision.
+Pivotal Pro AI is designed to "wow" users with both its intelligence and its aesthetics.
 
--   **🤖 AI-Powered Analytics (Google Gemini)**
+-   **✨ Premium Design System**
+    -   **Glassmorphism & Vibrancy**: A modern, visually rich interface with smooth gradients and translucent elements.
+    -   **Micro-Animations**: Delightful interactions powered by Framer Motion that make the UI feel alive.
+    -   **Theming Engine**: Switch between curated professional themes or customize your own.
+
+-   **🤖 AI-Powered Analytics (Configure Cloud Models (Gemini, OpenAI, Anthropic) / Offline Models - Ollama)**
     -   **Insight Starter**: Let AI analyze your dataset and automatically generate a complete, multi-widget dashboard.
     -   **AI Chat Assistant**: A conversational interface to ask questions, get summaries, and request new charts.
     -   **Natural Language to Chart**: Describe the chart you want in plain English, and the AI will build it.

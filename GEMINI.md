@@ -64,6 +64,16 @@ Strictly adhere to the following stack. Do not introduce new libraries without e
 - Use CSS variables for colors to support theming (e.g., `bg-[var(--bg-primary)]` or configured Tailwind theme colors).
 - **Animations**: Use `framer-motion` for enter/exit animations and complex gestures. Do not rely solely on CSS transitions for major UI elements.
 
+### Performance & Optimization
+- **Code Splitting**: Use `React.lazy` and `Suspense` for route-level code splitting.
+- **Bundle Size**: Keep an eye on import costs. Use `import type` for TypeScript interfaces.
+- **Render Optimization**: Use `React.memo` for list items and heavy components. Avoid anonymous functions in render props where possible.
+
+### Accessibility (a11y)
+- **Semantics**: Use proper HTML5 semantic tags (`<main>`, `<nav>`, `<article>`).
+- **Keyboard Navigation**: Ensure all interactive elements are keyboard accessible (`Tab`, `Enter`, `Space`).
+- **ARIA**: Use Radix UI primitives which handle ARIA attributes automatically. Add `aria-label` to icon-only buttons.
+
 ## 4. Architecture & State Management
 - **DashboardProvider**: This is the "brain" of the frontend. It manages:
     - `workspaces`, `pages`, `widgets`, `layouts`.
