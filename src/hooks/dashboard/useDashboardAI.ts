@@ -1,8 +1,8 @@
-import { useState, Dispatch, SetStateAction, useCallback } from 'react';
+import { Dispatch, SetStateAction, useCallback } from 'react';
 import _ from 'lodash';
 import {
     DashboardPage, WidgetState, Pill, CrossFilterState, ControlFilterState,
-    AIConfig, AiChatMessage, ChatContext, Story, User, Field, Insight, InsightStatus,
+    AIConfig, AiChatMessage, ChatContext, Story, User, Field, Insight, InsightStatus, InsightType,
     AdvancedAnalysisResult, StoryTone, AiWidgetSuggestion, AiDashboardSuggestion, PredictiveModelResult,
     AggregationType, FieldType, FilterCondition, StoryPage
 } from '../../utils/types';
@@ -10,10 +10,11 @@ import { processWidgetData } from '../../utils/dataProcessing/widgetProcessor';
 import * as aiService from '../../services/aiService';
 import { notificationService } from '../../services/notificationService';
 import { ModalManager } from '../../hooks/useModalManager';
-import { DASHBOARD_TEMPLATES } from '../../utils/constants';
+
 
 export const useDashboardAI = (
     activePage: DashboardPage | undefined,
+    workspaces: Workspace[],
     selectedWidgetIds: string[],
     widgets: WidgetState[],
     blendedData: any[],
@@ -41,6 +42,34 @@ export const useDashboardAI = (
     dashboardDefaults: any
 ) => {
 
+    // Helper to detect if message is requesting chart creation or visualization
+    const isChartRequest = (message: string): boolean => {
+        const lowerMessage = message.toLowerCase();
+
+        // Direct chart creation keywords
+        const creationKeywords = ['create', 'show', 'plot', 'display', 'visualize', 'generate', 'make', 'build', 'draw'];
+        const chartTypes = ['chart', 'bar chart', 'line chart', 'pie chart', 'scatter', 'table', 'graph', 'histogram'];
+        const hasDirectChartRequest = creationKeywords.some(kw => lowerMessage.includes(kw)) &&
+            chartTypes.some(ct => lowerMessage.includes(ct));
+
+        // Implicit visualization patterns (questions that naturally need charts)
+        const visualizationPatterns = [
+            /trend.*over time/i,           // "trend over time"
+            /how (?:does|do|is|are).*trend/i,  // "how does X trend"
+            /compare.*(?:by|across|between)/i, // "compare X by Y"
+            /breakdown.*by/i,               // "breakdown by category"
+            /distribution of/i,             // "distribution of"
+            /over time/i,                   // "over time" (implies time series)
+            /by (?:month|quarter|year|week|day)/i, // temporal grouping
+            /top \d+/i,                     // "top 10 products"
+            /(?:sales|revenue|profit|quantity).*by.*(?:city|region|category|product)/i // common analytical patterns
+        ];
+
+        const hasVisualizationPattern = visualizationPatterns.some(pattern => pattern.test(message));
+
+        return hasDirectChartRequest || hasVisualizationPattern;
+    };
+
     const sendAiChatMessage = async (message: string, context?: ChatContext) => {
         if (!aiConfig) { notificationService.error("AI is not configured."); return; }
 
@@ -58,10 +87,33 @@ export const useDashboardAI = (
 
         setAiChatHistory(prev => [...prev, userMessage, thinkingMessage]);
 
-        if (aiConfig.provider === 'gemini') {
+        const historyForAi = [...aiChatHistory, { ...userMessage, content: fullContextMessage }];
+        const allFields = blendedFields.dimensions.concat(blendedFields.measures);
+        const dataSample = blendedData.slice(0, 5);
+
+        // Detect if this is a chart creation request
+        if (isChartRequest(message) && !context) {
+            try {
+                // Use structured response for chart generation
+                const response = await aiService.getChatResponse(aiConfig, historyForAi, allFields, dataSample);
+                const aiMessage: AiChatMessage = {
+                    id: thinkingMessage.id,
+                    role: 'assistant',
+                    content: response.content || 'Here is the chart you requested.',
+                    chartSuggestion: response.chartSuggestion,
+                    followUpSuggestions: response.followUpSuggestions,
+                    isStreaming: false
+                };
+                setAiChatHistory(prev => prev.map(m => m.id === thinkingMessage.id ? aiMessage : m));
+            } catch (e) {
+                const errorMessage: AiChatMessage = { id: thinkingMessage.id, role: 'assistant', content: `Error: ${(e as Error).message}` };
+                setAiChatHistory(prev => prev.map(m => m.id === thinkingMessage.id ? errorMessage : m));
+            }
+        } else {
+            // Use streaming for general conversation
             try {
                 let fullResponse = '';
-                const stream = aiService.getChatResponseStream(aiConfig, [...aiChatHistory, userMessage], blendedFields.dimensions.concat(blendedFields.measures), blendedData.slice(0, 5));
+                const stream = aiService.getChatResponseStream(aiConfig, historyForAi, allFields, dataSample);
                 for await (const chunk of stream) {
                     fullResponse += chunk;
                     setAiChatHistory(prev => prev.map(m => m.id === thinkingMessage.id ? { ...m, content: fullResponse } : m));
@@ -137,14 +189,15 @@ export const useDashboardAI = (
 
             const newInsights: Insight[] = proactiveResults.map(pi => ({
                 id: _.uniqueId('insight_'),
-                title: pi.title,
-                description: pi.summary,
-                type: pi.type,
-                confidence: pi.confidence,
+                // Handle both lowercase and capitalized field names from AI
+                title: pi.title || (pi as any).Title || 'Untitled Insight',
+                description: pi.summary || (pi as any).Summary || 'No description provided',
+                type: (pi.type || (pi as any).Type || 'TREND') as InsightType,
+                confidence: pi.confidence || (pi as any).Confidence || 0,
                 status: InsightStatus.NEW,
                 dataSource: dataContext.dataSources.values().next().value?.name || 'Blended Data',
                 timestamp: new Date().toISOString(),
-                suggestedChartPrompt: pi.suggestedChartPrompt
+                suggestedChartPrompt: pi.suggestedChartPrompt || (pi as any)['Suggested Chart Prompt'] || undefined
             }));
 
             setInsights(prev => [
@@ -240,14 +293,14 @@ export const useDashboardAI = (
                 notificationService.info(`AI analysis for this widget type is not yet supported.`);
                 return null;
             }
-            return await aiService.getAiWidgetAnalysis(aiConfig, widget.title, widget.chartType, data as any);
+            return await aiService.getAiWidgetAnalysis(aiConfig, widget.title, widget.chartType, data as any, tone);
         } catch (e) {
             notificationService.error(`Widget analysis failed: ${(e as Error).message}`);
             return null;
         } finally {
             setLoadingState({ isLoading: false, message: '' });
         }
-    }
+    };
 
     const runWidgetAnalysis = async (widget: WidgetState, tone: StoryTone = 'Executive') => {
         const analysisText = await getWidgetAnalysisText(widget, tone);
@@ -364,12 +417,14 @@ export const useDashboardAI = (
 
         let page = activePage;
         if (page?.id !== pageId) {
-            // If we can't find the page, we can't proceed.
-            // But wait, the original code used workspaces.
-            // I should pass workspaces to useDashboardAI if I want to support this fully.
-            // Or I can just check if activePage matches.
-            // Let's assume activePage for now.
-            if (!page) return; // Should not happen if triggered from UI usually
+            // Find the page in workspaces
+            for (const ws of workspaces) {
+                const foundPage = ws.pages.find(p => p.id === pageId);
+                if (foundPage) {
+                    page = foundPage;
+                    break;
+                }
+            }
         }
 
         if (!page || page.widgets.length === 0) {
@@ -382,7 +437,7 @@ export const useDashboardAI = (
             for (const widget of page.widgets) {
                 const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, dataContext.parameters);
                 if (data.type === 'chart' || data.type === 'kpi' || data.type === 'table') {
-                    const annotation = await aiService.getAiWidgetAnalysis(aiConfig, widget.title, widget.chartType, data);
+                    const annotation = await aiService.getAiWidgetAnalysis(aiConfig, widget.title, widget.chartType, data, tone);
                     storyPages.push({
                         id: _.uniqueId('page_'),
                         type: 'insight',
@@ -555,6 +610,29 @@ export const useDashboardAI = (
         addPredictiveModel,
         discussSelectedWithAI,
         addSelectedToStory,
-        createWidgetFromSuggestionObject
+        createWidgetFromSuggestionObject,
+        inspectInsight: async (insight: Insight) => {
+            if (!aiConfig) {
+                notificationService.error('AI is not configured.');
+                return;
+            }
+            setLoadingState({ isLoading: true, message: 'Generating widget from insight...' });
+            try {
+                const suggestion = await aiService.getWidgetFromPrompt(aiConfig, insight.suggestedChartPrompt, [...blendedFields.dimensions, ...blendedFields.measures]);
+                if (suggestion) {
+                    const newWidget = createWidgetFromSuggestionObject(suggestion);
+                    await saveWidget(newWidget);
+                    setView('dashboard');
+                    notificationService.success('Insight added to dashboard!');
+                } else {
+                    notificationService.error('Failed to generate widget from insight.');
+                }
+            } catch (error) {
+                console.error("Error inspecting insight:", error);
+                notificationService.error('An error occurred while inspecting the insight.');
+            } finally {
+                setLoadingState({ isLoading: false, message: '' });
+            }
+        }
     };
 };

@@ -103,7 +103,7 @@ const DataTab: React.FC<{ widget: WidgetState }> = ({ widget }) => {
     const { blendedData, globalFilters, crossFilter, controlFilters, blendedFields } = useDashboard();
 
     const { data, headers } = useMemo(() => {
-        const allFilters = [...globalFilters, ...(widget.shelves.filters || []), ...(crossFilter ? [crossFilter.filter] : []), ...Array.from(controlFilters.values())];
+        const allFilters = [...globalFilters, ...(widget.shelves.filters || []), ...(crossFilter ? [crossFilter.filter] : []), ...Object.values(controlFilters)];
         const filteredData = applyFilters(blendedData, allFilters);
         
         // FIX: Explicitly filter out undefined shelves and ensure type safety to resolve 'unknown' type errors.

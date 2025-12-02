@@ -1,15 +1,16 @@
 
 
-import React, { useState, useRef, useEffect, FC, KeyboardEvent } from 'react';
+import { useState, useRef, useEffect, FC, KeyboardEvent } from 'react';
 import { useDashboard } from '../../contexts/DashboardProvider';
 import { Dialog, DialogOverlay, DialogContent } from '../ui/Dialog';
 import { Button } from '../ui/Button';
-import { textareaClasses, cn } from '../ui/utils';
+import { textareaClasses } from '../ui/utils';
 import { ChatBubble } from '../ui/ChatBubble';
 // FIX: Changed 'PaperPlaneTilt' import from 'lucide-react' to 'phosphor-react'.
 import { Sparkle, Trash2, X, Brain } from 'lucide-react';
 import { PaperPlaneTilt } from 'phosphor-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { WidgetState, AiChatMessage } from '../../utils/types';
 
 export const ChatModal: FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOpen, onClose }) => {
     const { aiChatHistory, sendAiChatMessage, clearAiChatHistory, openConfirmationModal, chatContext, setChatContext, widgets } = useDashboard();
@@ -18,7 +19,7 @@ export const ChatModal: FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOpe
     const chatEndRef = useRef<HTMLDivElement>(null);
     const MotionDiv = motion.div;
 
-    const widgetInContext = chatContext ? widgets.find(w => w.id === chatContext.widgetId) : null;
+    const widgetInContext = chatContext ? widgets.find((w: WidgetState) => w.id === chatContext.widgetId) : null;
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -84,7 +85,7 @@ export const ChatModal: FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOpe
                     </div>
                 </header>
 
-                <main className="flex-grow p-4 md:p-6 min-h-0 overflow-y-auto bg-secondary/30">
+                <main className="flex-1 p-4 md:p-6 overflow-y-auto bg-secondary/30">
                     <div className="space-y-6">
                         {aiChatHistory.length === 0 && (
                              <div className="flex flex-col items-center justify-center text-center text-muted-foreground pt-16">
@@ -93,12 +94,12 @@ export const ChatModal: FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOpe
                                 <p className="max-w-sm mx-auto mt-2">You can ask for summaries, trends, or even request a new chart.</p>
                             </div>
                         )}
-                        {aiChatHistory.map(message => <ChatBubble key={message.id} message={message} />)}
+                        {aiChatHistory.map((message: AiChatMessage) => <ChatBubble key={message.id} message={message} />)}
                         <div ref={chatEndRef} />
                     </div>
                 </main>
                 
-                <footer className="p-4 border-t border-border/50 glass-header flex-shrink-0 space-y-3">
+                <footer className="p-4 border-t border-border/50 glass-header flex-shrink-0 space-y-3 bg-background/50 backdrop-blur-sm">
                     <AnimatePresence>
                     {lastAiMessage && lastAiMessage.followUpSuggestions && (
                         <MotionDiv 
@@ -106,8 +107,8 @@ export const ChatModal: FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOpe
                             animate={{ opacity: 1, height: 'auto' }}
                             className="flex flex-wrap items-center gap-2"
                         >
-                            {lastAiMessage.followUpSuggestions.map((suggestion, i) => (
-                                <Button key={i} variant="outline" size="sm" onClick={() => sendAiChatMessage(suggestion, chatContext)}>
+                            {lastAiMessage.followUpSuggestions.map((suggestion: string, i: number) => (
+                                <Button key={i} variant="outline" size="sm" onClick={() => sendAiChatMessage(suggestion, chatContext)} className="rounded-full text-xs border-primary/20 hover:bg-primary/5 hover:text-primary transition-colors">
                                     {suggestion}
                                 </Button>
                             ))}
@@ -115,32 +116,31 @@ export const ChatModal: FC<{ isOpen: boolean; onClose: () => void; }> = ({ isOpe
                     )}
                     </AnimatePresence>
                     {widgetInContext && (
-                        <div className="bg-primary/10 border border-primary/20 text-primary-foreground p-2 rounded-lg text-sm flex items-center justify-between gap-2">
-                           <div className="flex items-center gap-2">
-                             <span className="font-semibold text-primary">Context:</span>
-                             <span className="text-primary/90 truncate">{widgetInContext.title}</span>
+                        <div className="bg-primary/5 border border-primary/20 text-foreground p-2 rounded-lg text-sm flex items-center justify-between gap-2 shadow-sm">
+                           <div className="flex items-center gap-2 overflow-hidden">
+                             <span className="font-semibold text-primary whitespace-nowrap">Context:</span>
+                             <span className="text-foreground/90 truncate font-medium">{widgetInContext.title}</span>
                            </div>
-                           <button onClick={() => setChatContext(null)} className="p-1 rounded-full hover:bg-primary/20"><X size={14} className="text-primary"/></button>
+                           <button onClick={() => setChatContext(null)} className="p-1 rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors"><X size={14}/></button>
                         </div>
                     )}
-                    <div className="relative">
+                    <div className="relative group">
                         <textarea
                             ref={textareaRef}
                             value={input}
                             onChange={e => setInput(e.target.value)}
                             onKeyDown={handleKeyDown}
                             placeholder={widgetInContext ? `Ask about "${widgetInContext.title}"...` : "Ask the AI anything about your data..."}
-                            className={`${textareaClasses} pr-12`}
+                            className={`${textareaClasses} pr-12 min-h-[50px] max-h-[200px] resize-none py-3 shadow-sm border-border/60 focus:border-primary/50 focus:ring-primary/20 bg-background`}
                             rows={1}
-                            style={{ maxHeight: '150px' }}
                         />
                         <Button
                             size="icon"
-                            className="absolute right-2 bottom-2 h-9 w-9"
+                            className="absolute right-2 bottom-2 h-8 w-8 transition-all duration-200"
                             onClick={handleSend}
                             disabled={!input.trim()}
                         >
-                            <PaperPlaneTilt size={18} weight="fill" />
+                            <PaperPlaneTilt size={16} weight="fill" />
                         </Button>
                     </div>
                 </footer>

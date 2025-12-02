@@ -440,11 +440,27 @@ export interface Parameter {
     };
 }
 
+export type AIProviderType = 'gemini' | 'openai' | 'anthropic' | 'ollama';
+
+export interface AIModel {
+    id: string;
+    name: string;
+    providerId: AIProviderType;
+    contextWindow?: number;
+}
+
+export interface AIProviderConfig {
+    enabled: boolean;
+    apiKey?: string; // Optional for Ollama or if using env default for Gemini
+    baseUrl?: string; // For Ollama or custom endpoints
+    models: AIModel[];
+}
+
 export interface AIConfig {
-    provider: 'gemini' | 'ollama';
-    ollamaConfig?: {
-        endpoint: string;
-        model: string;
+    activeProvider: AIProviderType;
+    activeModelId: string;
+    providers: {
+        [key in AIProviderType]: AIProviderConfig;
     };
 }
 
@@ -487,11 +503,10 @@ export interface AiInsight {
 
 export enum InsightType {
     ANOMALY = 'Anomaly',
-    PREDICTION = 'Prediction',
-    OPTIMIZATION = 'Optimization',
-    FORECAST = 'Forecast',
-    PERFORMANCE = 'Performance',
-    USAGE = 'Usage',
+    TREND = 'Trend',
+    CORRELATION = 'Correlation',
+    OUTLIER = 'Outlier',
+    DISTRIBUTION = 'Distribution'
 }
 
 export enum InsightStatus {
@@ -887,6 +902,7 @@ export interface DataContextProps {
     generateNewInsights: () => Promise<void>;
     updateInsightStatus: (id: string, status: InsightStatus) => void;
     exploreInsight: (prompt: string) => void;
+    inspectInsight: (insight: Insight) => Promise<void>;
     setThemeConfig: Dispatch<SetStateAction<ThemeConfig>>;
     toggleThemeMode: () => void;
     setThemeName: (name: string) => void;

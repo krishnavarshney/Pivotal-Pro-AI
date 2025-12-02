@@ -1,5 +1,4 @@
 import { FC } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useDashboard } from '../contexts/DashboardProvider';
 import { AppSidebar } from '../components/dashboard/Sidebar';
 import { DashboardView } from './DashboardView';
@@ -17,9 +16,6 @@ import { AdminView } from './AdminView';
 import { InsightHubView } from './InsightHubView';
 import { OnboardingView } from './OnboardingView';
 import { cn } from '../components/ui/utils';
-
-// FIX: Add aliasing for motion component to fix TypeScript errors.
-const MotionDiv = motion.div as any;
 
 export const MainView: FC = () => {
     const { 
@@ -105,19 +101,10 @@ export const MainView: FC = () => {
     return (
         <div className="flex h-screen bg-transparent p-4 gap-4">
             <AppSidebar />
-            <main className={cn("flex-1 relative overflow-hidden rounded-xl transition-all duration-300 ease-in-out")}>
-                <AnimatePresence mode="wait">
-                    <MotionDiv
-                        key={currentView}
-                        initial={{ opacity: 0, x: 15 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -15 }}
-                        transition={{ duration: 0.25, ease: "easeInOut" }}
-                        className="absolute inset-0"
-                    >
-                        {renderCurrentView()}
-                    </MotionDiv>
-                </AnimatePresence>
+            <main className={cn("flex-1 relative overflow-hidden rounded-xl")}>
+                <div key={`${currentView}-${activePage?.id || 'no-page'}`} className="absolute inset-0">
+                    {renderCurrentView()}
+                </div>
             </main>
         </div>
     );

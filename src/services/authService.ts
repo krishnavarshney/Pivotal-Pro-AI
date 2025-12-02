@@ -1,6 +1,6 @@
 import { User } from '../utils/types';
 
-const API_BASE_URL = 'http://localhost:3000'; // Your NestJS backend URL
+const API_BASE_URL = '/api';
 // const TOKEN_KEY = 'pivotalPro_jwtToken'; // No longer needed as token is in HTTP-only cookie
 
 // Helper to store and retrieve JWT token - no longer needed as token is in HTTP-only cookie

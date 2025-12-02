@@ -26,6 +26,8 @@ import { useDashboardPages } from '../hooks/dashboard/useDashboardPages';
 import { useDashboardWidgets } from '../hooks/dashboard/useDashboardWidgets';
 import { useDashboardExport } from '../hooks/dashboard/useDashboardExport';
 import { useDashboardAI } from '../hooks/dashboard/useDashboardAI';
+import { getAiConfig, saveAiConfig as saveAiConfigService } from '../services/aiService';
+import { storyService } from '../services/storyService';
 
 const DASHBOARD_STATE_VERSION = 2;
 
@@ -45,12 +47,9 @@ const getInitialState = <T,>(key: string, defaultValue: T): T => {
     return defaultValue;
 };
 
+// Initial AI config is now handled via async fetch in the provider
 const getInitialAiConfig = (): AIConfig | null => {
-    const savedConfig = getInitialState<AIConfig | null>('pivotalProAiConfig', null);
-    if (savedConfig) {
-        return savedConfig;
-    }
-    return { provider: 'gemini' };
+    return null; // Start with null, fetch in useEffect
 };
 
 export const useDashboard = (): DashboardContextProps => {
@@ -100,10 +99,24 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     } = useDashboardWorkspaces(isAuthenticated, isAuthLoading, setDashboardUndoableState, workspaces, initialDashboardState);
 
     // --- AI State ---
-    const [aiConfig, setAiConfig] = useState<AIConfig | null>(getInitialAiConfig);
+    const [aiConfig, setAiConfig] = useState<AIConfig | null>(null);
     const [aiChatHistory, setAiChatHistory] = useState<AiChatMessage[]>([]);
     const [chatContext, setChatContext] = useState<ChatContext>(null);
     const [insights, setInsights] = useState<Insight[]>(() => getInitialState('pivotalProInsights', []));
+
+    // Fetch AI Config on mount
+    useEffect(() => {
+        if (isAuthenticated) {
+            getAiConfig().then(config => {
+                setAiConfig(config);
+            });
+        }
+    }, [isAuthenticated]);
+
+    const handleSaveAiConfig = async (newConfig: AIConfig) => {
+        setAiConfig(newConfig);
+        await saveAiConfigService(newConfig);
+    };
     
     // --- UI State ---
     const [themeConfig, setThemeConfig] = useState<ThemeConfig>(() => getInitialState('pivotalProTheme', { name: 'pivotal-pro', mode: 'light' }));
@@ -127,14 +140,24 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     const [newlyAddedPillId, setNewlyAddedPillId] = useState<string | null>(null);
     
     // --- Feature State ---
-    const [stories, setStories] = useState<Story[]>(() => getInitialState('pivotalProStories', []));
+    const [stories, setStories] = useState<Story[]>([]);
     const [editingStory, setEditingStory] = useState<{ story: Story, focusPageId?: string } | null>(null);
     const [userTemplates, setUserTemplates] = useState<Template[]>(() => getInitialState('pivotalProUserTemplates', []));
     const [crossFilter, setCrossFilter] = useState<CrossFilterState>(null);
     const [controlFilters, setControlFilters] = useState<ControlFilterState>({});
     const [refetchCounter, setRefetchCounter] = useState(0);
     const [predictiveModels, setPredictiveModels] = useState<PredictiveModelResult[]>(() => getInitialState('pivotalProPredictiveModels', []));
-    const [performanceTimings, setPerformanceTimings] = useState<Map<string, number>>(new Map());
+
+    // Fetch stories when workspace changes
+    useEffect(() => {
+        if (activeWorkspaceId) {
+            storyService.getAll(activeWorkspaceId)
+                .then(setStories)
+                .catch(err => console.error("Failed to load stories:", err));
+        } else {
+            setStories([]);
+        }
+    }, [activeWorkspaceId]);
 
     useEffect(() => {
         registerShowToast((options) => {
@@ -166,13 +189,93 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     // --- Derived State ---
     const activeWorkspace = workspaces.find(w => w.id === activeWorkspaceId);
     const activePage = activeWorkspace?.pages?.find(p => p.id === activePageId);
+    const pages = activeWorkspace?.pages || [];
     const widgets = activePage?.widgets || [];
     const layouts = activePage?.layouts || {};
     const globalFilters = activePage?.globalFilters || [];
     const collapsedRows = activePage?.collapsedRows || [];
     const unreadNotificationCount = allNotifications.filter(n => !n.read).length;
 
-    const setView = (view: any, options?: any) => {
+    const transferWidgetToPage = async (pageId: string, chartSuggestion: any) => {
+        try {
+            // AI returns fields directly on suggestion (rows, columns, values), not under shelves
+            const aiRows = chartSuggestion.rows || [];
+            const aiColumns = chartSuggestion.columns || [];
+            const aiValues = chartSuggestion.values || [];
+            
+            // Chart type is 'type' not 'chartType', title may not exist
+            const chartType = chartSuggestion.type || chartSuggestion.chartType || 'Bar';
+            const chartTitle = chartSuggestion.title || 
+                              `${aiValues.join(', ')} by ${[...aiRows, ...aiColumns].filter(Boolean).join(', ')}`;
+            
+            // Convert field names to Pill objects
+            const allFields = [...blendedFields.dimensions, ...blendedFields.measures];
+            
+            const convertDimensionsToPills = (fieldNames: string[]): any[] => {
+                return fieldNames.map(name => {
+                    const field = allFields.find(f => f.simpleName.toLowerCase() === name.toLowerCase());
+                    if (!field) return null;
+                    return {
+                        name: field.name,
+                        simpleName: field.simpleName,
+                        type: field.type,
+                        aggregation: field.type === 'MEASURE' ? 'SUM' : 'COUNT'
+                    };
+                }).filter(Boolean);
+            };
+            
+            const convertValuesToPills = (values: any[]): any[] => {
+                return values.map(v => {
+                    const fieldName = typeof v === 'string' ? v : v.name;
+                    const aggregation = typeof v === 'string' ? 'SUM' : (v.aggregation || 'SUM');
+                    const field = allFields.find(f => f.simpleName.toLowerCase() === fieldName.toLowerCase());
+                    if (!field) return null;
+                    return {
+                        name: field.name,
+                        simpleName: field.simpleName,
+                        type: field.type,
+                        aggregation: aggregation
+                    };
+                }).filter(Boolean);
+            };
+            
+            // Create widget from AI suggestion
+            const newWidget: WidgetState = {
+                id: _.uniqueId('widget_'),
+                pageId: pageId,
+                title: chartTitle,
+                chartType: chartType as any,
+                shelves: {
+                    columns: convertDimensionsToPills(aiColumns),
+                    rows: convertDimensionsToPills(aiRows),
+                    values: convertValuesToPills(aiValues),
+                    filters: [],
+                },
+                displayMode: chartType === 'Table' ? 'table' : 'chart',
+                colorPalette: dashboardDefaults.colorPalette,
+                subtotalSettings: { rows: false, columns: false, grandTotal: true },
+                configuration: {},
+                layouts: {},
+            };
+
+            // Save widget to the target page
+            await saveWidget(newWidget);
+
+            // Navigate to the target page
+            setActivePageId(pageId);
+            setView('dashboard');
+            
+            // Close chat modal
+            modalManager.closeChatModal();
+            
+            notificationService.success(`Widget "${newWidget.title}" added to page!`);
+        } catch (error) {
+            console.error('Failed to transfer widget:', error);
+            notificationService.error('Failed to add widget to page');
+        }
+    };
+
+    const setView = (view: DashboardContextProps['currentView'], options?: any) => {
         setCurrentView(view);
         if (options?.sourceId) setStudioSourceId(options.sourceId);
         if (options?.explorerState) setExplorerState(options.explorerState);
@@ -213,8 +316,8 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     const { exportSelectedWidgets } = useDashboardExport(activePage, selectedWidgetIds, blendedData, globalFilters, crossFilter, dataContext, controlFilters, setLoadingState, deselectAllWidgets);
 
     const {
-        sendAiChatMessage, handleNlpFilterQuery, resolveNlpAmbiguity, generateNewInsights, updateInsightStatus, exploreInsight, runAdvancedAnalysis, runWhatIfAnalysis, getWidgetAnalysisText, runWidgetAnalysis, generateStoryFromInsights, generateStoryFromPage, handleGenerateAiDashboard, addPredictiveModel, discussSelectedWithAI, addSelectedToStory, createWidgetFromSuggestionObject
-    } = useDashboardAI(activePage, selectedWidgetIds, widgets, blendedData, globalFilters, crossFilter, dataContext, controlFilters, aiConfig, aiChatHistory, setAiChatHistory, modalManager, deselectAllWidgets, setStories, setEditingStory, setView, currentUser, blendedFields, addGlobalFilter, setInsights, setLoadingState, addNewPage, saveWidget, setPredictiveModels, activePageId, dashboardDefaults);
+        sendAiChatMessage, handleNlpFilterQuery, resolveNlpAmbiguity, generateNewInsights, updateInsightStatus, exploreInsight, inspectInsight, runAdvancedAnalysis, runWhatIfAnalysis, getWidgetAnalysisText, runWidgetAnalysis, generateStoryFromInsights, generateStoryFromPage, handleGenerateAiDashboard, addPredictiveModel, discussSelectedWithAI, addSelectedToStory, createWidgetFromSuggestionObject
+    } = useDashboardAI(activePage, workspaces, selectedWidgetIds, widgets, blendedData, globalFilters, crossFilter, dataContext, controlFilters, aiConfig, aiChatHistory, setAiChatHistory, modalManager, deselectAllWidgets, setStories, setEditingStory, setView, currentUser, blendedFields, addGlobalFilter, setInsights, setLoadingState, addNewPage, saveWidget, setPredictiveModels, activePageId, dashboardDefaults);
 
     // --- Other Methods ---
     const removeToast = (id: string) => setToastNotifications(prev => prev.filter(t => t.id !== id));
@@ -223,26 +326,33 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     const markAllNotificationsAsRead = () => setAllNotifications(prev => prev.map(n => ({ ...n, read: true })));
     const clearAllNotifications = () => setAllNotifications([]);
 
-    const saveStory = (story: Story) => {
-        setStories(prev => {
-            const index = prev.findIndex(s => s.id === story.id);
-            if (index >= 0) return prev.map(s => s.id === story.id ? story : s);
-            return [...prev, story];
-        });
-        setEditingStory(null);
-        notificationService.success(`Story "${story.title}" saved.`);
+    const saveStory = async (story: Story) => {
+        try {
+            let savedStory: Story;
+            if (stories.some(s => s.id === story.id)) {
+                savedStory = await storyService.update(story.id, story);
+                setStories(prev => prev.map(s => s.id === story.id ? savedStory : s));
+            } else {
+                if (!activeWorkspaceId) throw new Error("No active workspace");
+                savedStory = await storyService.create(activeWorkspaceId, story);
+                setStories(prev => [...prev, savedStory]);
+            }
+            setEditingStory(null);
+            notificationService.success(`Story "${savedStory.title}" saved.`);
+        } catch (error) {
+            console.error("Failed to save story:", error);
+            notificationService.error("Failed to save story.");
+        }
     };
 
-    const createStoryFromWidget = (widgetId: string) => {
+    const createStoryFromWidget = async (widgetId: string) => {
         const widget = widgets.find(w => w.id === widgetId);
-        if (!widget) return;
-        const newStory: Story = {
-            id: _.uniqueId('story_'),
+        if (!widget || !activeWorkspaceId) return;
+        
+        const newStoryData: Partial<Story> = {
             title: `Story about ${widget.title}`,
             description: `Created from widget ${widget.title}`,
             author: currentUser?.name || 'User',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
             pages: [{
                 id: _.uniqueId('spage_'),
                 type: 'insight',
@@ -252,32 +362,44 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
                 presenterNotes: ''
             }]
         };
-        setStories(prev => [...prev, newStory]);
-        setEditingStory({ story: newStory });
-        setView('stories');
+
+        try {
+            const savedStory = await storyService.create(activeWorkspaceId, newStoryData);
+            setStories(prev => [...prev, savedStory]);
+            setEditingStory({ story: savedStory });
+            setView('stories');
+        } catch (error) {
+            console.error("Failed to create story:", error);
+            notificationService.error("Failed to create story.");
+        }
     };
 
-    const addWidgetToStory = (storyId: string, widgetId: string) => {
+    const addWidgetToStory = async (storyId: string, widgetId: string) => {
         const widget = widgets.find(w => w.id === widgetId);
-        if (!widget) return;
-        setStories(prev => prev.map(s => {
-            if (s.id === storyId) {
-                return {
-                    ...s,
-                    pages: [...s.pages, {
-                        id: _.uniqueId('spage_'),
-                        type: 'insight',
-                        title: widget.title,
-                        widgetId: widget.id,
-                        annotation: '',
-                        presenterNotes: ''
-                    }]
-                };
-            }
-            return s;
-        }));
-        notificationService.success(`Added ${widget.title} to story.`);
-        modalManager.closeAddToStoryModal();
+        const story = stories.find(s => s.id === storyId);
+        if (!widget || !story) return;
+
+        const updatedStory = {
+            ...story,
+            pages: [...story.pages, {
+                id: _.uniqueId('spage_'),
+                type: 'insight',
+                title: widget.title,
+                widgetId: widget.id,
+                annotation: '',
+                presenterNotes: ''
+            }]
+        };
+
+        try {
+            const savedStory = await storyService.update(story.id, updatedStory);
+            setStories(prev => prev.map(s => s.id === story.id ? savedStory : s));
+            notificationService.success(`Added ${widget.title} to story.`);
+            modalManager.closeAddToStoryModal();
+        } catch (error) {
+             console.error("Failed to update story:", error);
+             notificationService.error("Failed to update story.");
+        }
     };
 
     const handleExportDashboard = () => {
@@ -507,6 +629,8 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         updatePage(activePageId, p => ({ ...p, bookmarks: (p.bookmarks || []).filter(b => b.id !== id) }));
     };
 
+    const performanceTimingsRef = useRef<Map<string, number>>(new Map());
+
     const composedDataContext = {
         ...dataContext,
         // Ensure we override or add any specific dashboard-level data context extensions here if needed
@@ -515,22 +639,22 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
     const value: DashboardContextProps = {
         ...composedDataContext,
         isWorkspacesLoading,
-        performanceTimings,
+        performanceTimings: performanceTimingsRef.current,
         aiConfig, aiChatHistory, insights, isGeneratingInsights: loadingState.isLoading && loadingState.message.includes('insights'),
         themeConfig, chartLibrary, dashboardDefaults, contextMenu, currentView, explorerState, studioSourceId,
         toastNotifications, allNotifications, unreadNotificationCount, isNotificationPanelOpen,
         loadingState, scrollToWidgetId, dashboardMode, isHelpModeActive,
 
-        workspaces, activePageId, activePage, widgets, layouts, globalFilters, stories, editingStory,
+        workspaces, activePageId, activePage, pages, widgets, layouts, globalFilters, stories, editingStory,
         userTemplates, crossFilter, controlFilters, canUndo, canRedo, refetchCounter, predictiveModels,
         newlyAddedPillId, selectedWidgetIds,
         onboardingState,
         startOnboardingTour,
         advanceOnboardingStep,
         exitOnboarding,
-        setWidgetPerformance: (widgetId: string, duration: number) => setPerformanceTimings(p => new Map(p).set(widgetId, duration)),
+        setWidgetPerformance: (widgetId: string, duration: number) => performanceTimingsRef.current.set(widgetId, duration),
         triggerWidgetRefetch: () => setRefetchCounter(c => c + 1),
-        saveAiConfig: setAiConfig, sendAiChatMessage, clearAiChatHistory: () => setAiChatHistory([]),
+        saveAiConfig: handleSaveAiConfig, sendAiChatMessage, clearAiChatHistory: () => setAiChatHistory([]),
         createWidgetFromSuggestion: (suggestion) => { modalManager.closeChatModal(); populateEditorFromAI(suggestion); },
         chatContext, setChatContext, setInsights, generateNewInsights, updateInsightStatus, exploreInsight,
         setThemeConfig, toggleThemeMode: () => setThemeConfig(t => ({...t, mode: t.mode === 'dark' ? 'light' : 'dark'})),
@@ -588,6 +712,8 @@ export const DashboardProvider: FC<{ children: ReactNode }> = ({ children }) => 
         exportSelectedWidgets,
         discussSelectedWithAI,
         addSelectedToStory,
+        inspectInsight,
+        transferWidgetToPage,
     };
 
     return <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>;

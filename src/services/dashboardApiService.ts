@@ -1,7 +1,7 @@
 import { Workspace, DashboardPage, WidgetState } from '../utils/types';
 // import * as authService from './authService'; // No longer needed as token is in HTTP-only cookie
 
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = '/api';
 
 const transformWidgetFromBackend = (backendWidget: any): WidgetState => {
   const { configuration, ...rest } = backendWidget;

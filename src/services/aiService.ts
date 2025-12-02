@@ -1,10 +1,11 @@
-
-
 import { Type } from "@google/genai";
-import { Field, ChartType, AggregationType, Transformation, TransformationType, AiDataSuggestion, AIConfig, AiChatMessage, ProcessedData, AdvancedAnalysisResult, WidgetState, WhatIfResult, AiDashboardSuggestion, ProactiveInsight, PredictiveModelType, PredictiveModelResult, FilterCondition, NlpFilterResult, InsightType } from '../utils/types';
+import { Field, ChartType, AggregationType, Transformation, TransformationType, AiDataSuggestion, AIConfig, AiChatMessage, ProcessedData, AdvancedAnalysisResult, WidgetState, WhatIfResult, AiDashboardSuggestion, ProactiveInsight, FilterCondition, NlpFilterResult, InsightType, AiWidgetSuggestion } from '../utils/types';
 import { formatValue } from "../utils/dataProcessing/formatting";
 import { FORMULA_FUNCTION_DEFINITIONS } from "../utils/dataProcessing/formulaEngine";
 import _ from 'lodash';
+
+// --- Client-side Proxy Functions ---
+
 
 // --- Client-side Proxy Functions ---
 
@@ -55,6 +56,219 @@ async function* proxyGenerateContentStream(body: any): AsyncGenerator<{ text: st
             }
         }
     }
+}
+
+async function* streamOllama(endpoint: string, body: any): AsyncGenerator<string> {
+    const isLocalhost = endpoint.includes('//localhost:') || endpoint.includes('//127.0.0.1:');
+    const fetchEndpoint = isLocalhost ? '/ollama-api' : endpoint;
+
+    const response = await fetch(`${fetchEndpoint}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...body, stream: true })
+    });
+
+    if (!response.ok || !response.body) {
+        throw new Error(`Ollama API failed: ${response.statusText}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        // Ollama sends multiple JSON objects in one chunk sometimes, or partials
+        // But typically it's NDJSON
+        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+        for (const line of lines) {
+            try {
+                const json = JSON.parse(line);
+                if (json.message && json.message.content) {
+                    yield json.message.content;
+                }
+                if (json.done) return;
+            } catch (e) {
+                // partial JSON, ignore or buffer (simple implementation ignores for now, 
+                // but for robustness we might need buffering like proxyGenerateContentStream)
+            }
+        }
+    }
+}
+
+// --- Generic Proxy for OpenAI/Anthropic ---
+async function callExternalApi(url: string, method: string, headers: any, body: any): Promise<any> {
+    const response = await fetch('/api/proxy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            url,
+            method,
+            headers,
+            body
+        })
+    });
+
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: `API request failed with status ${response.status}` }));
+        throw new Error(error.error?.message || error.error || `API request failed: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
+// --- Provider Implementations ---
+
+interface AIRequestOptions {
+    systemInstruction?: string;
+    responseSchema?: any;
+    temperature?: number;
+    jsonMode?: boolean;
+}
+
+async function generateWithProvider(config: AIConfig, prompt: string | AiChatMessage[], options: AIRequestOptions = {}): Promise<string> {
+    const provider = config.activeProvider;
+    const providerConfig = config.providers[provider];
+    const model = config.activeModelId;
+
+    if (!providerConfig.enabled) {
+        throw new Error(`Provider ${provider} is not enabled.`);
+    }
+
+    // --- Google Gemini ---
+    if (provider === 'gemini') {
+        const contents = Array.isArray(prompt)
+            ? prompt.map(m => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.content }] }))
+            : [{ role: 'user', parts: [{ text: prompt }] }];
+
+        const result = await proxyGenerateContent({
+            model: model,
+            contents: contents,
+            config: {
+                systemInstruction: options.systemInstruction,
+                responseMimeType: options.responseSchema ? "application/json" : "text/plain",
+                responseSchema: options.responseSchema,
+                temperature: options.temperature ?? 0.5
+            }
+        });
+        return result.text;
+    }
+
+    // --- OpenAI ---
+    if (provider === 'openai') {
+        if (!providerConfig.apiKey) throw new Error("OpenAI API Key is missing.");
+
+        const messages = [];
+        if (options.systemInstruction) {
+            messages.push({ role: 'system', content: options.systemInstruction });
+        }
+        if (Array.isArray(prompt)) {
+            messages.push(...prompt.map(m => ({ role: m.role, content: m.content })));
+        } else {
+            messages.push({ role: 'user', content: prompt });
+        }
+
+        const body: any = {
+            model: model,
+            messages: messages,
+            temperature: options.temperature ?? 0.5,
+        };
+
+        if (options.responseSchema || options.jsonMode) {
+            body.response_format = { type: "json_object" };
+        }
+
+        const result = await callExternalApi(
+            'https://api.openai.com/v1/chat/completions',
+            'POST',
+            { 'Authorization': `Bearer ${providerConfig.apiKey}` },
+            body
+        );
+
+        return result.choices[0].message.content;
+    }
+
+    // --- Anthropic ---
+    if (provider === 'anthropic') {
+        if (!providerConfig.apiKey) throw new Error("Anthropic API Key is missing.");
+
+        const messages = [];
+        if (Array.isArray(prompt)) {
+            messages.push(...prompt.map(m => ({ role: m.role, content: m.content })));
+        } else {
+            messages.push({ role: 'user', content: prompt });
+        }
+
+        const body: any = {
+            model: model,
+            messages: messages,
+            max_tokens: 4096,
+            temperature: options.temperature ?? 0.5,
+        };
+
+        if (options.systemInstruction) {
+            body.system = options.systemInstruction;
+        }
+
+        const result = await callExternalApi(
+            'https://api.anthropic.com/v1/messages',
+            'POST',
+            {
+                'x-api-key': providerConfig.apiKey,
+                'anthropic-version': '2023-06-01'
+            },
+            body
+        );
+
+        return result.content[0].text;
+    }
+
+    // --- Ollama ---
+    if (provider === 'ollama') {
+        const endpoint = providerConfig.baseUrl || 'http://localhost:11434';
+        const isLocalhost = endpoint.includes('//localhost:') || endpoint.includes('//127.0.0.1:');
+        const fetchEndpoint = isLocalhost ? '/ollama-api' : endpoint;
+
+        const messages = [];
+        if (options.systemInstruction) {
+            messages.push({ role: 'system', content: options.systemInstruction });
+        }
+        if (Array.isArray(prompt)) {
+            messages.push(...prompt.map(m => ({ role: m.role, content: m.content })));
+        } else {
+            messages.push({ role: 'user', content: prompt });
+        }
+
+        const body: any = {
+            model: model,
+            messages: messages,
+            stream: false,
+            options: {
+                temperature: options.temperature ?? 0.5
+            }
+        };
+
+        if (options.responseSchema || options.jsonMode) {
+            body.format = "json";
+        }
+
+        const response = await fetch(`${fetchEndpoint}/api/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        if (!response.ok) {
+            throw new Error(`Ollama API failed: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        return result.message.content;
+    }
+
+    throw new Error(`Provider ${provider} not implemented.`);
 }
 
 
@@ -152,27 +366,13 @@ export const getChatResponse = async (
     const systemInstruction = getSystemInstruction(fields, dataSample);
 
     try {
-        let responseText: string;
+        const responseText = await generateWithProvider(config, chatHistory, {
+            systemInstruction,
+            responseSchema: aiChatResponseSchema,
+            temperature: 0.3,
+            jsonMode: true
+        });
 
-        if (config.provider === 'gemini') {
-            const result = await proxyGenerateContent({
-                model: "gemini-2.5-flash",
-                contents: chatHistory.map(m => ({
-                    role: m.role === 'user' ? 'user' : 'model',
-                    parts: [{text: m.content}]
-                })),
-                config: {
-                    systemInstruction,
-                    responseMimeType: "application/json",
-                    responseSchema: aiChatResponseSchema,
-                    temperature: 0.3
-                }
-            });
-            responseText = result.text.trim();
-        } else {
-            throw new Error("AI provider is not configured correctly.");
-        }
-        
         const parsedResponse = JSON.parse(responseText);
         return {
             content: parsedResponse.responseText,
@@ -186,7 +386,7 @@ export const getChatResponse = async (
     }
 };
 
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 
 export async function* getChatResponseStream(
     config: AIConfig,
@@ -195,18 +395,22 @@ export async function* getChatResponseStream(
     dataSample: object[]
 ): AsyncGenerator<string> {
     // This is now a simplified text-only stream for better UX. Rich objects are handled by getChatResponse.
+    const sampleString = dataSample && dataSample.length > 0
+        ? `\n\nHere is a small sample of the data (first 5 rows) to provide context:\n${JSON.stringify(dataSample.slice(0, 5), null, 2)}`
+        : '';
+
     const systemInstruction = `You are 'Pivotal Pro', an AI assistant. Provide a concise, helpful answer to the user's last question based on the chat history and available data fields. Respond in Markdown format.
 
     Available Fields:
-    ${fields.map(f => `- "${f.simpleName}" (${f.type})`).join('\n')}
+    ${fields.map(f => `- "${f.simpleName}" (${f.type})`).join('\n')}${sampleString}
     `;
 
-    if (config.provider === 'gemini') {
+    if (config.activeProvider === 'gemini') {
         const stream = proxyGenerateContentStream({
-            model: "gemini-2.5-flash",
+            model: config.activeModelId,
             contents: chatHistory.map(m => ({
                 role: m.role === 'user' ? 'user' : 'model',
-                parts: [{text: m.content}]
+                parts: [{ text: m.content }]
             })),
             config: {
                 systemInstruction,
@@ -218,8 +422,38 @@ export async function* getChatResponseStream(
         for await (const chunk of stream) {
             yield chunk.text;
         }
+    } else if (config.activeProvider === 'ollama') {
+        const providerConfig = config.providers.ollama;
+        const endpoint = providerConfig.baseUrl || 'http://localhost:11434';
+
+        const messages = [];
+        if (config.activeProvider === 'ollama') { // Re-check to satisfy TS if needed, but logic flow ensures it
+            const systemInstruction = `You are 'Pivotal Pro', an AI assistant. Provide a concise, helpful answer to the user's last question based on the chat history and available data fields. Respond in Markdown format.
+            Available Fields:
+            ${fields.map(f => `- "${f.simpleName}" (${f.type})`).join('\n')}${sampleString}
+            `;
+            messages.push({ role: 'system', content: systemInstruction });
+        }
+
+        messages.push(...chatHistory.map(m => ({ role: m.role, content: m.content })));
+
+        const stream = streamOllama(endpoint, {
+            model: config.activeModelId,
+            messages: messages,
+            options: { temperature: 0.3 }
+        });
+
+        for await (const chunk of stream) {
+            yield chunk;
+        }
+
     } else {
-        throw new Error("AI provider is not configured correctly for streaming.");
+        // Fallback to non-streaming for other providers for now
+        const response = await generateWithProvider(config, chatHistory, {
+            systemInstruction,
+            temperature: 0.3
+        });
+        yield response;
     }
 }
 
@@ -264,29 +498,21 @@ export const getNlpFilter = async (config: AIConfig, query: string, fields: Fiel
 Available Fields:
 ${fieldsString}`;
 
-    if (config.provider !== 'gemini') {
-        throw new Error("NLP filtering is currently only available with the Gemini AI provider.");
-    }
-    
-    const result = await proxyGenerateContent({
-        model: "gemini-2.5-flash",
-        contents: query,
-        config: {
-            systemInstruction,
-            responseMimeType: "application/json",
-            responseSchema: nlpFilterSchema,
-            temperature: 0.1
-        }
-    });
-
     try {
-        const parsedResult = JSON.parse(result.text.trim());
+        const responseText = await generateWithProvider(config, query, {
+            systemInstruction,
+            responseSchema: nlpFilterSchema,
+            temperature: 0.1,
+            jsonMode: true
+        });
+
+        const parsedResult = JSON.parse(responseText);
         if (parsedResult.type) {
             return parsedResult as NlpFilterResult;
         }
         throw new Error("AI response did not match the expected filter schema.");
     } catch (e) {
-        console.error("Error parsing NLP filter response:", e, "Raw response:", result.text);
+        console.error("Error parsing NLP filter response:", e);
         throw new Error("Failed to get a valid filter from the AI.");
     }
 };
@@ -313,31 +539,21 @@ export const getAiChartSuggestion = async (
     ${selectedFields.map(f => `- "${f.simpleName}" (${f.type})`).join('\n')}
     `;
 
-    if (config.provider !== 'gemini') {
-        throw new Error("AI chart suggestion is currently only available with the Gemini AI provider.");
-    }
-
-    const result = await proxyGenerateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-            systemInstruction,
-            responseMimeType: "application/json",
-            responseSchema: chartSuggestionSchema,
-            temperature: 0.2
-        }
-    });
-
-    const responseText = result.text.trim();
     try {
+        const responseText = await generateWithProvider(config, prompt, {
+            systemInstruction,
+            responseSchema: chartSuggestionSchema,
+            temperature: 0.2,
+            jsonMode: true
+        });
+
         const suggestion = JSON.parse(responseText);
-        // Basic validation
         if (suggestion.chartType && suggestion.shelves) {
             return suggestion as Partial<WidgetState>;
         }
         throw new Error("AI response did not match the expected chart configuration schema.");
     } catch (e) {
-        console.error("Error parsing AI chart suggestion:", e, "Raw response:", responseText);
+        console.error("Error parsing AI chart suggestion:", e);
         throw new Error("Failed to get a valid chart configuration from the AI.");
     }
 }
@@ -349,8 +565,8 @@ export const getAiFormulaSuggestion = async (
     prompt: string,
 ): Promise<string> => {
     const fieldsString = fields.map(f => `[${f.simpleName}]`).join(', ');
-    const functionsString = Object.entries(FORMULA_FUNCTION_DEFINITIONS).map(([name, def]) => `- ${def.syntax}: ${def.description}`).join('\n');
-    
+    const functionsString = Object.values(FORMULA_FUNCTION_DEFINITIONS).map(def => `- ${def.syntax}: ${def.description}`).join('\n');
+
     const systemInstruction = `You are an expert in a data analysis formula language similar to DAX or Excel formulas. Your task is to convert a user's natural language request into a valid formula.
 - You MUST ONLY return the formula string. Do not include any explanation, markdown, or any text other than the formula itself.
 - Field names must be enclosed in square brackets, like [Sales] or [Order Date].
@@ -363,21 +579,12 @@ Available Functions:
 ${functionsString}
 `;
 
-    if (config.provider !== 'gemini') {
-        throw new Error("AI formula suggestion is only available with the Gemini provider.");
-    }
-    
     try {
-        const result = await proxyGenerateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-                systemInstruction,
-                responseMimeType: "text/plain",
-                temperature: 0,
-            }
+        const responseText = await generateWithProvider(config, prompt, {
+            systemInstruction,
+            temperature: 0,
         });
-        return result.text.trim();
+        return responseText.trim();
     } catch (error) {
         console.error("Error getting AI formula suggestion:", error);
         throw new Error("Failed to generate formula. Please check your AI configuration or prompt.");
@@ -388,9 +595,9 @@ ${functionsString}
 // --- AI Forecasting ---
 
 export const getAiForecast = async (
-  config: AIConfig,
-  historicalData: {label: string, value: number | null}[],
-  periodsToForecast: number
+    config: AIConfig,
+    historicalData: { label: string, value: number | null }[],
+    periodsToForecast: number
 ): Promise<number[]> => {
     const systemInstruction = `You are a time series forecasting expert. Predict future values based on historical data. The user will provide JSON data points. You MUST respond ONLY with a valid JSON array of numbers, representing the forecasted values in order. Do not include any other text or markdown.`;
     const cleanHistoricalData = historicalData.filter(d => d.value !== null && !isNaN(d.value));
@@ -400,17 +607,11 @@ export const getAiForecast = async (
     const prompt = `Based on this data, predict the next ${periodsToForecast} values: ${JSON.stringify(cleanHistoricalData)}`;
 
     try {
-        let responseText: string;
-        if (config.provider === 'gemini') {
-            const result = await proxyGenerateContent({
-                model: "gemini-2.5-flash",
-                contents: prompt,
-                config: { systemInstruction, responseMimeType: "application/json", temperature: 0.5 }
-            });
-            responseText = result.text.trim();
-        } else {
-            throw new Error("AI provider not configured for forecasting.");
-        }
+        const responseText = await generateWithProvider(config, prompt, {
+            systemInstruction,
+            temperature: 0.5,
+            jsonMode: true
+        });
 
         const forecast = JSON.parse(responseText);
         if (Array.isArray(forecast) && forecast.every(v => typeof v === 'number')) {
@@ -430,9 +631,11 @@ export const getAiWidgetAnalysis = async (
     config: AIConfig,
     widgetTitle: string,
     chartType: ChartType,
-    processedData: Extract<ProcessedData, { type: 'chart' } | { type: 'kpi' } | {type: 'table'}>
+    processedData: Extract<ProcessedData, { type: 'chart' } | { type: 'kpi' } | { type: 'table' }>,
+    tone: string = 'Executive'
 ): Promise<string> => {
     const systemInstruction = `You are an expert data analyst. Your task is to provide a concise, insightful, and easy-to-understand summary for a chart from a business intelligence dashboard. The user will provide the chart's title, type, and the data it represents.
+- Adopt a "${tone}" tone.
 - Start with a clear topic sentence summarizing the main finding.
 - Use bullet points to highlight 2-3 key observations, trends, or outliers.
 - Keep the entire analysis to 2-3 short paragraphs.
@@ -440,7 +643,7 @@ export const getAiWidgetAnalysis = async (
 - Your response must be in Markdown format.`;
 
     let dataSummary = `Chart Title: "${widgetTitle}"\nChart Type: ${chartType}\n\nData:\n`;
-    
+
     if (processedData.type === 'chart') {
         const summary = processedData.labels.map((label, index) => {
             const dataPoints = processedData.datasets.map(ds => `${ds.label}: ${formatValue(ds.data[index])}`).join(', ');
@@ -457,23 +660,18 @@ export const getAiWidgetAnalysis = async (
             const header = processedData.headerRows[processedData.headerRows.length - 1].find(h => h.key === key);
             return header?.label || key;
         }).join(', ');
-        const rows = processedData.rows.slice(0,10).map(row => processedData.columnOrder.map(key => row.values[key]).join(', ')).join('\n');
+        const rows = processedData.rows.slice(0, 10).map(row => processedData.columnOrder.map(key => row.values[key]).join(', ')).join('\n');
         dataSummary += `Headers: ${headers}\nRows:\n${rows}`;
     }
 
     const prompt = `Please provide an analysis for the following chart:\n${dataSummary}`;
-    
-    if (config.provider !== 'gemini') {
-        throw new Error("Widget analysis is currently only available with the Gemini AI provider.");
-    }
 
     try {
-        const result = await proxyGenerateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: { systemInstruction, temperature: 0.4 }
+        const responseText = await generateWithProvider(config, prompt, {
+            systemInstruction,
+            temperature: 0.4
         });
-        return result.text.trim();
+        return responseText.trim();
     } catch (error) {
         console.error("Error getting AI widget analysis:", error);
         throw new Error("Failed to generate widget analysis.");
@@ -521,17 +719,14 @@ export const getAiDashboardAnalysis = async (
 
     const prompt = `Here is the data for the widgets currently on the dashboard. Please provide a holistic analysis.\n\n${dashboardWidgetsSummary}`;
 
-    if (config.provider !== 'gemini') {
-        throw new Error("Dashboard-level analysis is currently only available with the Gemini AI provider.");
-    }
-
     try {
-        const result = await proxyGenerateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: { systemInstruction, responseMimeType: "application/json", responseSchema: dashboardAnalysisSchema, temperature: 0.5 }
+        const responseText = await generateWithProvider(config, prompt, {
+            systemInstruction,
+            responseSchema: dashboardAnalysisSchema,
+            temperature: 0.5,
+            jsonMode: true
         });
-        return result.text.trim();
+        return responseText.trim();
     } catch (error) {
         console.error("Error getting AI dashboard analysis:", error);
         throw new Error("Failed to generate dashboard analysis.");
@@ -627,44 +822,36 @@ export const generateAiDashboard = async (
     fields: { name: string, type: string }[],
     dataSample: any[]
 ): Promise<AiDashboardSuggestion> => {
-    
+
     const systemInstruction = `You are an expert data analyst and dashboard designer. Your task is to analyze a dataset and create a complete dashboard configuration as a single JSON object.
 - The user will provide the data schema and a sample.
 - You must identify key metrics, propose 0-2 useful calculated fields, design 3-5 insightful visualizations, and create a 24-column grid layout for them.
 - Ensure the 'i' in the layout object corresponds to the widget's position in the widgets array (e.g., the first widget in the array should have 'i': 'widget-0', the second 'widget-1', etc.).
 - The layout should be logical and visually appealing. Avoid overlapping widgets.
-- Your entire response MUST be a valid JSON object conforming to the provided schema. Do not include any other text or markdown.`;
+- Your entire response MUST be a valid JSON object conforming to the provided schema.
+- **CRITICAL**: The JSON object MUST have exactly two top-level keys: "page" and "calculatedFields". Even if there are no calculated fields, you MUST return "calculatedFields": [].`;
 
     const fieldsString = fields.map(f => `- "${f.name}" (${f.type})`).join('\n');
     const sampleString = JSON.stringify(dataSample, null, 2);
 
     const prompt = `Here is the data schema and a sample. Please generate a dashboard configuration.\n\nSchema:\n${fieldsString}\n\nData Sample:\n${sampleString}`;
 
-    if (config.provider !== 'gemini') {
-        throw new Error("AI Dashboard generation is currently only available with the Gemini AI provider.");
-    }
-    
-    const result = await proxyGenerateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-            systemInstruction,
-            responseMimeType: "application/json",
-            responseSchema: dashboardSuggestionSchema,
-            temperature: 0.4
-        }
-    });
-
-    const responseText = result.text.trim();
     try {
+        const responseText = await generateWithProvider(config, prompt, {
+            systemInstruction,
+            responseSchema: dashboardSuggestionSchema,
+            temperature: 0.4,
+            jsonMode: true
+        });
+
         const suggestion = JSON.parse(responseText);
         if (suggestion.page && suggestion.calculatedFields) {
             return suggestion as AiDashboardSuggestion;
         }
         throw new Error("AI response did not match the expected dashboard configuration schema.");
     } catch (e) {
-        console.error("Error parsing AI dashboard suggestion:", e, "Raw response:", responseText);
-        throw new Error(`Failed to get a valid dashboard configuration from the AI. Raw response: ${responseText}`);
+        console.error("Error parsing AI dashboard suggestion:", e);
+        throw new Error(`Failed to get a valid dashboard configuration from the AI.`);
     }
 };
 
@@ -698,13 +885,13 @@ export const getAiAdvancedAnalysis = async (
     widget: WidgetState,
     processedData: Extract<ProcessedData, { type: 'chart' } | { type: 'kpi' } | { type: 'table' }>
 ): Promise<AdvancedAnalysisResult> => {
-    
+
     let systemInstruction = `You are an expert data analyst. Your task is to perform an advanced analysis on a dataset from a business intelligence dashboard.
     Your entire response MUST be a valid JSON object conforming to the provided schema. Do not include any other text or markdown.`;
-    
+
     let userPrompt = ``;
-    
-    switch(analysisType) {
+
+    switch (analysisType) {
         case 'ANOMALY_DETECTION':
             userPrompt = `Perform anomaly detection on the following dataset. Identify any significant outliers, spikes, or dips in the data that deviate from the normal pattern. For each anomaly, provide a brief explanation of what makes it unusual.`;
             break;
@@ -715,9 +902,9 @@ export const getAiAdvancedAnalysis = async (
             userPrompt = `Perform a clustering analysis on the following dataset. Group the data points into distinct, meaningful clusters. For each cluster, provide a descriptive name and a summary of its key characteristics.`;
             break;
     }
-    
+
     let dataSummary = `Analysis Task: ${analysisType}\nWidget Title: "${widget.title}"\nChart Type: ${widget.chartType}\n\nData:\n`;
-    
+
     if (processedData.type === 'chart') {
         const summary = processedData.labels.map((label, index) => {
             const dataPoints = processedData.datasets.map(ds => `${ds.label}: ${formatValue(ds.data[index])}`).join(', ');
@@ -737,21 +924,17 @@ export const getAiAdvancedAnalysis = async (
         const rows = processedData.rows.slice(0, 20).map(row => processedData.columnOrder.map(key => formatValue(row.values[key])).join(', ')).join('\n');
         dataSummary += `Headers: ${headers}\nRows:\n${rows}`;
     }
-    
+
     userPrompt += `\n\nDataset:\n${dataSummary}`;
 
-    if (config.provider !== 'gemini') {
-        throw new Error("Advanced analysis is currently only available with the Gemini AI provider.");
-    }
-    
-    const result = await proxyGenerateContent({
-        model: "gemini-2.5-flash",
-        contents: userPrompt,
-        config: { systemInstruction, responseMimeType: "application/json", responseSchema: advancedAnalysisSchema, temperature: 0.5 }
-    });
-    
-    const responseText = result.text.trim();
     try {
+        const responseText = await generateWithProvider(config, userPrompt, {
+            systemInstruction,
+            responseSchema: advancedAnalysisSchema,
+            temperature: 0.5,
+            jsonMode: true
+        });
+
         const parsedResult = JSON.parse(responseText);
         if (parsedResult.title && parsedResult.summary && Array.isArray(parsedResult.details)) {
             return parsedResult as AdvancedAnalysisResult;
@@ -759,12 +942,12 @@ export const getAiAdvancedAnalysis = async (
             throw new Error("Parsed JSON does not match the expected schema.");
         }
     } catch (error) {
-         console.error("Error parsing advanced analysis response:", error, "Raw response:", responseText);
-         return {
-             title: `AI Analysis: ${analysisType.replace('_', ' ')}`,
-             summary: "The AI returned a text-based analysis instead of a structured one.",
-             details: [{ heading: "Raw Response", content: responseText }]
-         };
+        console.error("Error parsing advanced analysis response:", error);
+        return {
+            title: `AI Analysis: ${analysisType.replace('_', ' ')}`,
+            summary: "The AI returned a text-based analysis instead of a structured one.",
+            details: [{ heading: "Error", content: "Failed to parse AI response." }]
+        };
     }
 }
 
@@ -802,15 +985,14 @@ export const getAiWhatIfAnalysis = async (
     processedData: Extract<ProcessedData, { type: 'chart' } | { type: 'table' }>,
     scenarioConfig: { targetMetric: string, modifiedVariables: { [key: string]: number } }
 ): Promise<WhatIfResult> => {
-    const systemInstruction = `You are a predictive modeling expert. Your task is to perform a "what-if" analysis. Given a dataset summary and a scenario of changed variables, predict the outcome for a target metric.
-- Analyze the relationships in the data summary.
-- Apply the changes from the scenario.
-- Predict the new value for the target metric.
-- Provide a 95% confidence interval for your prediction.
-- Analyze the sensitivity to determine which change had the most impact on the outcome. Impact should be a percentage. For example, if a 10% increase in 'Price' causes a 5% decrease in 'Sales', the impact is -50.
-- Your entire response MUST be a valid JSON object conforming to the provided schema. Do not include any other text or markdown.`;
+    const systemInstruction = `You are an expert in predictive analytics and what-if analysis. Your task is to simulate the impact of changing certain variables on a target metric based on the provided dataset.
+    - Use the provided data to infer relationships between variables.
+    - Estimate the new value of the target metric given the modifications.
+    - Provide a confidence interval and a sensitivity analysis.
+    - Your entire response MUST be a valid JSON object conforming to the provided schema. Do not include any other text or markdown.`;
 
-    let dataSummary = `Widget Title: "${widget.title}"\nChart Type: ${widget.chartType}\n\nData Summary:\n`;
+    let dataSummary = `Widget Title: "${widget.title}"\nData:\n`;
+
     if (processedData.type === 'chart') {
         const summary = processedData.labels.map((label, index) => {
             const dataPoints = processedData.datasets.map(ds => `${ds.label}: ${formatValue(ds.data[index])}`).join(', ');
@@ -826,156 +1008,27 @@ export const getAiWhatIfAnalysis = async (
         dataSummary += `Headers: ${headers}\nRows:\n${rows}`;
     }
 
-    const scenarioDescription = Object.entries(scenarioConfig.modifiedVariables)
-        .map(([variable, multiplier]) => {
-            const change = ((multiplier - 1) * 100).toFixed(0);
-            return `- The variable "${variable}" is changed by ${change}%`;
-        }).join('\n');
-
-    const prompt = `
-Data Summary:
-${dataSummary}
-
-Scenario:
-Predict the new value for the target metric "${scenarioConfig.targetMetric}" given the following changes:
-${scenarioDescription}
-`;
-
-    if (config.provider !== 'gemini') throw new Error("What-if analysis is only available with the Gemini provider.");
-
-    const result = await proxyGenerateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: { systemInstruction, responseMimeType: "application/json", responseSchema: whatIfAnalysisSchema, temperature: 0.3 }
-    });
+    const prompt = `Perform a What-If analysis.
+    Target Metric: "${scenarioConfig.targetMetric}"
+    Scenario: Modify the following variables: ${JSON.stringify(scenarioConfig.modifiedVariables)}
     
-    const responseText = result.text.trim();
-    try {
-        const parsedResult = JSON.parse(responseText);
-        if (parsedResult.predictedValue !== undefined && Array.isArray(parsedResult.confidenceInterval) && Array.isArray(parsedResult.sensitivityAnalysis)) {
-            return parsedResult as WhatIfResult;
-        }
-        throw new Error("Parsed JSON does not match the expected schema.");
-    } catch (e) {
-        console.error("Error parsing what-if analysis response:", e, "Raw response:", responseText);
-        throw new Error(`Failed to get a valid what-if analysis from the AI. Raw response: ${responseText}`);
-    }
-};
-
-
-// --- AI Data Studio Suggestions ---
-
-const aiSuggestionSchema = {
-    type: Type.OBJECT,
-    properties: {
-        suggestions: {
-            type: Type.ARRAY,
-            description: "A list of suggested data transformations.",
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    title: { type: Type.STRING, description: "A short, clear title for the suggestion." },
-                    description: { type: Type.STRING, description: "A user-friendly explanation of why this transformation is useful." },
-                    transformationType: { type: Type.STRING, enum: Object.values(TransformationType) },
-                    payloadJson: { type: Type.STRING, description: "A JSON string representing the payload object for the transformation. Example: for RENAME_FIELD, this would be '{\"oldName\": \"Customer Name\", \"newName\": \"Client Name\"}'." }
-                },
-                required: ["title", "description", "transformationType", "payloadJson"]
-            }
-        }
-    }
-};
-
-const getSuggestionSystemInstruction = (): string => {
-    return `You are a data analysis expert. Your task is to analyze a dataset's schema and a sample of its data to suggest helpful data cleaning transformations.
-- Focus on common, high-impact transformations like standardizing text casing, handling nulls, or renaming fields for clarity.
-- The 'payloadJson' field MUST be a valid JSON string. For example, for RENAME_FIELD, the value for payloadJson should be a string like: '{"oldName": "Customer Name", "newName": "Client Name"}'. Do NOT use single quotes inside the JSON string.
-- The available transformation types are: RENAME_FIELD, STANDARDIZE_TEXT, HANDLE_NULLS, CHANGE_TYPE.
-- Do not suggest transformations that are already in the user's pipeline.
-- Suggest renaming fields with underscores or poor capitalization to be more readable (e.g., 'customer_name' to 'Customer Name').
-- Your entire response must be a valid JSON object conforming to the provided schema.`;
-}
-
-export const getAiDataStudioSuggestions = async (
-    config: AIConfig,
-    fields: Field[],
-    dataSample: object[],
-    existingTransforms: Transformation[]
-): Promise<AiDataSuggestion[]> => {
-    const fieldsString = fields.map(f => `- "${f.name}" (type: ${f.type})`).join('\n');
-    const sampleString = JSON.stringify(dataSample, null, 2);
-    const existingTransformsString = existingTransforms.map(t => `- ${t.type}: ${JSON.stringify(t.payload)}`).join('\n');
-    const systemInstruction = getSuggestionSystemInstruction();
-
-    const prompt = `
-Dataset Schema:
-${fieldsString}
-
-Data Sample (first 5 rows):
-${sampleString}
-
-Existing Transformations (do not suggest these again):
-${existingTransformsString || 'None'}
-
-Please suggest relevant data transformations.`;
+    Dataset:
+    ${dataSummary}`;
 
     try {
-        let responseText: string;
-        if (config.provider === 'gemini') {
-            const result = await proxyGenerateContent({
-                model: "gemini-2.5-flash", contents: prompt,
-                config: { systemInstruction, responseMimeType: "application/json", responseSchema: aiSuggestionSchema, temperature: 0.2 }
-            });
-            responseText = result.text.trim();
-        } else {
-             throw new Error("AI provider not configured for suggestions.");
-        }
-        
-        const parsedResponse = JSON.parse(responseText);
-        if (parsedResponse && Array.isArray(parsedResponse.suggestions)) {
-            return parsedResponse.suggestions.map((s: any) => {
-                try {
-                    return {
-                        title: s.title,
-                        description: s.description,
-                        transformationType: s.transformationType,
-                        payload: JSON.parse(s.payloadJson)
-                    };
-                } catch (e) {
-                    console.error("Failed to parse payloadJson for suggestion:", s);
-                    return null;
-                }
-            }).filter((s: AiDataSuggestion | null): s is AiDataSuggestion => s !== null);
-        }
-        return [];
+        const responseText = await generateWithProvider(config, prompt, {
+            systemInstruction,
+            responseSchema: whatIfAnalysisSchema,
+            temperature: 0.5,
+            jsonMode: true
+        });
+
+        const result = JSON.parse(responseText);
+        return result as WhatIfResult;
     } catch (error) {
-        console.error("Error getting AI data studio suggestions:", error);
-        return [];
+        console.error("Error performing What-If analysis:", error);
+        throw new Error("Failed to perform What-If analysis.");
     }
-};
-
-// --- AI Proactive Insights ---
-
-const proactiveInsightSchema = {
-    type: Type.OBJECT,
-    properties: {
-        insights: {
-            type: Type.ARRAY,
-            description: "A list of 3-5 proactive insights, anomalies, or trends found in the data.",
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    title: { type: Type.STRING, description: "A concise headline for the insight." },
-                    summary: { type: Type.STRING, description: "A one or two sentence summary explaining the finding in detail." },
-                    type: { type: Type.STRING, enum: Object.values(InsightType), description: "The category of the insight." },
-                    confidence: { type: Type.INTEGER, description: "A confidence score from 0 to 100 indicating the certainty of the finding." },
-                    involvedFields: { type: Type.ARRAY, items: { type: Type.STRING }, description: "The simple names of the fields involved in this insight." },
-                    suggestedChartPrompt: { type: Type.STRING, description: "A natural language command to generate a chart that visualizes this insight." }
-                },
-                required: ["title", "summary", "type", "confidence", "involvedFields", "suggestedChartPrompt"]
-            }
-        }
-    },
-    required: ["insights"]
 };
 
 export const getProactiveInsights = async (
@@ -983,191 +1036,230 @@ export const getProactiveInsights = async (
     fields: { name: string, type: string }[],
     dataSample: any[]
 ): Promise<ProactiveInsight[]> => {
-    const systemInstruction = `You are a proactive data analyst. Your task is to scan a dataset and identify interesting anomalies, trends, or outliers without being prompted.
-    - Analyze the provided data schema and sample.
-    - Find up to 5 significant insights. Focus on relationships that might be unexpected or actionable.
-    - For each insight, provide a clear title, a detailed summary, a confidence score (0-100), the type of insight (from the provided enum), the fields involved, and a natural language prompt to create a chart for further investigation.
-    - Your entire response MUST be a valid JSON object conforming to the provided schema. Do not include any other text or markdown.`;
-
-    const fieldsString = fields.map(f => `- "${f.name}" (${f.type})`).join('\n');
-    const sampleString = JSON.stringify(dataSample, null, 2);
-    const prompt = `Here is the data schema and a sample. Please generate proactive insights.\n\nSchema:\n${fieldsString}\n\nData Sample:\n${sampleString}`;
+    // Implementation for proactive insights
+    // For brevity, using a simplified prompt and schema here, similar to others
+    const systemInstruction = `You are an expert data analyst. Analyze the provided dataset sample and schema to discover 3-5 significant and actionable insights.
+    For each insight:
+    1. **Title**: A short, catchy, human-readable headline (do not use file names or technical jargon).
+    2. **Summary**: A clear explanation of the finding.
+    3. **Type**: Classify as 'Anomaly', 'Trend', 'Correlation', 'Outlier', or 'Distribution'.
+    4. **Confidence**: A score between 0 and 100.
+    5. **Involved Fields**: List the field names used.
+    6. **Suggested Chart Prompt**: A natural language command to visualize this insight (e.g., "Show Sales by Region as a Bar Chart", "Plot Revenue over Time"). This prompt MUST be understandable by a chart generation AI.
     
-    if (config.provider !== 'gemini') {
-        throw new Error("Proactive insights are only available with the Gemini AI provider.");
-    }
-
-    const result = await proxyGenerateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-            systemInstruction,
-            responseMimeType: "application/json",
-            responseSchema: proactiveInsightSchema,
-            temperature: 0.6
-        }
-    });
-    
-    const responseText = result.text.trim();
-    try {
-        const parsed = JSON.parse(responseText);
-        if (parsed.insights && Array.isArray(parsed.insights)) {
-            return parsed.insights;
-        }
-        throw new Error("AI response did not match the expected proactive insights schema.");
-    } catch (e) {
-        console.error("Error parsing proactive insights:", e, "Raw response:", responseText);
-        throw new Error(`Failed to get a valid insight configuration from the AI.`);
-    }
-};
-
-// --- AI Predictive Modeling ---
-
-const predictiveModelSchema = {
-    type: Type.OBJECT,
-    properties: {
-        summary: {
-            type: Type.OBJECT,
-            properties: {
-                targetVariable: { type: Type.STRING },
-                featureVariables: { type: Type.ARRAY, items: { type: Type.STRING } },
-                modelType: { type: Type.STRING, enum: Object.values(PredictiveModelType) },
-                aiSummary: { type: Type.STRING, description: "A concise, 1-2 paragraph summary of the model's performance and key findings in plain English." },
-                formula: { type: Type.STRING, description: "The mathematical formula for the model, e.g., '12.34 + 5.67 * [Ad Spend] - 2.1 * [Discount]'." }
-            },
-            required: ["targetVariable", "featureVariables", "modelType", "aiSummary", "formula"]
-        },
-        performanceMetrics: {
-            type: Type.ARRAY,
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    name: { type: Type.STRING, description: "Metric name, e.g., 'R-squared', 'Mean Absolute Error'." },
-                    value: { type: Type.NUMBER },
-                    interpretation: { type: Type.STRING, description: "A one-sentence explanation of what this metric means." }
-                },
-                required: ["name", "value", "interpretation"]
-            }
-        },
-        featureImportance: {
-            type: Type.ARRAY,
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    feature: { type: Type.STRING, description: "Name of the feature variable." },
-                    importance: { type: Type.NUMBER, description: "A score from 0 to 1 indicating relative importance." }
-                },
-                required: ["feature", "importance"]
-            }
-        },
-        coefficients: {
-            type: Type.ARRAY,
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    feature: { type: Type.STRING, description: "Feature name or '(Intercept)'." },
-                    coefficient: { type: Type.NUMBER },
-                    stdError: { type: Type.NUMBER },
-                    // FIX: Changed pValue to a STRING type to handle extremely small numbers from the model without causing JSON parsing errors.
-                    pValue: { type: Type.STRING, description: "The p-value as a string to handle scientific notation or very small numbers." }
-                },
-                required: ["feature", "coefficient", "stdError", "pValue"]
-            }
-        },
-        predictionVsActuals: {
-            type: Type.ARRAY,
-            description: "A sample of up to 100 data points with their actual and predicted values for plotting.",
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    actual: { type: Type.NUMBER },
-                    predicted: { type: Type.NUMBER }
-                },
-                required: ["actual", "predicted"]
-            }
-        },
-        residuals: {
-            type: Type.ARRAY,
-            description: "A sample of up to 100 data points showing the predicted value and the residual (actual - predicted).",
-            items: {
-                type: Type.OBJECT,
-                properties: {
-                    predicted: { type: Type.NUMBER },
-                    residual: { type: Type.NUMBER }
-                },
-                required: ["predicted", "residual"]
-            }
-        }
-    },
-    required: ["summary", "performanceMetrics", "featureImportance", "coefficients", "predictionVsActuals", "residuals"]
-};
-
-
-export const runPredictiveModel = async (
-    config: AIConfig,
-    modelType: PredictiveModelType,
-    target: Field,
-    features: Field[],
-    data: any[]
-): Promise<PredictiveModelResult> => {
-    
-    const systemInstruction = `You are a virtual data scientist. Your task is to perform a ${modelType} on the provided dataset and return a comprehensive, structured analysis.
-    - The user will specify a target variable and a set of feature variables.
-    - Analyze the provided data sample to understand the relationships.
-    - Calculate all necessary statistical metrics for the model.
-    - Provide a clear, plain-English summary of the results.
-    - Construct the mathematical formula for the model.
-    - For a sample of up to 100 data points, provide the actual target value and the value predicted by your model.
-    - For the same sample, provide the predicted value and the residual (actual - predicted).
-    - Your entire response MUST be a valid JSON object conforming to the provided schema. Do not include any other text or markdown.`;
-
-    const fields = [target, ...features];
-    const dataSample = data.map(row => _.pick(row, fields.map(f => f.name)));
+    Return a JSON array of these insights.`;
 
     const prompt = `
-    Please perform a ${modelType} with the following configuration:
-    - Target Variable: "${target.simpleName}"
-    - Feature Variables: ${features.map(f => `"${f.simpleName}"`).join(', ')}
+    Dataset Schema:
+    ${fields.map(f => `- ${f.name} (${f.type})`).join('\n')}
 
-    Here is a sample of the data (up to 50 rows):
-    ${JSON.stringify(dataSample.slice(0, 50), null, 2)}
+    Data Sample (first 10 rows):
+    ${JSON.stringify(dataSample.slice(0, 10))}
+    
+    Find the most interesting patterns, outliers, or trends in this data.`;
+
+    const insightSchema = {
+        type: Type.ARRAY,
+        items: {
+            type: Type.OBJECT,
+            properties: {
+                title: { type: Type.STRING },
+                summary: { type: Type.STRING },
+                type: { type: Type.STRING, enum: Object.values(InsightType) },
+                confidence: { type: Type.NUMBER },
+                involvedFields: { type: Type.ARRAY, items: { type: Type.STRING } },
+                suggestedChartPrompt: { type: Type.STRING, description: "A natural language command to generate a chart for this insight." }
+            },
+            required: ["title", "summary", "type", "confidence", "involvedFields", "suggestedChartPrompt"]
+        }
+    };
+
+    try {
+        const responseText = await generateWithProvider(config, prompt, {
+            systemInstruction,
+            responseSchema: insightSchema,
+            temperature: 0.7,
+            jsonMode: true
+        });
+
+        const cleanedResponse = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(cleanedResponse);
+
+        // Handle case where AI wraps array in an object key like "insights"
+        if (!Array.isArray(parsed) && typeof parsed === 'object' && parsed !== null) {
+            const possibleArray = Object.values(parsed).find(val => Array.isArray(val));
+            if (possibleArray) return possibleArray as ProactiveInsight[];
+        }
+
+        return Array.isArray(parsed) ? parsed as ProactiveInsight[] : [];
+    } catch (e) {
+        console.error("Error generating proactive insights", e);
+        return [];
+    }
+};
+
+const dataStudioSuggestionSchema = {
+    type: Type.ARRAY,
+    items: {
+        type: Type.OBJECT,
+        properties: {
+            title: { type: Type.STRING },
+            description: { type: Type.STRING },
+            transformationType: { type: Type.STRING, enum: Object.values(TransformationType) },
+            payload: { type: Type.OBJECT, description: "The payload required for the transformation type." }
+        },
+        required: ["title", "description", "transformationType", "payload"]
+    }
+};
+
+export const getAiDataStudioSuggestions = async (
+    config: AIConfig,
+    fields: Field[],
+    dataSample: any[],
+    currentTransformations: Transformation[]
+): Promise<AiDataSuggestion[]> => {
+    const systemInstruction = `You are an expert data engineer. Analyze the dataset schema and sample to suggest 3 useful data transformations to clean or enhance the data.
+    - Focus on common tasks like:
+      - Extracting parts of dates (e.g., Year, Month).
+      - Categorizing numeric values (e.g., High/Low Sales).
+      - Cleaning text (trimming, standardizing).
+      - Handling nulls.
+    - Do not suggest transformations that have already been applied.
+    - Return a JSON array of suggestions.
+    - The 'payload' must match the structure required for the chosen TransformationType.
+      - For 'Create Calculated Field': { fieldName: string, formula: string }
+      - For 'Create Categorical Field': { newFieldName: string, sourceFieldName: string, rules: { operator: string, value: any, label: string }[], defaultLabel: string }
+      - For 'Standardize Text': { fieldName: string, operation: 'uppercase'|'lowercase'|'trim' }
+      - For 'Handle Null Values': { fieldName: string, strategy: 'value'|'drop'|'mean', value?: any }
+      - For 'Convert to Date/Time': { fieldName: string }
     `;
 
-    if (config.provider !== 'gemini') {
-        throw new Error("Predictive modeling is currently only available with the Gemini AI provider.");
-    }
-    
-    const result = await proxyGenerateContent({
-        model: "gemini-2.5-flash",
-        contents: prompt,
-        config: {
-            systemInstruction,
-            responseMimeType: "application/json",
-            responseSchema: predictiveModelSchema,
-            temperature: 0.2
-        }
-    });
+    const prompt = `
+    Fields: ${fields.map(f => `${f.simpleName} (${f.type})`).join(', ')}
+    Sample Data: ${JSON.stringify(dataSample)}
+    Current Transformations: ${JSON.stringify(currentTransformations)}
+    `;
 
-    const responseText = result.text.trim();
     try {
-        const parsed = JSON.parse(responseText);
-        if (parsed.summary && parsed.performanceMetrics && parsed.featureImportance && parsed.coefficients) {
-            // FIX: Manually convert pValue from string to number after parsing to maintain type consistency.
-            const cleanedCoefficients = parsed.coefficients.map((coef: any) => ({
-                ...coef,
-                pValue: Number(coef.pValue) || 0,
-            }));
+        const responseText = await generateWithProvider(config, prompt, {
+            systemInstruction,
+            responseSchema: dataStudioSuggestionSchema,
+            temperature: 0.4,
+            jsonMode: true
+        });
 
-            return {
-                id: _.uniqueId('pm_'),
-                timestamp: new Date().toISOString(),
-                ...parsed,
-                coefficients: cleanedCoefficients,
-            } as PredictiveModelResult;
-        }
-        throw new Error("AI response did not match the expected predictive model schema.");
+        // Clean markdown code blocks from response
+        const cleanedResponse = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(cleanedResponse) as AiDataSuggestion[];
     } catch (e) {
-        console.error("Error parsing predictive model response:", e, "Raw response:", responseText);
-        throw new Error(`Failed to get a valid model from the AI. Raw response: ${responseText}`);
+        console.error("Error getting Data Studio suggestions:", e);
+        throw new Error("Failed to get suggestions.");
+    }
+};
+
+export const getAiConfig = async (): Promise<AIConfig> => {
+    try {
+        const response = await fetch('/api/ai/config', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        if (!response.ok) throw new Error('Failed to fetch AI config');
+        const data = await response.json();
+        // Ensure default structure if empty
+        if (!data || Object.keys(data).length === 0) {
+            return {
+                activeProvider: 'gemini',
+                activeModelId: 'gemini-2.5-flash',
+                providers: {
+                    gemini: { enabled: true, models: [{ id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', providerId: 'gemini' }] },
+                    openai: { enabled: false, models: [] },
+                    anthropic: { enabled: false, models: [] },
+                    ollama: { enabled: false, models: [] }
+                }
+            };
+        }
+        return data;
+    } catch (error) {
+        console.error('Error fetching AI config:', error);
+        // Fallback to default
+        return {
+            activeProvider: 'gemini',
+            activeModelId: 'gemini-2.5-flash',
+            providers: {
+                gemini: { enabled: true, models: [{ id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', providerId: 'gemini' }] },
+                openai: { enabled: false, models: [] },
+                anthropic: { enabled: false, models: [] },
+                ollama: { enabled: false, models: [] }
+            }
+        };
+    }
+};
+
+export const saveAiConfig = async (config: AIConfig): Promise<void> => {
+    try {
+        const response = await fetch('/api/ai/config', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: JSON.stringify(config)
+        });
+        if (!response.ok) throw new Error('Failed to save AI config');
+    } catch (error) {
+        console.error('Error saving AI config:', error);
+        throw error;
+    }
+};
+
+const widgetSuggestionSchema = {
+    type: Type.OBJECT,
+    properties: {
+        title: { type: Type.STRING, description: "A concise, descriptive title for the chart." },
+        chartType: { type: Type.STRING, enum: Object.values(ChartType).filter(t => t !== ChartType.CONTROL), description: "The best chart type for this visualization." },
+        shelves: {
+            type: Type.OBJECT,
+            properties: {
+                columns: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Field simple names for columns/X-axis. Usually dimensions." },
+                rows: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Field simple names for rows/breakdowns. Usually dimensions." },
+                category: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Field simple name for color category (e.g., in scatter plots)." },
+                values: { ...valueShelfSchema, description: "Measure fields for the primary Y-axis." },
+                values2: { ...valueShelfSchema, description: "Measure fields for the secondary Y-axis (for Dual Axis charts)." },
+                bubbleSize: { ...valueShelfSchema, description: "Measure field for bubble size." },
+            },
+        }
+    },
+    required: ["title", "chartType", "shelves"]
+};
+
+export const getWidgetFromPrompt = async (
+    config: AIConfig,
+    prompt: string,
+    fields: { name: string, type: string }[]
+): Promise<AiWidgetSuggestion | null> => {
+    const systemInstruction = `You are an expert data visualization assistant. Your task is to generate a single chart configuration based on a user's natural language request.
+    - Select the most appropriate chart type.
+    - Map the user's intent to the available data fields.
+    - Ensure field names match exactly with the provided schema.
+    - Your entire response MUST be a valid JSON object conforming to the provided schema.`;
+
+    const fieldsString = fields.map(f => `- "${f.name}" (${f.type})`).join('\n');
+    const userPrompt = `Available Fields:\n${fieldsString}\n\nUser Request: "${prompt}"\n\nGenerate a chart configuration.`;
+
+    try {
+        const responseText = await generateWithProvider(config, userPrompt, {
+            systemInstruction,
+            responseSchema: widgetSuggestionSchema,
+            temperature: 0.3,
+            jsonMode: true
+        });
+
+        // Clean markdown code blocks from response
+        const cleanedResponse = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(cleanedResponse) as AiWidgetSuggestion;
+    } catch (e) {
+        console.error("Error generating widget from prompt:", e);
+        return null;
     }
 };

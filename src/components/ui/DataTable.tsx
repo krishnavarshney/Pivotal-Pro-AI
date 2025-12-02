@@ -29,12 +29,15 @@ import {
 import { inputClasses } from "./utils"
 import { cn } from './utils'
 import { Columns } from "lucide-react"
+import { DataTablePagination } from "./DataTablePagination"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
   filterColumnId?: string
   filterColumnPlaceholder?: string
+  columnVisibility?: VisibilityState
+  onColumnVisibilityChange?: (visibility: VisibilityState) => void
 }
 
 export function DataTable<TData, TValue>({
@@ -42,11 +45,16 @@ export function DataTable<TData, TValue>({
   data,
   filterColumnId,
   filterColumnPlaceholder,
+  columnVisibility: controlledColumnVisibility,
+  onColumnVisibilityChange,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [internalColumnVisibility, setInternalColumnVisibility] = useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = useState({})
+
+  const columnVisibility = controlledColumnVisibility ?? internalColumnVisibility
+  const setColumnVisibility = onColumnVisibilityChange ?? setInternalColumnVisibility
 
   const table = useReactTable({
     data,
@@ -57,9 +65,8 @@ export function DataTable<TData, TValue>({
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    onColumnVisibilityChange: setColumnVisibility,
+    onColumnVisibilityChange: setColumnVisibility as any,
     onRowSelectionChange: setRowSelection,
-    // Provide a stable row ID to prevent state issues on sort/filter
     getRowId: (row: TData) => (row as any).id,
     state: {
       sorting,
@@ -70,8 +77,8 @@ export function DataTable<TData, TValue>({
   })
 
   return (
-    <div className="flex flex-col h-full w-full">
-      <div className="flex items-center p-4 border-b border-border flex-shrink-0">
+    <div className="flex flex-col h-full w-full space-y-4">
+      <div className="flex items-center p-4 flex-shrink-0">
         {filterColumnId && (
           <input
             placeholder={filterColumnPlaceholder || `Filter...`}
@@ -103,7 +110,6 @@ export function DataTable<TData, TValue>({
                       column.toggleVisibility(!!value)
                     }
                   >
-                    {/* FIX: Wrapped children in a fragment to satisfy the updated component props. */}
                     <>{column.id}</>
                   </DropdownMenuCheckboxItem>
                 )
@@ -111,7 +117,7 @@ export function DataTable<TData, TValue>({
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className="flex-grow overflow-auto">
+      <div className="rounded-md flex-grow overflow-auto">
         <Table>
           <TableHeader className="sticky top-0 bg-secondary z-10">
             {table.getHeaderGroups().map((headerGroup) => (
@@ -155,29 +161,8 @@ export function DataTable<TData, TValue>({
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-between space-x-2 p-4 border-t border-border flex-shrink-0">
-        <div className="flex-1 text-sm text-muted-foreground">
-          {table.getFilteredSelectedRowModel().rows.length} of{" "}
-          {table.getFilteredRowModel().rows.length} row(s) selected.
-        </div>
-        <div className="flex items-center gap-2">
-            <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-            >
-            Previous
-            </Button>
-            <Button
-            variant="outline"
-            size="sm"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-            >
-            Next
-            </Button>
-        </div>
+      <div className="p-4 flex-shrink-0">
+        <DataTablePagination table={table} />
       </div>
     </div>
   )

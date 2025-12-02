@@ -1,23 +1,30 @@
-import React, { useState, useMemo, useEffect, useRef, useCallback, FC, MouseEvent } from 'react';
+import React, { useState, useMemo, useEffect, FC, MouseEvent } from 'react';
 import { useDashboard } from '../contexts/DashboardProvider';
-import { Field, FieldType, Pill, FilterCondition, AggregationType } from '../utils/types';
-import { Search, Filter, Type, Hash, X, MoreVertical, ArrowUpAZ, ArrowDownAZ, EyeOff, Columns, Info, Check, Table, Database, SlidersHorizontal, List, Clock } from 'lucide-react';
+import { Field, FieldType, Pill } from '../utils/types';
+import { Search, Filter, Type, Hash, X, Check, Database, List, Clock, Info, Columns, ChevronDown, BarChart2 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
-import { inputClasses } from '../components/ui/utils';
-import { Popover } from '../components/ui/Popover';
-import { FieldInfoPopover } from '../components/ui/FieldInfoPopover';
-import { Tooltip } from '../components/ui/Tooltip';
+import { inputClasses, cn } from '../components/ui/utils';
 import { Sheet, SheetContent } from '../components/ui/Sheet';
 import _ from 'lodash';
 import { formatValue } from '../utils/dataProcessing/formatting';
 import { calculateNumericStats, calculateDimensionStats, createHistogramData } from '../utils/dataProcessing/statistics';
 import { applyFilters } from '../utils/dataProcessing/filtering';
-import { ResponsiveContainer, BarChart, Bar, AreaChart, Area, XAxis, YAxis, Cell, Tooltip as RechartsTooltip } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, AreaChart, Area, YAxis, Cell, Tooltip as RechartsTooltip } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ViewHeader } from '../components/common/ViewHeader';
 import { useSidebar } from '../components/ui/sidebar.tsx';
+import { DataTable } from '../components/ui/DataTable';
+import { ColumnDef, VisibilityState } from '@tanstack/react-table';
+import { DataTableColumnHeader } from '../components/ui/DataTableColumnHeader';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/Select';
+import { Badge } from '../components/ui/Badge';
 
-const ROW_HEIGHT = 40;
+// Helper to clean column names
+const getCleanName = (name: string) => {
+    if (!name) return '';
+    const parts = name.split(/[./]/);
+    return parts[parts.length - 1];
+};
 
 const SchemaField: FC<{
     field: Field;
@@ -35,10 +42,21 @@ const SchemaField: FC<{
     return (
         <button
             onClick={onSelect}
-            className={`w-full text-left p-2.5 flex items-center gap-2.5 rounded-lg transition-colors text-sm ${isSelected ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-accent'}`}
+            className={cn(
+                "w-full text-left p-2.5 flex items-center gap-2.5 rounded-lg transition-all text-sm group relative overflow-hidden",
+                isSelected 
+                    ? "bg-primary/10 text-primary font-semibold shadow-sm ring-1 ring-primary/20" 
+                    : "hover:bg-accent hover:text-accent-foreground"
+            )}
         >
-            <span className="icon-hover-anim">{getIcon()}</span>
-            <span className="truncate flex-grow">{field.simpleName}</span>
+            <span className="icon-hover-anim relative z-10">{getIcon()}</span>
+            <span className="truncate flex-grow relative z-10">{getCleanName(field.simpleName)}</span>
+            {isSelected && (
+                <motion.div 
+                    layoutId="active-field-indicator"
+                    className="absolute left-0 top-0 bottom-0 w-1 bg-primary"
+                />
+            )}
         </button>
     );
 };
@@ -46,13 +64,14 @@ const SchemaField: FC<{
 const FieldProfile: FC<{ field: Field, data: any[] }> = ({ field, data }) => {
     const columnData = useMemo(() => data.map(row => row[field.name]), [data, field.name]);
     const stats = useMemo(() => field.type === FieldType.MEASURE ? calculateNumericStats(columnData) : calculateDimensionStats(columnData), [columnData, field.type]);
+    
     const chartData = useMemo(() => {
         if (!stats) return null;
         if (field.type === FieldType.MEASURE) {
-            const histogram = createHistogramData(columnData as number[], 10);
+            const histogram = createHistogramData(columnData as number[], 15);
             return histogram.labels.map((label, i) => ({ name: label, value: histogram.data[i] }));
         } else {
-            const topValues = (stats as any).topValues.slice(0, 5);
+            const topValues = (stats as any).topValues.slice(0, 8);
             return topValues.map((item: any) => ({ name: formatValue(item.value, {maximumFractionDigits: 1}), value: item.count })).reverse();
         }
     }, [field, stats, columnData]);
@@ -60,40 +79,128 @@ const FieldProfile: FC<{ field: Field, data: any[] }> = ({ field, data }) => {
     if (!stats) return null;
     const completeness = stats.count / (stats.count + stats.missing);
 
+    // Custom Tooltip for Recharts
+    const CustomTooltip = ({ active, payload, label }: any) => {
+        if (active && payload && payload.length) {
+            return (
+                <div className="bg-popover px-3 py-2 rounded-lg shadow-lg text-xs z-50">
+                    <p className="font-semibold text-popover-foreground mb-1">{label}</p>
+                    <p className="text-primary">
+                        Count: <span className="font-mono font-bold">{payload[0].value}</span>
+                    </p>
+                </div>
+            );
+        }
+        return null;
+    };
+
     return (
-        <div className="p-3 space-y-4">
-            <div className="h-24">
+        <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-4 space-y-5 bg-card/30 rounded-lg shadow-sm mt-2 backdrop-blur-sm"
+        >
+            <div className="flex items-center justify-between">
+                <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Distribution</h4>
+                <Badge variant="secondary" className={cn(
+                    "text-[10px] h-5 px-2 font-medium uppercase tracking-wider",
+                    field.type === FieldType.DIMENSION ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20" :
+                    field.type === FieldType.MEASURE ? "bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20" :
+                    "bg-secondary text-secondary-foreground"
+                )}>
+                    {field.type}
+                </Badge>
+            </div>
+            
+            <div className="h-40 w-full -ml-2">
                 {chartData && (
                     <ResponsiveContainer width="100%" height="100%">
                         {field.type === FieldType.MEASURE ? (
-                             <BarChart data={chartData} margin={{ top: 5, right: 0, bottom: 0, left: 0 }}>
-                                <Bar dataKey="value" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
-                            </BarChart>
+                             <AreaChart data={chartData} margin={{ top: 5, right: 10, bottom: 0, left: 0 }}>
+                                <defs>
+                                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                                    </linearGradient>
+                                </defs>
+                                <RechartsTooltip content={<CustomTooltip />} cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1, strokeDasharray: '3 3' }} />
+                                <Area 
+                                    type="monotone" 
+                                    dataKey="value" 
+                                    stroke="hsl(var(--primary))" 
+                                    strokeWidth={2}
+                                    fillOpacity={1} 
+                                    fill="url(#colorValue)" 
+                                    animationDuration={1000}
+                                />
+                            </AreaChart>
                         ) : (
-                            <BarChart layout="vertical" data={chartData} margin={{ top: 0, right: 0, bottom: 0, left: 10 }}>
-                                <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} width={80} tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} tickFormatter={(value) => String(value).length > 10 ? String(value).substring(0, 10) + '...' : value} />
-                                <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 3, 3, 0]} barSize={8}>
-                                    {chartData.map((entry, index) => <Cell key={`cell-${index}`} fill="hsl(var(--primary))" opacity={1 - (index / (chartData.length * 1.5))} />)}
+                            <BarChart layout="vertical" data={chartData} margin={{ top: 0, right: 10, bottom: 0, left: 0 }} barCategoryGap={4}>
+                                <YAxis 
+                                    type="category" 
+                                    dataKey="name" 
+                                    axisLine={false} 
+                                    tickLine={false} 
+                                    width={100} 
+                                    tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }} 
+                                    tickFormatter={(value) => String(value).length > 18 ? String(value).substring(0, 18) + '...' : value} 
+                                />
+                                <RechartsTooltip content={<CustomTooltip />} cursor={{ fill: 'hsl(var(--muted)/0.2)' }} />
+                                <Bar 
+                                    dataKey="value" 
+                                    fill="hsl(var(--primary))" 
+                                    radius={[0, 4, 4, 0]} 
+                                    barSize={18} 
+                                    animationDuration={800}
+                                >
+                                    {chartData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={`hsl(var(--primary) / ${0.5 + (index / chartData.length) * 0.5})`} />
+                                    ))}
                                 </Bar>
                             </BarChart>
                         )}
                     </ResponsiveContainer>
                 )}
             </div>
-            <div className="space-y-3 text-xs text-muted-foreground">
-                 <div>
-                    <div className="flex justify-between items-center mb-1">
-                        <span>Completeness</span>
-                        <span className="font-mono text-foreground font-semibold">{formatValue(completeness * 100, { suffix: '%', decimalPlaces: 0 })}</span>
+
+            <div className="grid grid-cols-2 gap-3">
+                 <div className="bg-background/50 p-2.5 rounded-md transition-colors">
+                    <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Completeness</span>
+                        <span className="font-mono text-xs font-bold text-foreground">{formatValue(completeness * 100, { suffix: '%', decimalPlaces: 0 })}</span>
                     </div>
-                    <div className="w-full bg-secondary rounded-full h-1.5"><div className="bg-primary h-1.5 rounded-full" style={{ width: `${completeness * 100}%` }}></div></div>
+                    <div className="w-full bg-secondary rounded-full h-1.5 overflow-hidden">
+                        <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ width: `${completeness * 100}%` }}
+                            transition={{ duration: 0.8, ease: "easeOut" }}
+                            className={cn("h-1.5 rounded-full", completeness > 0.9 ? "bg-green-500" : completeness > 0.5 ? "bg-yellow-500" : "bg-red-500")}
+                        />
+                    </div>
                 </div>
-                 <div className="flex justify-between items-center pt-1">
-                    <span>Unique Values</span>
-                    <span className="font-mono font-semibold text-foreground">{formatValue((stats as any).unique)}</span>
+                 <div className="bg-background/50 p-2.5 rounded-md transition-colors flex flex-col justify-center">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground mb-0.5">Unique Values</span>
+                    <span className="font-mono text-lg font-bold text-foreground leading-none">{formatValue((stats as any).unique)}</span>
                 </div>
             </div>
-        </div>
+            
+            {field.type === FieldType.MEASURE && (
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                    <div className="bg-secondary/30 p-2 rounded text-center transition-colors">
+                        <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Min</div>
+                        <div className="font-mono text-xs font-semibold">{formatValue((stats as any).min)}</div>
+                    </div>
+                    <div className="bg-secondary/30 p-2 rounded text-center transition-colors">
+                        <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Avg</div>
+                        <div className="font-mono text-xs font-semibold">{formatValue((stats as any).mean)}</div>
+                    </div>
+                    <div className="bg-secondary/30 p-2 rounded text-center transition-colors">
+                        <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Max</div>
+                        <div className="font-mono text-xs font-semibold">{formatValue((stats as any).max)}</div>
+                    </div>
+                </div>
+            )}
+        </motion.div>
     );
 }
 
@@ -107,19 +214,19 @@ const SchemaPanel: FC<{
     const [selectedField, setSelectedField] = useState<Field | null>(null);
     const [isManaging, setIsManaging] = useState(false);
 
-    const filteredFields = useMemo(() => fields.filter(f => f.simpleName.toLowerCase().includes(searchTerm.toLowerCase())), [fields, searchTerm]);
+    const filteredFields = useMemo(() => fields.filter(f => getCleanName(f.simpleName).toLowerCase().includes(searchTerm.toLowerCase())), [fields, searchTerm]);
 
     const MotionDiv = motion.div as any;
 
     return (
-        <aside className="w-[320px] bg-card border-r border-border flex flex-col flex-shrink-0">
-            <div className="p-3 border-b border-border flex-shrink-0">
+        <aside className="w-[320px] bg-card flex flex-col flex-shrink-0 z-10">
+            <div className="p-3 flex-shrink-0">
                 <div className="relative">
                     <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <input type="text" placeholder="Search fields..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={`${inputClasses} pl-8 h-9`} />
                 </div>
             </div>
-            <div className="flex-grow overflow-y-auto p-2">
+            <div className="flex-grow overflow-y-auto p-2 custom-scrollbar">
                 <AnimatePresence mode="wait">
                     <MotionDiv
                         key={isManaging ? 'manage' : 'explore'}
@@ -128,9 +235,9 @@ const SchemaPanel: FC<{
                         {isManaging ? (
                             <div className="space-y-1 p-1.5">
                                 {fields.map(f => (
-                                    <label key={f.name} className="flex items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer">
-                                        <input type="checkbox" checked={visibleColumns.includes(f.name)} onChange={() => onToggleColumn(f.name)} className="h-4 w-4 rounded border-border text-primary focus:ring-ring" />
-                                        <span className="text-sm">{f.simpleName}</span>
+                                    <label key={f.name} className="flex items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer transition-colors">
+                                        <input type="checkbox" checked={visibleColumns.includes(f.name)} onChange={() => onToggleColumn(f.name)} className="h-4 w-4 rounded text-primary focus:ring-ring" />
+                                        <span className="text-sm">{getCleanName(f.simpleName)}</span>
                                     </label>
                                 ))}
                             </div>
@@ -153,7 +260,7 @@ const SchemaPanel: FC<{
                     </MotionDiv>
                 </AnimatePresence>
             </div>
-            <div className="p-3 border-t border-border flex-shrink-0">
+            <div className="p-3 flex-shrink-0 bg-card">
                 <Button variant="secondary" className="w-full" onClick={() => setIsManaging(!isManaging)}>
                     {isManaging ? <><span className="icon-hover-anim"><Check size={16}/></span> Done</> : <><span className="icon-hover-anim"><Columns size={16}/></span> Manage Columns ({visibleColumns.length}/{fields.length})</>}
                 </Button>
@@ -170,103 +277,108 @@ const FiltersPanel: FC<{
 }> = ({ filters, onRemoveFilter, onEditFilter, onAddFilter }) => {
     const MotionDiv = motion.div as any;
     return (
-    <aside className="w-[320px] bg-card border-l border-border flex flex-col flex-shrink-0">
-        <div className="p-4 border-b border-border flex-shrink-0">
-            <h3 className="text-base font-bold text-foreground">Active Filters</h3>
+    <aside className="w-[320px] bg-card flex flex-col flex-shrink-0 z-10">
+        <div className="p-4 flex-shrink-0">
+            <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                <Filter size={16} className="text-primary" />
+                Active Filters
+            </h3>
         </div>
-        <div className="flex-grow overflow-y-auto p-3 space-y-2">
+        <div className="flex-grow overflow-y-auto p-3 space-y-2 custom-scrollbar">
             <AnimatePresence>
             {filters.map(pill => (
                 <MotionDiv key={pill.id} layout initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: 20 }}>
-                    <div onClick={() => onEditFilter(pill)} className="p-2.5 rounded-lg bg-secondary border border-border cursor-pointer hover:border-primary/50 group">
+                    <div onClick={() => onEditFilter(pill)} className="p-3 rounded-lg bg-secondary/50 cursor-pointer hover:bg-secondary transition-all group">
                         <div className="flex items-start justify-between">
-                            <p className="font-semibold text-sm text-foreground">{pill.simpleName}</p>
-                            <button onClick={(e) => { e.stopPropagation(); onRemoveFilter(pill.id); }} className="p-1 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-50 group-hover:opacity-100" aria-label={`Remove filter on ${pill.simpleName}`}><span className="icon-hover-anim"><X size={12}/></span></button>
+                            <p className="font-semibold text-sm text-foreground">{getCleanName(pill.simpleName)}</p>
+                            <button onClick={(e) => { e.stopPropagation(); onRemoveFilter(pill.id); }} className="p-1 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" aria-label={`Remove filter on ${pill.simpleName}`}><span className="icon-hover-anim"><X size={12}/></span></button>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1 font-mono">{pill.filter?.condition} {formatValue(pill.filter?.values)}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="outline" className="text-[10px] h-5 px-1.5 bg-background">{pill.filter?.condition}</Badge>
+                            <p className="text-xs text-muted-foreground font-mono truncate">{formatValue(pill.filter?.values)}</p>
+                        </div>
                     </div>
                 </MotionDiv>
             ))}
             </AnimatePresence>
             {filters.length === 0 && (
-                <div className="text-center text-sm text-muted-foreground p-8">No filters applied.</div>
+                <div className="flex flex-col items-center justify-center h-40 text-center p-4">
+                    <div className="w-12 h-12 rounded-full bg-secondary/50 flex items-center justify-center mb-3">
+                        <Filter size={20} className="text-muted-foreground/50" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">No filters applied</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">Add filters to refine your data</p>
+                </div>
             )}
         </div>
-        <div className="p-3 border-t border-border flex-shrink-0">
+        <div className="p-3 flex-shrink-0 bg-card">
             <Button variant="outline" className="w-full" onClick={onAddFilter}><span className="icon-hover-anim"><Filter size={16}/></span> Add Filter</Button>
         </div>
     </aside>
 )};
 
-const DataGrid: FC<{
-    visibleFields: Field[];
-    filteredData: any[];
-    sort: { key: string, order: 'asc' | 'desc' } | null;
-    openColumnMenu: (event: MouseEvent, field: Field) => void;
-}> = ({ visibleFields, filteredData, sort, openColumnMenu }) => {
-    const { blendedData } = useDashboard();
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [scrollTop, setScrollTop] = useState(0);
-    const onScroll = (e: React.UIEvent<HTMLDivElement>) => setScrollTop(e.currentTarget.scrollTop);
-    const totalRows = filteredData.length;
-    const itemsToRender = useMemo(() => containerRef.current ? Math.ceil(containerRef.current.clientHeight / ROW_HEIGHT) + 5 : 20, [containerRef.current?.clientHeight]);
-    const startIndex = Math.floor(scrollTop / ROW_HEIGHT);
-    const visibleRows = useMemo(() => filteredData.slice(startIndex, Math.min(totalRows, startIndex + itemsToRender)), [filteredData, startIndex, itemsToRender]);
-    const paddingTop = startIndex * ROW_HEIGHT;
-
-    return (
-        <main className="flex-grow overflow-auto" onScroll={onScroll} ref={containerRef}>
-            <div style={{ height: totalRows * ROW_HEIGHT }}>
-                 <table className="min-w-full text-sm text-left border-collapse" style={{ paddingTop }}>
-                    <thead className="sticky top-0 z-10">
-                        <tr>
-                            {visibleFields.map(field => (
-                                <th key={field.name} scope="col" className="group px-4 h-[44px] whitespace-nowrap bg-secondary text-foreground border-b-2 border-border border-r border-border last:border-r-0">
-                                    <div className="flex items-center justify-between h-full">
-                                        <div className="flex items-center gap-1.5">
-                                            <FieldInfoPopover field={field} blendedData={blendedData}><span className="font-semibold">{field.simpleName}</span></FieldInfoPopover>
-                                            {sort?.key === field.name && (sort.order === 'asc' ? <ArrowUpAZ className="text-primary"/> : <ArrowDownAZ className="text-primary"/>)}
-                                        </div>
-                                        <Tooltip content="Column options">
-                                            <button onClick={(e) => openColumnMenu(e, field)} className="p-1 rounded text-muted-foreground opacity-60 group-hover:opacity-100 hover:bg-muted hover:text-foreground transition-opacity" aria-label={`Options for ${field.simpleName} column`}><span className="icon-hover-anim"><MoreVertical /></span></button>
-                                        </Tooltip>
-                                    </div>
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {visibleRows.map((row, index) => (
-                            <tr key={startIndex + index} className="text-foreground hover:bg-accent" style={{height: ROW_HEIGHT}}>
-                                {visibleFields.map(field => (
-                                    <td key={field.name} className="px-4 whitespace-nowrap border-b border-r border-border" title={formatValue(row[field.name])}>
-                                        {formatValue(row[field.name])}
-                                    </td>
-                                ))}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </main>
-    );
-};
-
 export const DataExplorerView: FC = () => {
-    const { dataSources, relationships, blendedData, blendedFields, setView, explorerState, openContextMenu, openFilterConfigModal, openSelectFieldModal } = useDashboard();
-    const [sort, setSort] = useState<{ key: string, order: 'asc' | 'desc' } | null>(null);
+    const { blendedData, blendedFields, explorerState, openFilterConfigModal, openSelectFieldModal, dataSources } = useDashboard();
     const [searchTerm, setSearchTerm] = useState('');
     const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
     const [activeFilters, setActiveFilters] = useState<Pill[]>(explorerState?.initialFilters || []);
     const { isMobile } = useSidebar();
     const [isSchemaOpen, setSchemaOpen] = useState(false);
     const [isFiltersOpen, setFiltersOpen] = useState(false);
+    const [selectedSourceId, setSelectedSourceId] = useState<string>('blended');
 
-    const { dataForExplorer, fieldsForExplorer } = useMemo(() => ({ dataForExplorer: blendedData, fieldsForExplorer: blendedFields }), [blendedData, blendedFields]);
+    // Determine data and fields based on selection
+    const { dataForExplorer, fieldsForExplorer } = useMemo(() => {
+        if (selectedSourceId === 'blended') {
+            return { dataForExplorer: blendedData, fieldsForExplorer: blendedFields };
+        }
+        const source = dataSources.get(selectedSourceId);
+        if (source) {
+            return { dataForExplorer: source.data, fieldsForExplorer: source.fields };
+        }
+        return { dataForExplorer: [], fieldsForExplorer: { dimensions: [], measures: [] } };
+    }, [selectedSourceId, blendedData, blendedFields, dataSources]);
+
     const allFields = useMemo(() => [...fieldsForExplorer.dimensions, ...fieldsForExplorer.measures], [fieldsForExplorer]);
 
+    // Initialize visible columns (max 50)
     useEffect(() => {
-        if (allFields.length > 0) setVisibleColumns(allFields.map(f => f.name).slice(0, 10));
+        if (allFields.length > 0) {
+             // If we switched sources, reset visible columns
+             // Default to showing all columns if <= 50, otherwise first 50
+             const columnsToShow = allFields.map(f => f.name).slice(0, 50);
+             setVisibleColumns(columnsToShow);
+        }
+    }, [allFields]); // Depend on allFields changing (which happens when source changes)
+
+    const columnVisibility = useMemo<VisibilityState>(() => {
+        const visibility: VisibilityState = {};
+        allFields.forEach(f => {
+            visibility[f.name] = visibleColumns.includes(f.name);
+        });
+        return visibility;
+    }, [visibleColumns, allFields]);
+
+    const handleColumnVisibilityChange = (updaterOrValue: any) => {
+        const newVisibility = typeof updaterOrValue === 'function'
+            ? updaterOrValue(columnVisibility)
+            : updaterOrValue;
+        
+        const newVisibleColumns = Object.keys(newVisibility).filter(key => newVisibility[key]);
+        setVisibleColumns(newVisibleColumns);
+    };
+
+    const columns = useMemo<ColumnDef<any>[]>(() => {
+        return allFields.map(field => ({
+            accessorFn: (row) => row[field.name],
+            id: field.name,
+            header: ({ column }) => (
+                <DataTableColumnHeader column={column} title={getCleanName(field.simpleName)} />
+            ),
+            cell: (info) => <div className="truncate" title={formatValue(info.getValue())}>{formatValue(info.getValue())}</div>,
+            enableSorting: true,
+            enableHiding: true,
+        }));
     }, [allFields]);
 
     const filteredData = useMemo(() => {
@@ -275,26 +387,31 @@ export const DataExplorerView: FC = () => {
             const lowerSearch = searchTerm.toLowerCase();
             data = data.filter(row => visibleColumns.some(col => String(row[col]).toLowerCase().includes(lowerSearch)));
         }
-        if (sort) data = _.orderBy(data, [sort.key], [sort.order]);
         return data;
-    }, [dataForExplorer, activeFilters, searchTerm, sort, visibleColumns]);
+    }, [dataForExplorer, activeFilters, searchTerm, visibleColumns]);
 
-    const visibleFields = useMemo(() => visibleColumns.map(name => allFields.find(f => f.name === name)).filter(Boolean) as Field[], [allFields, visibleColumns]);
-
-    const handleSort = (key: string) => setSort(prev => (prev?.key === key && prev.order === 'asc') ? { key, order: 'desc' } : { key, order: 'asc' });
     const removeFilter = (pillId: string) => setActiveFilters(f => f.filter(p => p.id !== pillId));
     const editFilter = (pill: Pill) => openFilterConfigModal(pill, (updatedPill) => setActiveFilters(f => f.map(p => p.id === updatedPill.id ? updatedPill : p)));
-    const addFilter = () => openSelectFieldModal(); // The provider needs to be updated to handle adding filters here
+    const addFilter = () => openSelectFieldModal();
 
-    const openColumnMenu = (event: MouseEvent, field: Field) => {
-        event.preventDefault();
-        openContextMenu(event.clientX, event.clientY, [
-            { label: 'Sort Ascending', icon: <ArrowUpAZ size={16} />, onClick: () => handleSort(field.name) },
-            { label: 'Sort Descending', icon: <ArrowDownAZ size={16} />, onClick: () => handleSort(field.name) },
-            { label: '---', onClick: ()=>{}},
-            { label: 'Hide Column', icon: <EyeOff size={16} />, onClick: () => setVisibleColumns(cols => cols.filter(c => c !== field.name)) },
-        ]);
-    };
+    const dataSourceOptions = useMemo(() => {
+        const options = [];
+        if (blendedData.length > 0) {
+            options.push({ id: 'blended', name: 'Blended Data', type: 'blended' });
+        }
+        dataSources.forEach(ds => {
+            options.push({ id: ds.id, name: ds.name, type: ds.type });
+        });
+        return options;
+    }, [dataSources, blendedData]);
+
+    // Ensure selected source is valid
+    useEffect(() => {
+        if (selectedSourceId === 'blended' && blendedData.length === 0 && dataSources.size > 0) {
+            setSelectedSourceId(dataSources.keys().next().value);
+        }
+    }, [dataSources, blendedData]);
+
 
     const commonHeader = (
         <ViewHeader icon={<Database size={24} />} title="Data Explorer">
@@ -304,11 +421,37 @@ export const DataExplorerView: FC = () => {
                     <Button variant="outline" size="icon" onClick={() => setFiltersOpen(true)} aria-label="Open filters panel"><Filter size={16}/></Button>
                 </div>
             )}
-             <div className="relative flex-grow max-w-md">
-                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <input type="text" placeholder="Search data..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={`${inputClasses} pl-9`} />
+            
+            <div className="flex items-center gap-3 flex-1 max-w-3xl">
+                {/* Data Source Selector */}
+                <div className="w-[240px] flex-shrink-0">
+                    <Select value={selectedSourceId} onValueChange={setSelectedSourceId}>
+                        <SelectTrigger className="h-9 bg-background hover:bg-accent/50 transition-colors">
+                            <SelectValue placeholder="Select Data Source" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {dataSourceOptions.map(opt => (
+                                <SelectItem key={opt.id} value={opt.id}>
+                                    <div className="flex items-center gap-2">
+                                        {opt.type === 'blended' ? <SparklesIcon /> : <DatabaseIcon />}
+                                        <span className="truncate">{opt.name}</span>
+                                    </div>
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                <div className="relative flex-grow">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <input type="text" placeholder="Search data..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={`${inputClasses} pl-9 h-9`} />
+                </div>
             </div>
-            <span className="text-sm text-muted-foreground hidden lg:block">{filteredData.length.toLocaleString()} of {dataForExplorer.length.toLocaleString()} rows</span>
+            
+            <div className="flex items-center gap-2 text-sm text-muted-foreground hidden lg:flex bg-secondary/50 px-3 py-1.5 rounded-md">
+                <BarChart2 size={14} />
+                <span>{filteredData.length.toLocaleString()} rows</span>
+            </div>
         </ViewHeader>
     );
 
@@ -317,10 +460,25 @@ export const DataExplorerView: FC = () => {
 
     return (
         <div className="flex flex-col h-full bg-background text-foreground">
+            <style>{`
+                .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+                .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                .custom-scrollbar::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.3); border-radius: 10px; }
+                .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.5); }
+            `}</style>
             {commonHeader}
             <div className="flex-grow flex min-h-0">
                 {!isMobile && schemaPanel}
-                <DataGrid visibleFields={visibleFields} filteredData={filteredData} sort={sort} openColumnMenu={openColumnMenu} />
+                <div className="flex-grow overflow-hidden p-4 bg-secondary/10">
+                    <div className="h-full rounded-xl bg-card shadow-sm overflow-hidden flex flex-col">
+                         <DataTable 
+                            columns={columns} 
+                            data={filteredData} 
+                            columnVisibility={columnVisibility}
+                            onColumnVisibilityChange={handleColumnVisibilityChange}
+                         />
+                    </div>
+                </div>
                 {!isMobile && filtersPanel}
                 {isMobile && (
                     <>
@@ -336,3 +494,7 @@ export const DataExplorerView: FC = () => {
         </div>
     );
 };
+
+// Simple icons for the selector
+const DatabaseIcon = () => <Database size={14} className="text-blue-500" />;
+const SparklesIcon = () => <div className="text-purple-500"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L12 3Z"/></svg></div>;

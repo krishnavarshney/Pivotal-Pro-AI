@@ -150,6 +150,10 @@ const SidebarInternalContent: FC = () => {
 
 
     const handleNavigation = (view: CurrentView, options?: any) => {
+        // Clear activePage when navigating away from dashboard views
+        if (view !== 'dashboard') {
+            setActivePageId(null);
+        }
         setView(view, options);
         setMobileOpen(false);
     };

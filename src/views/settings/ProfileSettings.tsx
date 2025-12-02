@@ -10,13 +10,41 @@ import { notificationService } from '../../services/notificationService';
 import { cn, inputClasses } from '../../components/ui/utils';
 
 export const ProfileSettings: FC = () => {
-    const { user } = useAuth();
+   const { user } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
     const [name, setName] = useState(user?.name || '');
+    const [phoneNumber, setPhoneNumber] = useState(user?.phoneNumber || '');
     const [jobTitle, setJobTitle] = useState('Senior Analyst');
     const [department, setDepartment] = useState('Business Intelligence');
     const [emailNotifications, setEmailNotifications] = useState(true);
     const [pushNotifications, setPushNotifications] = useState(true);
+
+    // Dropdown options
+    const jobTitleOptions = [
+        'Data Analyst',
+        'Senior Analyst',
+        'Business Analyst',
+        'Data Scientist',
+        'BI Developer',
+        'Analytics Manager',
+        'Director of Analytics',
+        'Chief Data Officer',
+        'Consultant',
+        'Other'
+    ];
+
+    const departmentOptions = [
+        'Business Intelligence',
+        'Data Analytics',
+        'IT / Technology',
+        'Finance',
+        'Marketing',
+        'Sales',
+        'Operations',
+        'Human Resources',
+        'Strategy',
+        'Other'
+    ];
 
     const handleSave = async () => {
         setIsLoading(true);
@@ -124,29 +152,59 @@ export const ProfileSettings: FC = () => {
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="jobTitle">Job Title</Label>
+                                    <Label htmlFor="phoneNumber">Phone Number</Label>
                                     <div className="relative">
-                                        <Briefcase size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                        <Smartphone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                                         <input 
-                                            id="jobTitle" 
-                                            type="text" 
-                                            value={jobTitle} 
-                                            onChange={(e) => setJobTitle(e.target.value)} 
+                                            id="phoneNumber" 
+                                            type="tel" 
+                                            placeholder="+1 (555) 123-4567"
+                                            value={phoneNumber} 
+                                            onChange={(e) => setPhoneNumber(e.target.value)} 
                                             className={cn(inputClasses, "pl-9")} 
                                         />
                                     </div>
                                 </div>
                                 <div className="space-y-2">
+                                    <Label htmlFor="jobTitle">Job Title</Label>
+                                    <div className="relative">
+                                        <Briefcase size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none z-10" />
+                                        <select 
+                                            id="jobTitle" 
+                                            value={jobTitle} 
+                                            onChange={(e) => setJobTitle(e.target.value)} 
+                                            className={cn(inputClasses, "pl-9 pr-10 cursor-pointer appearance-none bg-background")} 
+                                        >
+                                            {jobTitleOptions.map(option => (
+                                                <option key={option} value={option}>{option}</option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                            <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
                                     <Label htmlFor="department">Department</Label>
                                     <div className="relative">
-                                        <Building size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                                        <input 
+                                        <Building size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none z-10" />
+                                        <select 
                                             id="department" 
-                                            type="text" 
                                             value={department} 
                                             onChange={(e) => setDepartment(e.target.value)} 
-                                            className={cn(inputClasses, "pl-9")} 
-                                        />
+                                            className={cn(inputClasses, "pl-9 pr-10 cursor-pointer appearance-none bg-background")} 
+                                        >
+                                            {departmentOptions.map(option => (
+                                                <option key={option} value={option}>{option}</option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                            <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

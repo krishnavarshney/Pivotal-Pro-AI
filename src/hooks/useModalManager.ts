@@ -237,3 +237,5 @@ export const useModalManager = () => {
         dataSourceConnectionModalState, nlpDisambiguationModalState, isGettingStartedModalOpen, openGettingStartedModal, closeGettingStartedModal
     ]);
 };
+
+export type ModalManager = ReturnType<typeof useModalManager>;

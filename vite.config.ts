@@ -24,15 +24,22 @@ async function readJsonBody(req: Connect.IncomingMessage): Promise<any> {
 }
 
 // Middleware to proxy Gemini API requests securely
-const geminiProxy = (apiKey: string): Connect.HandleFunction => {
-    const ai = new GoogleGenAI({ apiKey });
-
+const geminiProxy = (apiKey: string | undefined): Connect.HandleFunction => {
     return async (req: Connect.IncomingMessage, res: ServerResponse, next: Connect.NextFunction) => {
         if (req.method !== 'POST') {
             res.statusCode = 405;
             res.end('Method Not Allowed');
             return;
         }
+
+        if (!apiKey) {
+            res.statusCode = 500;
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ error: "Gemini API Key is not configured on the server." }));
+            return;
+        }
+
+        const ai = new GoogleGenAI({ apiKey });
 
         try {
             const body = await readJsonBody(req);
@@ -147,9 +154,7 @@ export default defineConfig(({ mode }) => {
             {
                 name: 'custom-middlewares',
                 configureServer(server: ViteDevServer) {
-                    if (apiKey) {
-                        server.middlewares.use('/api/gemini', geminiProxy(apiKey));
-                    }
+                    server.middlewares.use('/api/gemini', geminiProxy(apiKey));
                     server.middlewares.use('/api/proxy', externalApiProxy());
                 }
             }
@@ -164,7 +169,6 @@ export default defineConfig(({ mode }) => {
                 '/api': {
                     target: 'http://localhost:3000',
                     changeOrigin: true,
-                    rewrite: (path) => path.replace(/^\/api/, ''),
                 }
             }
         },
