@@ -174,7 +174,7 @@ export const HoverCardContent: FC<{
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.1, ease: "easeOut" }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
                     style={style}
                     className={cn("z-50 rounded-lg border border-border dark:border-popover bg-popover p-4 text-popover-foreground shadow-md outline-none", className)}
                 >

@@ -203,26 +203,46 @@ const DraggableHeader: FC<{
 };
 
 
-export const DataProcessor: FC<{ widget: WidgetState }> = React.memo(({ widget }) => {
-    const { 
-        saveWidget, 
-        crossFilter, 
-        setCrossFilter, 
-        toggleRowCollapse, 
-        collapseAllRows, 
-        expandAllRows,
-        globalFilters,
-        parameters,
-        blendedData,
-        themeConfig,
-        openContextMenu,
-        chartLibrary,
-        setWidgetPerformance,
-        refetchCounter,
-        activePage,
-        controlFilters,
-    } = useDashboard();
+// Define props for the inner component to decouple it from the context
+interface InnerDataProcessorProps {
+    widget: WidgetState;
+    saveWidget: any;
+    crossFilter: any;
+    setCrossFilter: any;
+    toggleRowCollapse: any;
+    collapseAllRows: any;
+    expandAllRows: any;
+    globalFilters: any;
+    parameters: any;
+    blendedData: any;
+    themeConfig: any;
+    openContextMenu: any;
+    chartLibrary: any;
+    setWidgetPerformance: any;
+    refetchCounter: any;
+    activePage: any;
+    controlFilters: any;
+}
 
+const InnerDataProcessor: FC<InnerDataProcessorProps> = React.memo(({ 
+    widget, 
+    saveWidget, 
+    crossFilter, 
+    setCrossFilter, 
+    toggleRowCollapse, 
+    collapseAllRows, 
+    expandAllRows,
+    globalFilters,
+    parameters,
+    blendedData,
+    themeConfig,
+    openContextMenu,
+    chartLibrary,
+    setWidgetPerformance,
+    refetchCounter,
+    activePage,
+    controlFilters,
+}) => {
     const [processedData, setProcessedData] = useState<ProcessedData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -232,7 +252,6 @@ export const DataProcessor: FC<{ widget: WidgetState }> = React.memo(({ widget }
     const collapsedRows = useMemo(() => activePage?.collapsedRows || [], [activePage]);
 
     // Create a hash of properties that should trigger a data refetch
-    // This prevents refetching when only layout properties (x, y, w, h) change
     const widgetDataHash = JSON.stringify({
         id: widget.id,
         chartType: widget.chartType,
@@ -485,7 +504,7 @@ export const DataProcessor: FC<{ widget: WidgetState }> = React.memo(({ widget }
     }, [widget, tableDataForWidget, saveWidget]);
 
 
-    const handleElementContextMenu = (event: MouseEvent, index?: number) => {
+    const handleElementContextMenu = (event: ReactMouseEvent, index?: number) => {
         event.preventDefault();
         if (index === undefined || !processedData || processedData.type !== 'chart') return;
         
@@ -765,3 +784,52 @@ export const DataProcessor: FC<{ widget: WidgetState }> = React.memo(({ widget }
         </div>
     );
 });
+
+export const DataProcessor: FC<{ widget: WidgetState }> = ({ widget }) => {
+    const dashboardContext = useDashboard();
+    
+    // Select specific values to minimize re-renders of the inner component
+    // If these values haven't changed, the props object passed to InnerDataProcessor 
+    // will satisfy referential equality (or shallow equality check of React.memo)
+    
+    // We memoize the prop object construction to ensure stability
+    const innerProps = useMemo(() => ({
+        widget,
+        saveWidget: dashboardContext.saveWidget,
+        crossFilter: dashboardContext.crossFilter,
+        setCrossFilter: dashboardContext.setCrossFilter,
+        toggleRowCollapse: dashboardContext.toggleRowCollapse,
+        collapseAllRows: dashboardContext.collapseAllRows,
+        expandAllRows: dashboardContext.expandAllRows,
+        globalFilters: dashboardContext.globalFilters,
+        parameters: dashboardContext.parameters,
+        blendedData: dashboardContext.blendedData,
+        themeConfig: dashboardContext.themeConfig,
+        openContextMenu: dashboardContext.openContextMenu,
+        chartLibrary: dashboardContext.chartLibrary,
+        setWidgetPerformance: dashboardContext.setWidgetPerformance,
+        refetchCounter: dashboardContext.refetchCounter,
+        activePage: dashboardContext.activePage,
+        controlFilters: dashboardContext.controlFilters,
+    }), [
+        widget,
+        dashboardContext.saveWidget,
+        dashboardContext.crossFilter,
+        dashboardContext.setCrossFilter,
+        dashboardContext.toggleRowCollapse,
+        dashboardContext.collapseAllRows,
+        dashboardContext.expandAllRows,
+        dashboardContext.globalFilters,
+        dashboardContext.parameters,
+        dashboardContext.blendedData,
+        dashboardContext.themeConfig,
+        dashboardContext.openContextMenu,
+        dashboardContext.chartLibrary,
+        dashboardContext.setWidgetPerformance,
+        dashboardContext.refetchCounter,
+        dashboardContext.activePage,
+        dashboardContext.controlFilters,
+    ]);
+
+    return <InnerDataProcessor {...innerProps} />;
+};

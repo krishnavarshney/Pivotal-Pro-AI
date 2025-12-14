@@ -27,7 +27,32 @@ const getDetailIcon = (heading: string): ReactNode => {
 
 export const AdvancedAnalysisModal: FC<{ isOpen: boolean; onClose: () => void; result: AdvancedAnalysisResult | null; title: string; }> = ({ isOpen, onClose, result, title }) => {
     const MotionDiv = motion.div as any;
-    if (!isOpen || !result) return null;
+    if (!isOpen) return null;
+
+    // Loading State
+    if (!result) {
+        return (
+            <Dialog open={isOpen} onOpenChange={onClose}>
+                <DialogOverlay />
+                <DialogContent className="max-w-lg min-h-[300px] flex flex-col items-center justify-center">
+                    <DialogHeader className="sr-only">
+                         <DialogTitle>{title || "Loading..."}</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="relative w-16 h-16">
+                            <div className="absolute inset-0 border-4 border-primary/20 rounded-full"></div>
+                            <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                            <Sparkle className="absolute inset-0 m-auto text-primary animate-pulse" size={24} />
+                        </div>
+                        <p className="text-lg font-medium text-foreground animate-pulse">{title || "Analyzing Data..."}</p>
+                        <p className="text-sm text-muted-foreground text-center px-8">
+                            Based on the dataset size, this might take a few seconds.
+                        </p>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        );
+    }
 
     const containerVariants = {
         hidden: { opacity: 0 },

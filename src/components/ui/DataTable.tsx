@@ -25,7 +25,7 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from "./Popover"
+} from "./DropdownMenu"
 import { inputClasses } from "./utils"
 import { cn } from './utils'
 import { Columns } from "lucide-react"

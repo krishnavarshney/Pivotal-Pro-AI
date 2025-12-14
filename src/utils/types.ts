@@ -823,6 +823,15 @@ export interface GettingStartedGuideItem {
 
 
 // FIX: Added the missing `DataContextProps` interface and updated `DashboardContextProps` to extend it, which resolves a circular dependency and type export error between the data and dashboard providers.
+export interface UploadProgress {
+    fileName: string;
+    progress: number; // 0-100
+    stage: 'uploading' | 'parsing' | 'processing' | 'complete' | 'error';
+    message: string;
+    fileSize?: number;
+    uploadedSize?: number;
+}
+
 export interface DataContextProps {
     dataSources: Map<string, DataSource>;
     relationships: Relationship[];
@@ -833,6 +842,7 @@ export interface DataContextProps {
     blendedFields: { dimensions: Field[]; measures: Field[] };
     addDataSourceFromFile: (file: File) => Promise<void>;
     loadSampleData: (sampleKey: 'sales' | 'iris' | 'both') => void;
+    runHealthCheck: () => void;
     removeDataSource: (id: string) => void;
     setRelationships: Dispatch<SetStateAction<Relationship[]>>;
     setDataModelerLayout: Dispatch<SetStateAction<DataModelerLayout>>;
@@ -844,6 +854,14 @@ export interface DataContextProps {
     resetAllTransformations: (sourceId: string) => void;
     addCalculatedField: (sourceId: string, fieldName: string, formula: string) => void;
     addParameter: (p: Omit<Parameter, 'id'>) => void;
+    updateParameter: (id: string, updates: Partial<Parameter>) => void;
+    removeParameter: (id: string) => void;
+    refreshApiDataSource: (source: DataSource) => Promise<void>;
+    createDataSourceFromConnection: (config: { connector: Connector; details: any; name: string }) => Promise<void>;
+    loadDataSources: (workspaceId: string) => Promise<void>;
+    isDataSourcesLoading: boolean;
+    uploadProgress: UploadProgress | null;
+    setUploadProgress: Dispatch<SetStateAction<UploadProgress | null>>;
     performanceTimings: Map<string, number>;
     aiConfig: AIConfig | null;
     aiChatHistory: AiChatMessage[];

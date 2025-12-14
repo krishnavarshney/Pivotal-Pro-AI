@@ -6,7 +6,7 @@ import { Database, Plus, CheckCircle, XCircle, AlertTriangle, RefreshCw, MoreVer
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
 import { cn, inputClasses } from '../components/ui/utils';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/Popover';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/DropdownMenu';
 import { DataSource } from '../utils/types';
 import { motion, AnimatePresence } from 'framer-motion';
 

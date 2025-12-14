@@ -3,7 +3,7 @@ import { Copy, FileText, MessageSquare, BookOpen, Trash2, X } from 'lucide-react
 import { motion } from 'framer-motion';
 import { useDashboard } from '../../contexts/DashboardProvider';
 import { Button } from '../ui/Button';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../ui/Popover';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '../ui/DropdownMenu';
 
 export const BulkActionsBar: FC = () => {
     const { 

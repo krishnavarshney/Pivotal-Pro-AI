@@ -347,7 +347,8 @@ const getSystemInstruction = (fields: Field[], dataSample?: object[]): string =>
 You have access to the following fields (use the simple names provided):
 ${fieldsString}${sampleString}
 
-Your entire response MUST be a single, valid JSON object that conforms to the provided schema. Do not include any other text, greetings, or markdown formatting like \`\`\`json.
+Your entire response MUST be a single, valid JSON object that conforms to the following schema:
+${JSON.stringify(aiChatResponseSchema, null, 2)}
 
 - If the user asks to create a chart, table, or visualization (e.g., "show me sales and profit by country and category"), populate the 'chartSuggestion' object. Choose the best chart type. Place dimensions like 'country' and 'category' into the 'rows' or 'columns' arrays. Place measures like 'sales' and 'profit' into the 'values' array. The 'responseText' should be a confirmation like "Certainly, here is the chart you requested."
 - If the user asks a general question (e.g., "what are the key trends?"), provide a concise, insightful answer in Markdown format in the 'responseText' field and leave 'chartSuggestion' as null.
@@ -490,7 +491,8 @@ export const getNlpFilter = async (config: AIConfig, query: string, fields: Fiel
 - For queries that ask to filter for multiple values for the same field (e.g., 'show furniture and office supplies'), use the 'IS_ONE_OF' condition. For single values, use 'EQUALS'.
 - For numeric queries like 'sales over 500', use the '>' condition.
 - If the query does not seem to be a filter request, return the 'NO_FILTER_DETECTED' type.
-- Your entire response MUST be a valid JSON object conforming to the provided schema. Do not include any other text or markdown.
+- Your entire response MUST be a valid JSON object conforming to the following schema:
+${JSON.stringify(nlpFilterSchema, null, 2)}
 
 Available Fields:
 ${fieldsString}`;
@@ -526,7 +528,8 @@ export const getAiChartSuggestion = async (
     - Assign the fields to the correct shelves (columns, rows, values), using their simple names.
     - For measure fields, choose the most logical default aggregation (e.g., SUM for 'Sales', AVERAGE for 'Discount').
     - Provide a concise and descriptive title for the chart.
-    - Your entire response MUST be a valid JSON object conforming to the provided schema. Do not include any other text or markdown.
+    - Your entire response MUST be a valid JSON object conforming to the following schema:
+    ${JSON.stringify(chartSuggestionSchema, null, 2)}
 
     All available fields in the dataset:
     ${allFields.map(f => `- "${f.simpleName}" (${f.type})`).join('\n')}
@@ -596,7 +599,7 @@ export const getAiForecast = async (
     historicalData: { label: string, value: number | null }[],
     periodsToForecast: number
 ): Promise<number[]> => {
-    const systemInstruction = `You are a time series forecasting expert. Predict future values based on historical data. The user will provide JSON data points. You MUST respond ONLY with a valid JSON array of numbers, representing the forecasted values in order. Do not include any other text or markdown.`;
+    const systemInstruction = `You are a time series forecasting expert. Predict future values based on historical data. The user will provide JSON data points. You MUST respond ONLY with a valid JSON array of numbers, representing the forecasted values in order. Do not include any other text or markdown. Example: [100, 105, 110]`;
     const cleanHistoricalData = historicalData.filter(d => d.value !== null && !isNaN(d.value));
 
     if (cleanHistoricalData.length < 3) return [];
@@ -712,7 +715,8 @@ export const getAiDashboardAnalysis = async (
 - Analyze the data across all charts to find connections, trends, and anomalies.
 - Do not just describe each chart individually. Create a cohesive narrative about what the data means as a whole.
 - The 'nextSteps' suggestions should be phrased as direct commands a user would give to generate a new chart, like 'Show me sales over time' or 'Compare profit by region'.
-- Your entire response MUST be a valid JSON object conforming to the provided schema. Do not include any other text or markdown.`;
+- Your entire response MUST be a valid JSON object conforming to the following schema:
+${JSON.stringify(dashboardAnalysisSchema, null, 2)}`;
 
     const prompt = `Here is the data for the widgets currently on the dashboard. Please provide a holistic analysis.\n\n${dashboardWidgetsSummary}`;
 
@@ -825,7 +829,8 @@ export const generateAiDashboard = async (
 - You must identify key metrics, propose 0-2 useful calculated fields, design 3-5 insightful visualizations, and create a 24-column grid layout for them.
 - Ensure the 'i' in the layout object corresponds to the widget's position in the widgets array (e.g., the first widget in the array should have 'i': 'widget-0', the second 'widget-1', etc.).
 - The layout should be logical and visually appealing. Avoid overlapping widgets.
-- Your entire response MUST be a valid JSON object conforming to the provided schema.
+- Your entire response MUST be a valid JSON object conforming to the following schema:
+${JSON.stringify(dashboardSuggestionSchema, null, 2)}
 - **CRITICAL**: The JSON object MUST have exactly two top-level keys: "page" and "calculatedFields". Even if there are no calculated fields, you MUST return "calculatedFields": [].`;
 
     const fieldsString = fields.map(f => `- "${f.name}" (${f.type})`).join('\n');
@@ -884,7 +889,8 @@ export const getAiAdvancedAnalysis = async (
 ): Promise<AdvancedAnalysisResult> => {
 
     let systemInstruction = `You are an expert data analyst. Your task is to perform an advanced analysis on a dataset from a business intelligence dashboard.
-    Your entire response MUST be a valid JSON object conforming to the provided schema. Do not include any other text or markdown.`;
+    Your entire response MUST be a valid JSON object conforming to the following schema:
+    ${JSON.stringify(advancedAnalysisSchema, null, 2)}`;
 
     let userPrompt = ``;
 
@@ -986,7 +992,8 @@ export const getAiWhatIfAnalysis = async (
     - Use the provided data to infer relationships between variables.
     - Estimate the new value of the target metric given the modifications.
     - Provide a confidence interval and a sensitivity analysis.
-    - Your entire response MUST be a valid JSON object conforming to the provided schema. Do not include any other text or markdown.`;
+    - Your entire response MUST be a valid JSON object conforming to the following schema:
+    ${JSON.stringify(whatIfAnalysisSchema, null, 2)}`;
 
     let dataSummary = `Widget Title: "${widget.title}"\nData:\n`;
 

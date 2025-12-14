@@ -3,14 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, FileSpreadsheet, Database, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { cn } from './utils';
 
-export interface UploadProgress {
-    fileName: string;
-    progress: number; // 0-100
-    stage: 'uploading' | 'parsing' | 'processing' | 'complete' | 'error';
-    message: string;
-    fileSize?: number;
-    uploadedSize?: number;
-}
+import { UploadProgress } from '../utils/types';
 
 const stageConfig = {
     uploading: {

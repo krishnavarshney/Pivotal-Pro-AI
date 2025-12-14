@@ -6,7 +6,7 @@ import * as adminService from '../../services/adminService';
 import { notificationService } from '../../services/notificationService';
 import { ColumnDef } from '@tanstack/react-table';
 import { User as UserIcon, MoreVertical, Ban, Shield, Trash2, Search } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/Popover';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/DropdownMenu';
 import { User } from '../../utils/types';
 import { Badge } from '../ui/Badge';
 import { Card } from '../ui/Card';

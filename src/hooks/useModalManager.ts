@@ -191,7 +191,7 @@ export const useModalManager = () => {
         openMergeColumnsModal: (onConfirm: (payload: any) => void, availableFields: Field[]) => setMergeColumnsModalState({ isOpen: true, onConfirm, availableFields }),
         closeMergeColumnsModal: () => setMergeColumnsModalState({ isOpen: false, onConfirm: () => { }, availableFields: [] }),
 
-        openAdvancedAnalysisModal: (result: AdvancedAnalysisResult, title: string) => setAdvancedAnalysisModalState({ isOpen: true, result, title }),
+        openAdvancedAnalysisModal: (result: AdvancedAnalysisResult | null, title: string) => setAdvancedAnalysisModalState({ isOpen: true, result, title }),
         closeAdvancedAnalysisModal: () => setAdvancedAnalysisModalState({ isOpen: false, result: null, title: '' }),
 
         setActiveCommentThread,

@@ -112,7 +112,7 @@ export const AccordionContent: FC<{ children: ReactNode; className?: string }> =
                         open: { opacity: 1, height: 'auto' },
                         collapsed: { opacity: 0, height: 0 },
                     }}
-                    transition={{ duration: 0.3, ease: [0.04, 0.62, 0.23, 0.98] }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
                     className="overflow-hidden text-sm transition-all"
                 >
                     <div className={cn("pb-4 pt-0", className)}>{children}</div>

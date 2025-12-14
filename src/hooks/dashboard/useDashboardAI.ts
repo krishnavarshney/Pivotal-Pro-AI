@@ -4,7 +4,7 @@ import {
     DashboardPage, WidgetState, Pill, CrossFilterState, ControlFilterState,
     AIConfig, AiChatMessage, ChatContext, Story, User, Field, Insight, InsightStatus, InsightType,
     AdvancedAnalysisResult, StoryTone, AiWidgetSuggestion, AiDashboardSuggestion, PredictiveModelResult,
-    AggregationType, FieldType, FilterCondition, StoryPage
+    AggregationType, FieldType, FilterCondition, StoryPage, Workspace
 } from '../../utils/types';
 import { processWidgetData } from '../../utils/dataProcessing/widgetProcessor';
 import * as aiService from '../../services/aiService';
@@ -238,19 +238,22 @@ export const useDashboardAI = (
         if (!aiConfig || !activePage) return;
         const widget = activePage.widgets.find(w => w.id === widgetId);
         if (!widget) return;
-        setLoadingState({ isLoading: true, message: `Running ${analysisType.replace('_', ' ')}...` });
+        if (!widget) return;
+        // Open modal in loading state immediately
+        modalManager.openAdvancedAnalysisModal(null, `AI Analysis: ${widget.title}`);
+
         try {
             const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, dataContext.parameters);
             if (data.type === 'chart' || data.type === 'kpi' || data.type === 'table') {
                 const result = await aiService.getAiAdvancedAnalysis(aiConfig, analysisType, widget, data);
                 modalManager.openAdvancedAnalysisModal(result, `AI Analysis: ${widget.title}`);
             } else {
+                modalManager.closeAdvancedAnalysisModal();
                 notificationService.info(`Analysis for widget type '${data.type}' is not supported.`);
             }
         } catch (e) {
+            modalManager.closeAdvancedAnalysisModal();
             notificationService.error(`Advanced analysis failed: ${(e as Error).message}`);
-        } finally {
-            setLoadingState({ isLoading: false, message: '' });
         }
     };
 
@@ -258,7 +261,10 @@ export const useDashboardAI = (
         if (!aiConfig || !activePage) return;
         const widget = activePage.widgets.find(w => w.id === widgetId);
         if (!widget) return;
-        setLoadingState({ isLoading: true, message: 'Running What-If simulation...' });
+        if (!widget) return;
+        // Open modal in loading state immediately
+        modalManager.openAdvancedAnalysisModal(null, `What-If Analysis: ${widget.title}`);
+
         try {
             const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, dataContext.parameters);
             if (data.type === 'chart' || data.type === 'table') {
@@ -271,13 +277,13 @@ export const useDashboardAI = (
                 };
                 modalManager.openAdvancedAnalysisModal(result, `What-If Analysis: ${widget.title}`);
             } else {
+                modalManager.closeAdvancedAnalysisModal();
                 notificationService.info(`What-If analysis requires chart or table data.`);
                 return;
             }
         } catch (e) {
+            modalManager.closeAdvancedAnalysisModal();
             notificationService.error(`What-If analysis failed: ${(e as Error).message}`);
-        } finally {
-            setLoadingState({ isLoading: false, message: '' });
         }
     };
 
@@ -303,14 +309,40 @@ export const useDashboardAI = (
     };
 
     const runWidgetAnalysis = async (widget: WidgetState, tone: StoryTone = 'Executive') => {
-        const analysisText = await getWidgetAnalysisText(widget, tone);
-        if (analysisText) {
+        // Open modal in loading state immediately
+        modalManager.openAdvancedAnalysisModal(null, `AI Analysis: ${widget.title}`);
+
+        // Need to bypass setGlobalLoading in getWidgetAnalysisText helper or inline it here. 
+        // Logic: getWidgetAnalysisText sets loading state. We can inline the logic or pass a flag.
+        // For simplicity, I'll inline the relevant parts or reuse the helper but ignore its loading state if possible?
+        // getWidgetAnalysisText calls setLoadingState. This is reused by "Discuss" feature maybe?
+        // Actually, getWidgetAnalysisText is used here. Let's make getWidgetAnalysisText NOT set loading state if we want scoped loading.
+        // But getWidgetAnalysisText is also exposed.
+        // I will refactor getWidgetAnalysisText to accept an options object to silence loading, or just do the work here safely.
+
+        try {
+            // We can call the service directly
+            if (!aiConfig) { notificationService.error("AI not configured"); return; }
+
+            const data = processWidgetData(blendedData, widget, globalFilters, crossFilter, dataContext.parameters);
+            if (data.type === 'loading' || data.type === 'nodata' || data.type === 'sankey' || data.type === 'heatmap') {
+                modalManager.closeAdvancedAnalysisModal();
+                notificationService.info(`AI analysis for this widget type is not yet supported.`);
+                return;
+            }
+
+            const analysisText = await aiService.getAiWidgetAnalysis(aiConfig, widget.title, widget.chartType, data as any, tone);
+
             const result: AdvancedAnalysisResult = {
                 title: `AI Analysis: ${widget.title}`,
                 summary: analysisText.split('\n\n')[0] || 'Analysis complete.',
                 details: [{ heading: 'Key Observations', content: analysisText }]
             };
             modalManager.openAdvancedAnalysisModal(result, `AI Analysis: ${widget.title}`);
+
+        } catch (e) {
+            modalManager.closeAdvancedAnalysisModal();
+            notificationService.error(`Analysis failed: ${(e as Error).message}`);
         }
     };
 

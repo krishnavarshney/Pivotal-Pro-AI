@@ -8,7 +8,7 @@ import { motion } from 'framer-motion';
 import { DashboardPage, WidgetState, Workspace, WidgetLayout } from '../utils/types';
 import { Responsive, WidthProvider } from 'react-grid-layout';
 import { Button } from '../components/ui/Button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/Popover';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../components/ui/DropdownMenu';
 
 // FIX: Add aliasing for motion component to fix TypeScript errors.
 const MotionDiv = motion.div as any;

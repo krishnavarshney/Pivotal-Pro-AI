@@ -76,7 +76,7 @@ export const SheetContent: FC<{ children: ReactNode; className?: string; side?: 
                 initial={variants.initial}
                 animate={variants.animate}
                 exit={variants.exit}
-                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 className={cn(
                     "fixed z-50 flex h-full flex-col glass-panel text-card-foreground shadow-lg",
                     variants.className,

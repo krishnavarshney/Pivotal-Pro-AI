@@ -1,10 +1,11 @@
 import React from 'react';
 import { cn } from './utils';
+import { motion, HTMLMotionProps } from 'framer-motion';
 
 const buttonVariants = {
     variant: {
-      default: "bg-primary text-primary-foreground hover:bg-primary/90",
-      destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+      default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md",
+      destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-md",
       outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
       secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
       ghost: "hover:bg-accent hover:text-accent-foreground",
@@ -18,69 +19,34 @@ const buttonVariants = {
     },
 };
 
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps extends Omit<HTMLMotionProps<"button">, "children" | "className" | "style"> {
     variant?: keyof typeof buttonVariants.variant;
     size?: keyof typeof buttonVariants.size;
+    children?: React.ReactNode;
+    className?: string; // Add className explicitly to interface
 }
 
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-    ({ className, variant = 'default', size = 'default', ...props }, ref) => {
-        const { onClick, children, ...rest } = props;
-        const internalRef = React.useRef<HTMLButtonElement>(null);
-        React.useImperativeHandle(ref, () => internalRef.current!, []);
-
-        const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-            if (variant !== 'link') {
-                const button = e.currentTarget;
-                const rect = button.getBoundingClientRect();
-
-                const circle = document.createElement("span");
-                const diameter = Math.max(button.clientWidth, button.clientHeight);
-                const radius = diameter / 2;
-
-                circle.style.width = circle.style.height = `${diameter}px`;
-                circle.style.left = `${e.clientX - rect.left - radius}px`;
-                circle.style.top = `${e.clientY - rect.top - radius}px`;
-                circle.classList.add("ripple");
-                
-                if (variant === 'default') {
-                    circle.style.backgroundColor = 'var(--primary-foreground)';
-                } else if (variant === 'destructive') {
-                    circle.style.backgroundColor = 'var(--destructive-foreground)';
-                } else {
-                    circle.style.backgroundColor = 'var(--primary)';
-                }
-
-                const existingRipple = button.querySelector('.ripple');
-                if (existingRipple) {
-                    existingRipple.remove();
-                }
-
-                button.appendChild(circle);
-
-                setTimeout(() => {
-                    if (circle.parentElement) {
-                       circle.remove();
-                    }
-                }, 600);
-            }
-            onClick?.(e);
-        };
-
-        const baseClasses = 'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 gap-2 flex-shrink-0';
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+    ({ className, variant = 'default', size = 'default', children, ...props }, ref) => {
+        
+        const baseClasses = 'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 gap-2 flex-shrink-0';
         const variantClasses = buttonVariants.variant[variant];
         const sizeClasses = buttonVariants.size[size];
 
         return (
-            <button
+            <motion.button
+                ref={ref}
                 className={cn(baseClasses, variantClasses, sizeClasses, className)}
-                ref={internalRef}
-                onClick={handleClick}
-                {...rest}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.96 }}
+                transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                {...props}
             >
                 {children}
-            </button>
+            </motion.button>
         );
     }
 );
 Button.displayName = "Button";
+
+export { Button, buttonVariants };

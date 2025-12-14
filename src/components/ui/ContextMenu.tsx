@@ -39,7 +39,7 @@ export const ContextMenu: FC<{ x: number, y: number, items: ContextMenuItem[], o
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
             style={{ ...style, position: 'fixed', zIndex: 1000 }}
             className="w-56 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border p-1"
         >
