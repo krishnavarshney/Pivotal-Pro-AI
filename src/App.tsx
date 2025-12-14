@@ -33,7 +33,18 @@ const UIManagers: FC = () => {
 }
 
 const App: FC = () => {
-    const { openCommandPalette, currentView, dashboardMode, themeConfig, dataSources, onboardingState, startOnboardingTour, openGettingStartedModal } = useDashboard();
+    const { 
+        openCommandPalette, 
+        currentView, 
+        dashboardMode, 
+        themeConfig, 
+        dataSources, 
+        onboardingState, 
+        startOnboardingTour, 
+        openGettingStartedModal,
+        openWidgetEditorForNewWidget,
+        setView
+    } = useDashboard();
     const { isAuthenticated, user, isLoading } = useAuth();
     const prevDataSourceCount = React.useRef(dataSources.size);
 
@@ -46,9 +57,27 @@ const App: FC = () => {
 
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+            const target = e.target as HTMLElement;
+            const isInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable;
+
+            if (isInput) return;
+
+            // Command Palette: / or Ctrl+K
+            if (e.key === '/' || ((e.metaKey || e.ctrlKey) && e.key === 'k')) {
                 e.preventDefault();
                 openCommandPalette();
+            }
+
+            // Create Widget: Shift + N
+            if (e.shiftKey && (e.key === 'N' || e.key === 'n')) {
+                e.preventDefault();
+                openWidgetEditorForNewWidget();
+            }
+
+            // Settings: Shift + S
+            if (e.shiftKey && (e.key === 'S' || e.key === 's')) {
+                e.preventDefault();
+                setView('settings');
             }
         };
 
@@ -56,7 +85,7 @@ const App: FC = () => {
         return () => {
             window.removeEventListener('keydown', handler);
         };
-    }, [openCommandPalette]);
+    }, [openCommandPalette, openWidgetEditorForNewWidget, setView]);
 
     useEffect(() => {
         const body = document.body;

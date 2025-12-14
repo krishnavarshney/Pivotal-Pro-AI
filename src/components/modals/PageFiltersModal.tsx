@@ -102,6 +102,16 @@ export const PageFiltersModal: React.FC<{ isOpen: boolean; onClose: () => void; 
     const { globalFilters, setGlobalFilters, blendedFields } = useDashboard();
     const [localFilters, setLocalFilters] = useState<Pill[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [isReady, setIsReady] = useState(false);
+
+    useEffect(() => {
+        if (isOpen) {
+            const timer = setTimeout(() => setIsReady(true), 100);
+            return () => clearTimeout(timer);
+        } else {
+            setIsReady(false);
+        }
+    }, [isOpen]);
 
     useEffect(() => {
         if(isOpen) {
@@ -153,45 +163,65 @@ export const PageFiltersModal: React.FC<{ isOpen: boolean; onClose: () => void; 
                     <DialogTitle className="flex items-center gap-2"><Funnel size={20} /> Page Filters</DialogTitle>
                 </DialogHeader>
 
-                <main className="flex-grow flex flex-col md:flex-row gap-6 p-6 min-h-0 overflow-y-auto">
-                    {/* Left Panel: Available Fields */}
-                    <div className="flex flex-col border border-border bg-secondary/30 rounded-xl p-3 md:w-1/2">
-                        <h3 className="font-semibold text-foreground px-1 pb-2 flex-shrink-0">Available Fields</h3>
-                        <div className="relative mb-2 flex-shrink-0">
-                            <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                            <input type="text" placeholder="Search fields..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={cn(inputClasses, 'pl-8 h-9')} />
+                {!isReady ? (
+                    <main className="flex-grow flex flex-col md:flex-row gap-6 p-6 min-h-0 overflow-hidden">
+                        <div className="flex flex-col border border-border bg-secondary/30 rounded-xl p-3 md:w-1/2 space-y-4">
+                            <div className="h-6 bg-secondary/50 rounded w-1/3 animate-pulse"></div>
+                            <div className="h-9 bg-secondary/50 rounded w-full animate-pulse"></div>
+                            <div className="space-y-2">
+                                <div className="h-8 bg-secondary/50 rounded w-full animate-pulse"></div>
+                                <div className="h-8 bg-secondary/50 rounded w-full animate-pulse"></div>
+                                <div className="h-8 bg-secondary/50 rounded w-full animate-pulse"></div>
+                            </div>
                         </div>
-                        <div className="space-y-1 flex-grow overflow-y-auto">
-                            {availableFields.map(field => (
-                                <button key={field.name} onClick={() => handleAddField(field)} className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-accent text-sm text-left">
-                                    {field.type === FieldType.MEASURE ? <Hash className="text-green-500" /> : field.type === FieldType.DATETIME ? <Clock className="text-purple-500"/> : <TextT className="text-blue-500" />}
-                                    <span className="font-medium">{field.simpleName}</span>
-                                </button>
-                            ))}
+                        <div className="flex flex-col border border-border bg-secondary/30 rounded-xl p-3 md:w-1/2 space-y-4">
+                            <div className="h-6 bg-secondary/50 rounded w-1/3 animate-pulse"></div>
+                            <div className="flex-grow flex items-center justify-center">
+                                <div className="w-8 h-8 rounded-full border-4 border-primary/30 border-t-primary animate-spin"></div>
+                            </div>
                         </div>
-                    </div>
-                    
-                    {/* Right Panel: Active Filters */}
-                    <div className="flex flex-col border border-border bg-secondary/30 rounded-xl p-3 md:w-1/2">
-                         <h3 className="font-semibold text-foreground px-1 pb-2 flex-shrink-0">Active Filters ({localFilters.length})</h3>
-                        <div className="space-y-2 flex-grow overflow-y-auto">
-                            {localFilters.length > 0 ? (
-                                localFilters.map(pill => (
-                                    <FilterCard 
-                                        key={pill.id} 
-                                        pill={pill} 
-                                        onChange={(config) => handleUpdateFilter(pill.id, config)}
-                                        onRemove={() => handleRemoveFilter(pill.id)}
-                                    />
-                                ))
-                            ) : (
-                                <div className="flex items-center justify-center h-full text-muted-foreground text-sm p-4">
-                                    <p>Click a field on the left to add a filter.</p>
-                                </div>
-                            )}
+                    </main>
+                ) : (
+                    <main className="flex-grow flex flex-col md:flex-row gap-6 p-6 min-h-0 overflow-y-auto">
+                        {/* Left Panel: Available Fields */}
+                        <div className="flex flex-col border border-border bg-secondary/30 rounded-xl p-3 md:w-1/2">
+                            <h3 className="font-semibold text-foreground px-1 pb-2 flex-shrink-0">Available Fields</h3>
+                            <div className="relative mb-2 flex-shrink-0">
+                                <MagnifyingGlass size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                <input type="text" placeholder="Search fields..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={cn(inputClasses, 'pl-8 h-9')} />
+                            </div>
+                            <div className="space-y-1 flex-grow overflow-y-auto">
+                                {availableFields.map(field => (
+                                    <button key={field.name} onClick={() => handleAddField(field)} className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-accent text-sm text-left">
+                                        {field.type === FieldType.MEASURE ? <Hash className="text-green-500" /> : field.type === FieldType.DATETIME ? <Clock className="text-purple-500"/> : <TextT className="text-blue-500" />}
+                                        <span className="font-medium">{field.simpleName}</span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    </div>
-                </main>
+                        
+                        {/* Right Panel: Active Filters */}
+                        <div className="flex flex-col border border-border bg-secondary/30 rounded-xl p-3 md:w-1/2">
+                             <h3 className="font-semibold text-foreground px-1 pb-2 flex-shrink-0">Active Filters ({localFilters.length})</h3>
+                            <div className="space-y-2 flex-grow overflow-y-auto">
+                                {localFilters.length > 0 ? (
+                                    localFilters.map(pill => (
+                                        <FilterCard 
+                                            key={pill.id} 
+                                            pill={pill} 
+                                            onChange={(config) => handleUpdateFilter(pill.id, config)}
+                                            onRemove={() => handleRemoveFilter(pill.id)}
+                                        />
+                                    ))
+                                ) : (
+                                    <div className="flex items-center justify-center h-full text-muted-foreground text-sm p-4">
+                                        <p>Click a field on the left to add a filter.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </main>
+                )}
 
                 <DialogFooter>
                     <Button variant="outline" onClick={onClose}>Cancel</Button>

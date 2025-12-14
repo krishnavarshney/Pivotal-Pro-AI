@@ -284,11 +284,11 @@ export const InsightHubView: FC = () => {
                 </Button>
             </ViewHeader>
             
-            <div className="flex-grow flex min-h-0">
-                <aside className="w-72 flex-shrink-0 bg-card/50 border-r border-border p-6 flex flex-col gap-8 backdrop-blur-xl">
+            <div className="flex-grow flex flex-col md:flex-row min-h-0">
+                <aside className="w-full md:w-72 flex-shrink-0 bg-card/50 border-b md:border-b-0 md:border-r border-border p-4 md:p-6 flex flex-col gap-4 md:gap-8 backdrop-blur-xl">
                     <div>
-                        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4 px-1">Filter & Search</h3>
-                        <div className="relative mb-6">
+                        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4 px-1 hidden md:block">Filter & Search</h3>
+                        <div className="relative mb-4 md:mb-6">
                             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"/>
                             <input 
                                 type="text"
@@ -299,14 +299,14 @@ export const InsightHubView: FC = () => {
                             />
                         </div>
                         
-                        <nav className="space-y-2">
+                        <nav className="flex md:flex-col gap-2 overflow-x-auto pb-2 md:pb-0 no-scrollbar">
                             <NavButton tabId="all" label="All Insights" count={counts.all} activeTab={activeTab} setActiveTab={setActiveTab} />
                             <NavButton tabId="new" label="New Discoveries" count={counts.new} activeTab={activeTab} setActiveTab={setActiveTab} />
                             <NavButton tabId="saved" label="Saved for Later" count={counts.saved} activeTab={activeTab} setActiveTab={setActiveTab} />
                         </nav>
                     </div>
 
-                    <div className="mt-auto bg-primary/5 p-4 rounded-xl border border-primary/10">
+                    <div className="mt-auto bg-primary/5 p-4 rounded-xl border border-primary/10 hidden md:block">
                         <div className="flex items-center gap-2 mb-2 text-primary font-semibold">
                             <Zap size={16} /> Pro Tip
                         </div>
@@ -316,7 +316,7 @@ export const InsightHubView: FC = () => {
                     </div>
                 </aside>
                 
-                <main className="flex-grow p-8 overflow-y-auto bg-secondary/20">
+                <main className="flex-grow p-4 md:p-8 overflow-y-auto bg-secondary/20">
                     <div className="max-w-7xl mx-auto">
                         <AnimatePresence mode="wait">
                             {filteredInsights.length > 0 ? (

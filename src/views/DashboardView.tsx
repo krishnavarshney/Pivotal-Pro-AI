@@ -7,13 +7,14 @@ import { WidgetLayout } from '../utils/types';
 import { cn } from '../components/ui/utils';
 import { GettingStartedView } from './GettingStartedView';
 import { dashboardApiService } from '../services/dashboardApiService';
-import { CommentModeBanner } from '../components/dashboard/CommentModeBanner';
 import { DashboardHeader } from '../components/dashboard/DashboardHeader';
 import { GlobalFilterShelf } from '../components/dashboard/GlobalFilterShelf';
 import { Widget } from '../components/dashboard/Widget';
 import { FloatingActionButton } from '../components/dashboard/FloatingActionButton';
 import { BulkActionsBar } from '../components/dashboard/BulkActionsBar';
 import { Checkbox } from '../components/ui/Checkbox';
+import { HelpOverlay } from '../components/help/HelpOverlay';
+import { CommentOverlay } from '../components/comments/CommentOverlay';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
 
@@ -72,14 +73,16 @@ export const DashboardView: React.FC = () => {
 
     return (
         <div className="h-full w-full flex flex-col bg-transparent p-4 gap-4 relative">
-             <AnimatePresence>
-                {dashboardMode === 'comment' && <CommentModeBanner />}
-            </AnimatePresence>
+            
+            {/* New Overlays */}
+            <HelpOverlay />
+            <CommentOverlay />
+
             <div className="flex-grow flex flex-col gap-4 min-w-0 min-h-0">
                 <DashboardHeader />
                 <GlobalFilterShelf />
                 <div id="dashboard-grid" className={cn(
-                    "flex-grow overflow-auto rounded-xl",
+                    "flex-grow overflow-auto rounded-xl relative", // Added relative for overlay positioning
                     dashboardMode === 'comment' && 'cursor-crosshair',
                     dashboardMode === 'edit' && "bg-grid border-2 border-dashed border-border/50 p-2"
                 )}>

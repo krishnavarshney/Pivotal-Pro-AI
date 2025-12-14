@@ -1,27 +1,17 @@
 import React, { useMemo, useState, useEffect, useRef, useCallback, useLayoutEffect, CSSProperties, MouseEvent as ReactMouseEvent, Fragment, FC } from 'react';
 import _ from 'lodash';
 import { useDashboard } from '../../contexts/DashboardProvider';
-import { WidgetState, ProcessedData, TableRow, ChartType, Pill, AggregationType, FilterCondition, ContextMenuItem, SortConfig, DND_ITEM_TYPE, HeaderCell, FieldType } from '../../utils/types';
+import { WidgetState, ProcessedData, TableRow, ChartType, Pill, AggregationType, FilterCondition, ContextMenuItem, SortConfig, DND_ITEM_TYPE, HeaderCell, ChartLibrary } from '../../utils/types';
 import { formatValue } from '../../utils/dataProcessing/formatting';
 import * as mockApiService from '../../services/mockApiService';
-import { Home, ZoomIn, ZoomOut, Info, Check, ChevronRight, ArrowUp, ArrowDown, ChevronDown, Share2, Expand, GripVertical } from 'lucide-react';
+import { Home, ZoomIn, ZoomOut, Check, ChevronRight, ArrowUp, ArrowDown, ChevronDown, GripVertical } from 'lucide-react';
 import { Table, TableHeader, TableBody, TableRow as UITableRow, TableHead, TableCell, TableFooter } from '../ui/Table';
-import { Button } from '../ui/Button';
 import { WidgetSkeleton } from '../ui/WidgetSkeleton';
 import { RechartsComponent } from '../charts/RechartsComponent';
 import { ApexChartsComponent } from '../charts/ApexChartsComponent';
 import { EChartsComponent } from '../charts/EChartsComponent';
-// FIX: Import 'cn' and 'Checkbox' from their specific files to avoid barrel file issues.
 import { cn } from '../ui/utils';
-import { Checkbox } from '../ui/Checkbox';
-import { motion, AnimatePresence } from 'framer-motion';
 import { useDrag, useDrop } from 'react-dnd';
-import { Popover } from '../ui/Popover';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/Select';
-
-
-// FIX: Add aliasing for motion component to fix TypeScript errors.
-const MotionDiv = motion.div;
 
 const HeatmapComponent: FC<{ data: ProcessedData, theme: 'light' | 'dark' }> = ({ data, theme }) => {
     if (data.type !== 'heatmap') return null;
@@ -213,7 +203,7 @@ const DraggableHeader: FC<{
 };
 
 
-export const DataProcessor: FC<{ widget: WidgetState }> = ({ widget }) => {
+export const DataProcessor: FC<{ widget: WidgetState }> = React.memo(({ widget }) => {
     const { 
         saveWidget, 
         crossFilter, 
@@ -583,7 +573,7 @@ export const DataProcessor: FC<{ widget: WidgetState }> = ({ widget }) => {
                                             const colIndexInDisplayOrder = displayedColumnOrder.indexOf(key);
                                             const isDimension = colIndexInDisplayOrder !== -1 && colIndexInDisplayOrder < numStickyColumns;
                                             
-                                            const themeClassMap = {
+                                            const themeClassMap: Record<string, string> = {
                                                 default: 'bg-card font-semibold border-b-2 border-border',
                                                 minimal: 'bg-card font-semibold border-b border-border',
                                                 modern: 'bg-background font-semibold border-b border-primary',
@@ -741,7 +731,7 @@ export const DataProcessor: FC<{ widget: WidgetState }> = ({ widget }) => {
                 'recharts': RechartsComponent,
                 'apexcharts': ApexChartsComponent,
                 'echarts': EChartsComponent,
-            }[chartLibrary] || RechartsComponent;
+            }[chartLibrary as ChartLibrary] || RechartsComponent;
             
             if (chartLibrary !== 'echarts' && processedData.type !== 'chart') {
                 return <div className="flex items-center justify-center h-full text-muted-foreground p-4">This chart type is only supported by the ECharts library.</div>;
@@ -750,7 +740,7 @@ export const DataProcessor: FC<{ widget: WidgetState }> = ({ widget }) => {
             return <ChartComponent 
                 widget={widget} 
                 data={processedData as any} 
-                onElementClick={(idx) => handleElementClick(idx, undefined)}
+                onElementClick={(idx: number) => handleElementClick(idx, undefined)}
                 onElementContextMenu={handleElementContextMenu}
             />;
         }
@@ -774,4 +764,4 @@ export const DataProcessor: FC<{ widget: WidgetState }> = ({ widget }) => {
             </div>
         </div>
     );
-};
+});

@@ -38,6 +38,7 @@ interface DataTableProps<TData, TValue> {
   filterColumnPlaceholder?: string
   columnVisibility?: VisibilityState
   onColumnVisibilityChange?: (visibility: VisibilityState) => void
+  loading?: boolean
 }
 
 export function DataTable<TData, TValue>({
@@ -47,6 +48,7 @@ export function DataTable<TData, TValue>({
   filterColumnPlaceholder,
   columnVisibility: controlledColumnVisibility,
   onColumnVisibilityChange,
+  loading = false,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -138,7 +140,16 @@ export function DataTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
+            {loading ? (
+               <TableRow>
+                <TableCell colSpan={columns.length} className="h-24 text-center">
+                  <div className="flex items-center justify-center gap-2">
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                      Loading...
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}

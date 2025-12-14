@@ -9,8 +9,10 @@ import _ from 'lodash';
 
 // --- Client-side Proxy Functions ---
 
+// --- Client-side Proxy Functions ---
+
 async function proxyGenerateContent(body: any): Promise<{ text: string }> {
-    const response = await fetch('/api/gemini/generateContent', {
+    const response = await fetch('/api/ai/gemini/generateContent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -23,7 +25,7 @@ async function proxyGenerateContent(body: any): Promise<{ text: string }> {
 }
 
 async function* proxyGenerateContentStream(body: any): AsyncGenerator<{ text: string }> {
-    const response = await fetch('/api/gemini/generateContentStream', {
+    const response = await fetch('/api/ai/gemini/generateContentStream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -58,11 +60,9 @@ async function* proxyGenerateContentStream(body: any): AsyncGenerator<{ text: st
     }
 }
 
-async function* streamOllama(endpoint: string, body: any): AsyncGenerator<string> {
-    const isLocalhost = endpoint.includes('//localhost:') || endpoint.includes('//127.0.0.1:');
-    const fetchEndpoint = isLocalhost ? '/ollama-api' : endpoint;
-
-    const response = await fetch(`${fetchEndpoint}/api/chat`, {
+async function* streamOllama(_endpoint: string, body: any): AsyncGenerator<string> {
+    // We ignore the endpoint passed (legacy) and use the backend route which resolves URL from DB
+    const response = await fetch(`/api/ai/ollama/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...body, stream: true })
@@ -80,8 +80,6 @@ async function* streamOllama(endpoint: string, body: any): AsyncGenerator<string
         if (done) break;
 
         const chunk = decoder.decode(value, { stream: true });
-        // Ollama sends multiple JSON objects in one chunk sometimes, or partials
-        // But typically it's NDJSON
         const lines = chunk.split('\n').filter(line => line.trim() !== '');
         for (const line of lines) {
             try {
@@ -91,8 +89,7 @@ async function* streamOllama(endpoint: string, body: any): AsyncGenerator<string
                 }
                 if (json.done) return;
             } catch (e) {
-                // partial JSON, ignore or buffer (simple implementation ignores for now, 
-                // but for robustness we might need buffering like proxyGenerateContentStream)
+                // partial
             }
         }
     }

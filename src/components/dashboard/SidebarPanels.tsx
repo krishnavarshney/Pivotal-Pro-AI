@@ -9,6 +9,7 @@ import { inputClasses, cn } from '../ui/utils';
 import { Popover } from '../ui/Popover';
 import { useSidebar } from '../ui/sidebar';
 import { motion, AnimatePresence } from 'framer-motion';
+import { InlineEdit } from '../ui/InlineEdit';
 
 export const ParametersPanel: FC = () => {
     const { parameters, updateParameter, removeParameter, openParameterModal } = useDashboard();
@@ -52,31 +53,50 @@ export const ParametersPanel: FC = () => {
 }
 
 export const PageMenuItem: FC<{ page: DashboardPage; onNavigate?: () => void }> = ({ page, onNavigate }) => {
-    const { activePageId, setActivePageId, openInputModal, removePage, openConfirmationModal, updatePage, renamePage } = useDashboard();
+    const { activePageId, setActivePageId, removePage, openConfirmationModal, renamePage } = useDashboard();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isEditing, setIsEditing] = useState(false);
     const { isCollapsed } = useSidebar();
     const isActive = page.id === activePageId;
     const MotionDiv = motion.div as any;
 
     const handleSelectPage = () => {
+        if (isEditing) return;
         setActivePageId(page.id);
         onNavigate?.();
     };
 
     const handleRename = () => {
-        openInputModal({
-            title: "Rename Dashboard Page",
-            inputLabel: "Page Name",
-            initialValue: page.name,
-            onConfirm: (newName) => {
-                renamePage(page.id, newName);
-            }
-        });
+        setIsEditing(true);
+        setIsMenuOpen(false);
     };
 
     const handleRemove = () => {
         openConfirmationModal({ title:"Remove Page?", message:"Are you sure you want to remove this dashboard page?", onConfirm:() => removePage(page.id) });
     };
+
+    if (isEditing && !isCollapsed) {
+        return (
+            <div className={cn(
+                "w-full flex items-center gap-3 px-3 py-1.5 rounded-md text-sm font-medium transition-colors relative",
+                isActive ? "bg-accent" : "bg-transparent"
+            )}>
+                 <span className="inline-block w-5 h-5 flex-shrink-0 text-muted-foreground">
+                    <FileText size={16} />
+                </span>
+                <InlineEdit
+                    value={page.name}
+                    onSave={(newName) => {
+                        renamePage(page.id, newName);
+                        setIsEditing(false);
+                    }}
+                    onCancel={() => setIsEditing(false)}
+                    className="flex-grow"
+                    inputClassName="bg-background border-primary h-6"
+                />
+            </div>
+        );
+    }
 
     return (
         <div className="group relative">

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, FC, MouseEvent } from 'react';
 import { useDashboard } from '../contexts/DashboardProvider';
-import { Field, FieldType, Pill } from '../utils/types';
+import { Field, FieldType, Pill, ChartType } from '../utils/types';
 import { Search, Filter, Type, Hash, X, Check, Database, List, Clock, Info, Columns, ChevronDown, BarChart2 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { inputClasses, cn } from '../components/ui/utils';
@@ -18,6 +18,7 @@ import { ColumnDef, VisibilityState } from '@tanstack/react-table';
 import { DataTableColumnHeader } from '../components/ui/DataTableColumnHeader';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/Select';
 import { Badge } from '../components/ui/Badge';
+import { WidgetSkeleton } from '../components/ui/WidgetSkeleton';
 
 // Helper to clean column names
 const getCleanName = (name: string) => {
@@ -202,70 +203,79 @@ const FieldProfile: FC<{ field: Field, data: any[] }> = ({ field, data }) => {
             )}
         </motion.div>
     );
-}
+};
 
 const SchemaPanel: FC<{
     fields: Field[],
     data: any[],
     visibleColumns: string[],
-    onToggleColumn: (fieldName: string) => void,
+    onToggleColumn: (field: string) => void
 }> = ({ fields, data, visibleColumns, onToggleColumn }) => {
-    const [searchTerm, setSearchTerm] = useState('');
     const [selectedField, setSelectedField] = useState<Field | null>(null);
     const [isManaging, setIsManaging] = useState(false);
-
-    const filteredFields = useMemo(() => fields.filter(f => getCleanName(f.simpleName).toLowerCase().includes(searchTerm.toLowerCase())), [fields, searchTerm]);
-
+    const [searchTerm, setSearchTerm] = useState('');
     const MotionDiv = motion.div as any;
 
+    const filteredFields = useMemo(() => {
+        if (!searchTerm) return fields;
+        return fields.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()) || f.simpleName.toLowerCase().includes(searchTerm.toLowerCase()));
+    }, [fields, searchTerm]);
+
     return (
-        <aside className="w-[320px] bg-card flex flex-col flex-shrink-0 z-10">
-            <div className="p-3 flex-shrink-0">
-                <div className="relative">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <input type="text" placeholder="Search fields..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={`${inputClasses} pl-8 h-9`} />
-                </div>
+    <aside className="w-[320px] bg-card flex flex-col flex-shrink-0 z-10 border-r border-border">
+        <div className="p-4 flex-shrink-0">
+            <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                    <List size={16} className="text-primary" />
+                    Fields
+                </h3>
+                <Badge variant="outline" className="font-mono text-[10px]">{fields.length}</Badge>
             </div>
-            <div className="flex-grow overflow-y-auto p-2 custom-scrollbar">
-                <AnimatePresence mode="wait">
-                    <MotionDiv
-                        key={isManaging ? 'manage' : 'explore'}
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    >
-                        {isManaging ? (
-                            <div className="space-y-1 p-1.5">
-                                {fields.map(f => (
-                                    <label key={f.name} className="flex items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer transition-colors">
-                                        <input type="checkbox" checked={visibleColumns.includes(f.name)} onChange={() => onToggleColumn(f.name)} className="h-4 w-4 rounded text-primary focus:ring-ring" />
-                                        <span className="text-sm">{getCleanName(f.simpleName)}</span>
-                                    </label>
-                                ))}
-                            </div>
-                        ) : (
-                            <div className="space-y-1">
-                                {filteredFields.map(f => (
-                                    <div key={f.name}>
-                                        <SchemaField field={f} isSelected={selectedField?.name === f.name} onSelect={() => setSelectedField(selectedField?.name === f.name ? null : f)} />
-                                        <AnimatePresence>
-                                            {selectedField?.name === f.name && (
-                                                <MotionDiv initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
-                                                    <FieldProfile field={selectedField} data={data} />
-                                                </MotionDiv>
-                                            )}
-                                        </AnimatePresence>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </MotionDiv>
-                </AnimatePresence>
+            <div className="relative">
+                <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input type="text" placeholder="Search fields..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className={`${inputClasses} pl-8 h-9`} />
             </div>
-            <div className="p-3 flex-shrink-0 bg-card">
-                <Button variant="secondary" className="w-full" onClick={() => setIsManaging(!isManaging)}>
-                    {isManaging ? <><span className="icon-hover-anim"><Check size={16}/></span> Done</> : <><span className="icon-hover-anim"><Columns size={16}/></span> Manage Columns ({visibleColumns.length}/{fields.length})</>}
-                </Button>
-            </div>
-        </aside>
+        </div>
+        <div className="flex-grow overflow-y-auto p-2 custom-scrollbar">
+            <AnimatePresence mode="wait">
+                <MotionDiv
+                    key={isManaging ? 'manage' : 'explore'}
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                >
+                    {isManaging ? (
+                        <div className="space-y-1 p-1.5">
+                            {fields.map(f => (
+                                <label key={f.name} className="flex items-center gap-3 p-2 rounded-md hover:bg-accent cursor-pointer transition-colors">
+                                    <input type="checkbox" checked={visibleColumns.includes(f.name)} onChange={() => onToggleColumn(f.name)} className="h-4 w-4 rounded text-primary focus:ring-ring" />
+                                    <span className="text-sm">{getCleanName(f.simpleName)}</span>
+                                </label>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="space-y-1">
+                            {filteredFields.map(f => (
+                                <div key={f.name}>
+                                    <SchemaField field={f} isSelected={selectedField?.name === f.name} onSelect={() => setSelectedField(selectedField?.name === f.name ? null : f)} />
+                                    <AnimatePresence>
+                                        {selectedField?.name === f.name && (
+                                            <MotionDiv initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
+                                                <FieldProfile field={selectedField} data={data} />
+                                            </MotionDiv>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </MotionDiv>
+            </AnimatePresence>
+        </div>
+        <div className="p-3 flex-shrink-0 bg-card">
+            <Button variant="secondary" className="w-full" onClick={() => setIsManaging(!isManaging)}>
+                {isManaging ? <><span className="icon-hover-anim"><Check size={16}/></span> Done</> : <><span className="icon-hover-anim"><Columns size={16}/></span> Manage Columns ({visibleColumns.length}/{fields.length})</>}
+            </Button>
+        </div>
+    </aside>
     );
 };
 
@@ -306,16 +316,53 @@ const FiltersPanel: FC<{
                     <div className="w-12 h-12 rounded-full bg-secondary/50 flex items-center justify-center mb-3">
                         <Filter size={20} className="text-muted-foreground/50" />
                     </div>
-                    <p className="text-sm text-muted-foreground">No filters applied</p>
-                    <p className="text-xs text-muted-foreground/60 mt-1">Add filters to refine your data</p>
+                    <p className="text-sm text-muted-foreground">No active filters</p>
+                    <Button variant="link" size="sm" onClick={onAddFilter} className="mt-2 text-primary">
+                        Add Filter
+                    </Button>
                 </div>
             )}
         </div>
         <div className="p-3 flex-shrink-0 bg-card">
-            <Button variant="outline" className="w-full" onClick={onAddFilter}><span className="icon-hover-anim"><Filter size={16}/></span> Add Filter</Button>
+            <Button variant="secondary" className="w-full" onClick={onAddFilter}>
+                <span className="icon-hover-anim"><Filter size={16}/></span> Add Filter
+            </Button>
         </div>
     </aside>
-)};
+    );
+};
+
+const SchemaSkeleton = () => (
+    <div className="w-[320px] bg-card flex flex-col flex-shrink-0 z-10">
+        <div className="p-3 flex-shrink-0">
+            <div className="h-9 bg-secondary/50 rounded-md animate-pulse" />
+        </div>
+        <div className="flex-grow p-2 space-y-2 overflow-hidden">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <div key={i} className="h-10 bg-secondary/30 rounded-md animate-pulse" />
+            ))}
+        </div>
+        <div className="p-3 flex-shrink-0">
+            <div className="h-9 bg-secondary/50 rounded-md animate-pulse" />
+        </div>
+    </div>
+);
+
+const FiltersSkeleton = () => (
+    <div className="w-[320px] bg-card flex flex-col flex-shrink-0 z-10">
+        <div className="p-4 flex-shrink-0">
+            <div className="h-6 w-32 bg-secondary/50 rounded-md animate-pulse" />
+        </div>
+        <div className="flex-grow p-3 space-y-3 overflow-hidden">
+            {[1, 2, 3].map((i) => (
+                <div key={i} className="h-20 bg-secondary/30 rounded-lg animate-pulse" />
+            ))}
+        </div>
+        <div className="p-3 flex-shrink-0">
+            <div className="h-9 bg-secondary/50 rounded-md animate-pulse" />
+        </div>
+    </div>
+);
 
 export const DataExplorerView: FC = () => {
     const { blendedData, blendedFields, explorerState, openFilterConfigModal, openSelectFieldModal, dataSources } = useDashboard();
@@ -326,6 +373,16 @@ export const DataExplorerView: FC = () => {
     const [isSchemaOpen, setSchemaOpen] = useState(false);
     const [isFiltersOpen, setFiltersOpen] = useState(false);
     const [selectedSourceId, setSelectedSourceId] = useState<string>('blended');
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Simulate API loading
+    useEffect(() => {
+        setIsLoading(true);
+        const timer = setTimeout(() => {
+            setIsLoading(false);
+        }, 1500);
+        return () => clearTimeout(timer);
+    }, [selectedSourceId]);
 
     // Determine data and fields based on selection
     const { dataForExplorer, fieldsForExplorer } = useMemo(() => {
@@ -450,7 +507,7 @@ export const DataExplorerView: FC = () => {
             
             <div className="flex items-center gap-2 text-sm text-muted-foreground hidden lg:flex bg-secondary/50 px-3 py-1.5 rounded-md">
                 <BarChart2 size={14} />
-                <span>{filteredData.length.toLocaleString()} rows</span>
+                <span>{isLoading ? '...' : filteredData.length.toLocaleString()} rows</span>
             </div>
         </ViewHeader>
     );
@@ -468,25 +525,49 @@ export const DataExplorerView: FC = () => {
             `}</style>
             {commonHeader}
             <div className="flex-grow flex min-h-0">
-                {!isMobile && schemaPanel}
+                {!isMobile && (isLoading ? <SchemaSkeleton /> : schemaPanel)}
+                
                 <div className="flex-grow overflow-hidden p-4 bg-secondary/10">
-                    <div className="h-full rounded-xl bg-card shadow-sm overflow-hidden flex flex-col">
-                         <DataTable 
-                            columns={columns} 
-                            data={filteredData} 
-                            columnVisibility={columnVisibility}
-                            onColumnVisibilityChange={handleColumnVisibilityChange}
-                         />
+                    <div className="h-full rounded-xl bg-card shadow-sm overflow-hidden flex flex-col relative">
+                        <AnimatePresence mode="wait">
+                            {isLoading ? (
+                                <motion.div
+                                    key="skeleton"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    className="absolute inset-0 z-10 bg-card"
+                                >
+                                    <WidgetSkeleton chartType={ChartType.TABLE} />
+                                </motion.div>
+                            ) : (
+                                <motion.div
+                                    key="content"
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    className="h-full flex flex-col"
+                                >
+                                    <DataTable 
+                                        columns={columns} 
+                                        data={filteredData} 
+                                        columnVisibility={columnVisibility}
+                                        onColumnVisibilityChange={handleColumnVisibilityChange}
+                                    />
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
                 </div>
-                {!isMobile && filtersPanel}
+
+                {!isMobile && (isLoading ? <FiltersSkeleton /> : filtersPanel)}
+                
                 {isMobile && (
                     <>
                         <Sheet open={isSchemaOpen} onOpenChange={setSchemaOpen}>
-                            <SheetContent side="left" className="w-[320px] p-0 flex flex-col">{schemaPanel}</SheetContent>
+                            <SheetContent side="left" className="w-[320px] p-0 flex flex-col">{isLoading ? <SchemaSkeleton /> : schemaPanel}</SheetContent>
                         </Sheet>
                         <Sheet open={isFiltersOpen} onOpenChange={setFiltersOpen}>
-                            <SheetContent side="right" className="w-[320px] p-0 flex flex-col">{filtersPanel}</SheetContent>
+                            <SheetContent side="right" className="w-[320px] p-0 flex flex-col">{isLoading ? <FiltersSkeleton /> : filtersPanel}</SheetContent>
                         </Sheet>
                     </>
                 )}

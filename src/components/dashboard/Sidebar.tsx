@@ -1,6 +1,6 @@
 import React, { useMemo, useState, ReactNode, FC } from 'react';
 import { useDashboard } from '../../contexts/DashboardProvider';
-import { Plus, Sparkle, FileText, Database, Home, Table2, BookOpen, SlidersHorizontal, Share2, Settings, MessageSquare, BrainCircuit, Lightbulb, ChevronsUpDown, LogOut } from 'lucide-react';
+import { Plus, Sparkle, FileText, Database, Home, Table2, BookOpen, SlidersHorizontal, Share2, Settings, MessageSquare, BrainCircuit, Lightbulb, ChevronsUpDown, LogOut, ShieldCheck } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Tooltip } from '../ui/Tooltip';
 import { Popover } from '../ui/Popover';
@@ -142,6 +142,7 @@ const SidebarInternalContent: FC = () => {
         openParameterModal,
         openAddDataSourceModal,
     } = useDashboard();
+    const { user } = useAuth();
     const { isCollapsed, setMobileOpen } = useSidebar();
     
     const activeWorkspace = useMemo(() => {
@@ -200,6 +201,14 @@ const SidebarInternalContent: FC = () => {
                         <NavItem icon={<SlidersHorizontal size={20} />} label="Parameters" onClick={openParameterModal} />
                     </div>
                 </div>
+                {user?.role === 'ADMIN' && (
+                    <div>
+                        <SectionHeader>Administration</SectionHeader>
+                        <div className="space-y-1 p-2">
+                            <NavItem icon={<ShieldCheck size={20} />} label="Admin Console" onClick={() => handleNavigation('admin')} isActive={currentView === 'admin'} />
+                        </div>
+                    </div>
+                )}
             </SidebarContent>
             
             <SidebarFooter className="p-4">

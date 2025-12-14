@@ -240,6 +240,8 @@ export interface WidgetState {
     columnOrder?: string[];
     sectionSettings?: SectionSettings;
     widgetsData?: any;
+    dataSourceId?: string;
+    filters?: Pill[];
 }
 
 export interface DashboardCommentMessage {
@@ -1085,5 +1087,7 @@ export interface DataContextProps {
     importInputRef: RefObject<HTMLInputElement | null>;
     handleImportDashboard: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
+
+export type DashboardContextProps = DataContextProps;
 
 

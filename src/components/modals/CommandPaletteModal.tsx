@@ -69,6 +69,7 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
     
     const [query, setQuery] = useState('');
     const [activeIndex, setActiveIndex] = useState(0);
+    const [isReady, setIsReady] = useState(false);
     const inputRef = useRef<HTMLInputElement>(null);
     const activeItemRef = useRef<HTMLButtonElement>(null);
     const MotionDiv = motion.div;
@@ -76,12 +77,16 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
     useEffect(() => {
         if (isOpen) {
             setTimeout(() => inputRef.current?.focus(), 100);
+            const timer = setTimeout(() => setIsReady(true), 50);
+            return () => clearTimeout(timer);
         } else {
             setQuery('');
+            setIsReady(false);
         }
     }, [isOpen]);
 
     const allItems = useMemo((): SearchableItem[] => {
+        if (!isReady) return [];
         const actionItems: SearchableItem[] = [
             { id: 'action-add-widget', category: 'Actions', title: 'Create new widget', description: 'Open the widget editor to build a new visualization.', icon: <Plus />, action: () => openWidgetEditorForNewWidget() },
             { id: 'action-add-control', category: 'Actions', title: 'Add Dashboard Control', description: 'Add a filter or parameter control to the current dashboard.', icon: <SlidersHorizontal />, action: openAddControlModal },
@@ -144,7 +149,7 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
         }
         
         return _.uniqBy([...actionItems, ...quickSettingItems, ...navigationItems, ...dashboardItems, ...widgetItems], 'id');
-    }, [workspaces, activePage, dataSources, openWidgetEditorModal, openWidgetEditorForNewWidget, setView, setActivePageId, setScrollToWidgetId, toggleThemeMode, openPerformanceAnalyzer, openAddControlModal, setThemeConfig, setDashboardDefaults, setChartLibrary]);
+    }, [workspaces, activePage, dataSources, openWidgetEditorModal, openWidgetEditorForNewWidget, setView, setActivePageId, setScrollToWidgetId, toggleThemeMode, openPerformanceAnalyzer, openAddControlModal, setThemeConfig, setDashboardDefaults, setChartLibrary, isReady]);
     
     const filteredGroups = useMemo((): ItemGroup[] => {
         const itemsToFilter = query ? allItems.filter(item =>
@@ -164,7 +169,7 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
                 items: grouped[title],
             }))
             .filter((group): group is ItemGroup => group.items !== undefined && group.items.length > 0);
-    }, [query, allItems]);
+    }, [query, allItems, isReady]);
 
     const flatFilteredItems = useMemo(() => filteredGroups.flatMap(g => g.items), [filteredGroups]);
     
@@ -224,7 +229,13 @@ export const CommandPaletteModal: FC<{ isOpen: boolean; onClose: () => void; }> 
                                         exit={{ opacity: 0 }}
                                         transition={{ duration: 0.15 }}
                                     >
-                                        {filteredGroups.length === 0 ? (
+                                        {!isReady ? (
+                                            <div className="p-8 space-y-4">
+                                                <div className="h-4 bg-secondary/50 rounded w-3/4 animate-pulse"></div>
+                                                <div className="h-4 bg-secondary/50 rounded w-1/2 animate-pulse"></div>
+                                                <div className="h-4 bg-secondary/50 rounded w-2/3 animate-pulse"></div>
+                                            </div>
+                                        ) : filteredGroups.length === 0 ? (
                                             <p className="text-center text-muted-foreground p-8">No results found.</p>
                                         ) : (
                                             filteredGroups.map(group => (

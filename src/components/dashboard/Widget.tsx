@@ -5,9 +5,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useDashboard } from '../../contexts/DashboardProvider';
-import { WidgetState, ChartType, ContextMenuItem } from '../../utils/types';
+import { WidgetState, ChartType, ContextMenuItem, DashboardComment } from '../../utils/types';
 import { cn } from '../ui/utils';
-import { Button } from '../ui/Button';
 import { Tooltip } from '../ui/Tooltip';
 import { Popover } from '../ui/Popover';
 import { DataProcessor } from '../common/DataProcessor';
@@ -15,15 +14,8 @@ import { generateTitle } from '../../utils/dataProcessing/widgetProcessor';
 import { CompactChartTypeSelector } from './CompactChartTypeSelector';
 import { SectionHeaderWidget } from './SectionHeaderWidget';
 import { FilterControlWidget } from './FilterControlWidget';
-import { chartIcons } from './CompactChartTypeSelector'; // Need to export chartIcons or redefine
 
 const MotionDiv = motion.div;
-
-// Redefining chartIcons here if not exported, or better export it from CompactChartTypeSelector
-// For now I will import it if I can, or just redefine it to avoid circular dependency issues if CompactChartTypeSelector imports Widget (it doesn't).
-// But CompactChartTypeSelector is already created and I didn't export chartIcons.
-// I should probably update CompactChartTypeSelector to export chartIcons or duplicate it.
-// Duplicating for now to be safe and quick.
 
 import { 
     LineChart, AreaChart, PieChart, AppWindow, Dot, Grid, 
@@ -48,9 +40,9 @@ const localChartIcons: Record<string, React.ReactElement> = {
     [ChartType.GAUGE]: <GaugeCircle size={20} />,
 };
 
-export const Widget: FC<{ widget: WidgetState }> = ({ widget }) => {
+export const Widget: FC<{ widget: WidgetState }> = React.memo(({ widget }) => {
     const { 
-        openWidgetEditorModal, openContextMenu, openDataLineageModal, 
+        openWidgetEditorModal, openDataLineageModal, 
         handleWidgetAddToStory, 
         runWidgetAnalysis, 
         runAdvancedAnalysis, saveWidget, 
@@ -65,7 +57,7 @@ export const Widget: FC<{ widget: WidgetState }> = ({ widget }) => {
     const [tempTitle, setTempTitle] = useState(widget.title);
     const widgetRef = useRef<HTMLDivElement>(null);
     
-    const commentsForWidget = activePage?.comments?.filter(c => c.widgetId === widget.id) || [];
+    const commentsForWidget = activePage?.comments?.filter((c: DashboardComment) => c.widgetId === widget.id) || [];
 
     const handleTitleSave = () => {
         if (tempTitle.trim() && tempTitle !== widget.title) {
@@ -234,9 +226,9 @@ export const Widget: FC<{ widget: WidgetState }> = ({ widget }) => {
                 }
             </div>
              <AnimatePresence>
-            {commentsForWidget.map(comment => {
+            {commentsForWidget.map((comment: DashboardComment) => {
                 const author = comment.messages[0]?.author || '??';
-                const initials = author.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+                const initials = author.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
 
                 return (
                     <motion.button
@@ -264,4 +256,4 @@ export const Widget: FC<{ widget: WidgetState }> = ({ widget }) => {
             </AnimatePresence>
         </MotionDiv>
     );
-};
+});

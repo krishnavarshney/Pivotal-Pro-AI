@@ -1,4 +1,4 @@
-import React, { useState, FC } from 'react';
+import React, { useState, FC, useEffect } from 'react';
 import { useDashboard } from '../../contexts/DashboardProvider';
 import { Button } from '../ui/Button';
 import { Dialog, DialogContent, DialogOverlay } from '../ui/Dialog';
@@ -85,6 +85,16 @@ export const WidgetEditorModal: FC = () => {
     const { isWidgetEditorModalOpen, closeWidgetEditorModal, saveEditingWidget, editingWidgetState } = useDashboard();
     const [mobilePanel, setMobilePanel] = useState<'fields' | 'config' | null>(null);
     const isMobile = useMediaQuery('(max-width: 1023px)');
+    const [isReady, setIsReady] = useState(false);
+
+    useEffect(() => {
+        if (isWidgetEditorModalOpen) {
+            const timer = setTimeout(() => setIsReady(true), 100);
+            return () => clearTimeout(timer);
+        } else {
+            setIsReady(false);
+        }
+    }, [isWidgetEditorModalOpen]);
 
     if (!editingWidgetState) return null;
 
@@ -118,7 +128,16 @@ export const WidgetEditorModal: FC = () => {
                         <Button onClick={saveEditingWidget}>Save Widget</Button>
                     </div>
                 </header>
-                {isMobile ? <MobileLayout mobilePanel={mobilePanel} setMobilePanel={setMobilePanel} /> : <DesktopLayout />}
+                {!isReady ? (
+                    <div className="flex-grow flex items-center justify-center">
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="w-12 h-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin"></div>
+                            <p className="text-muted-foreground animate-pulse">Loading editor...</p>
+                        </div>
+                    </div>
+                ) : (
+                    isMobile ? <MobileLayout mobilePanel={mobilePanel} setMobilePanel={setMobilePanel} /> : <DesktopLayout />
+                )}
             </DialogContent>
         </Dialog>
     );
